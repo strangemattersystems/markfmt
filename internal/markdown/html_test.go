@@ -25,6 +25,7 @@ func TestRenderHTML(t *testing.T) {
 		{"writes headings", "## a\n", "<h2>a</h2>\n"},
 		{"writes indented code", "    <a>\n\n     b", "<pre><code>&lt;a&gt;\n\n b\n</code></pre>\n"},
 		{"writes fenced code", "```a b\n<\n```", "<pre><code class=\"language-a\">&lt;\n</code></pre>\n"},
+		{"writes html blocks", "<div>\n  <a>\n", "<div>\n  <a>\n"},
 		{"writes paragraphs", "\xEF\xBB\xBFa\r\n b\n \nc", "<p>a\nb</p>\n<p>c</p>\n"},
 	}
 	for _, tt := range tests {
@@ -91,7 +92,7 @@ func renderHTML(tree *Tree) string {
 		//exhaustive:enforce
 		switch n.kind {
 		case Document, BOM, BlankLine, Indent, ThematicRun, ATXMarker, ATXClose, Whitespace,
-			CodeIndent, CodeText, VerbatimLineEnding, FenceMarker, InfoString, SetextUnderline:
+			CodeIndent, CodeText, VerbatimLineEnding, FenceMarker, InfoString, SetextUnderline, HTMLText:
 		case CodeBlock:
 			if e.Exit {
 				break
@@ -105,6 +106,10 @@ func renderHTML(tree *Tree) string {
 				b.WriteString(` class="language-` + htmlEscaper.Replace(word) + `"`)
 			}
 			b.WriteString(">" + htmlEscaper.Replace(string(tree.AppendCode(nil, e.ID))) + "</code></pre>\n")
+		case HTMLBlock:
+			if !e.Exit {
+				b.Write(tree.AppendHTML(nil, e.ID))
+			}
 		case Paragraph:
 			b.WriteString(tag("p", e.Exit))
 			textEnd = n.end
@@ -496,10 +501,6 @@ sum sup sup1 sup2 sup3 supe szlig tau there4 theta thetasym thinsp thorn
 tilde times trade uArr uacute uarr ucirc ugrave uml upsih upsilon uuml
 weierp xi yacute yen yuml zeta zwj zwnj
 `
-
-func isASCIILetter(c byte) bool {
-	return 'a' <= c|0x20 && c|0x20 <= 'z'
-}
 
 func isDigit(c byte, base int) bool {
 	return '0' <= c && c <= '9' || base == 16 && 'a' <= c|0x20 && c|0x20 <= 'f'

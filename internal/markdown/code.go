@@ -58,10 +58,17 @@ func (p *blockParser) codeLine(l line, n int) {
 // leaves, and a line feed for each VerbatimLineEnding and after a last
 // content line without one.
 func (t *Tree) AppendCode(dst []byte, id NodeID) []byte {
+	return t.appendVerbatim(dst, id, CodeText)
+}
+
+// appendVerbatim appends the value of code or HTML block id to dst: its text
+// leaves of kind text, and a line feed for each VerbatimLineEnding and after
+// a last content line without one. A fence line is not a content line.
+func (t *Tree) appendVerbatim(dst []byte, id NodeID, text Kind) []byte {
 	leaves := t.nodes[id+1 : t.nodes[id].link]
 	for _, m := range leaves {
 		switch m.kind {
-		case CodeText:
+		case text:
 			dst = append(dst, t.src[m.start:m.end]...)
 		case VerbatimLineEnding:
 			dst = append(dst, '\n')

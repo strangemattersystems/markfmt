@@ -8,6 +8,7 @@ type blockParser struct {
 	para   []line // lines of the open paragraph, pending until it closes
 	code   bool   // an indented code block is open
 	fence  codeFence
+	html   uint8  // kind of the open HTML block, or 0
 	blanks []line // trailing blank lines of the open indented code, pending
 }
 
@@ -27,6 +28,17 @@ func (p *blockParser) line(l line) {
 		}
 		p.codeLine(l, p.fence.indent)
 		return
+	}
+	if p.html != 0 {
+		if !blank || p.html <= 5 {
+			p.b.leafIf(HTMLText, l.end)
+			p.b.leafIf(VerbatimLineEnding, l.eol)
+			if p.html <= 5 && htmlBlockEnds(p.src, l.start, l.end, p.html) {
+				p.closeHTML()
+			}
+			return
+		}
+		p.closeHTML()
 	}
 	if p.code {
 		switch {
@@ -107,6 +119,18 @@ func (p *blockParser) line(l line) {
 		p.fence = codeFence{char: p.src[first], length: n, indent: col}
 		return
 	}
+	if k := htmlBlockStart(p.src, first, l.end); k != 0 && (k < 7 || len(p.para) == 0) {
+		p.closeParagraph()
+		p.b.open(HTMLBlock)
+		p.b.flag(k)
+		p.b.leaf(HTMLText, l.end)
+		p.b.leafIf(VerbatimLineEnding, l.eol)
+		p.html = k
+		if k <= 5 && htmlBlockEnds(p.src, first, l.end, k) {
+			p.closeHTML()
+		}
+		return
+	}
 	p.para = append(p.para, l)
 }
 
@@ -118,6 +142,14 @@ func (p *blockParser) closeBlocks() {
 		p.b.close()
 		p.fence = codeFence{}
 	}
+	if p.html != 0 {
+		p.closeHTML()
+	}
+}
+
+func (p *blockParser) closeHTML() {
+	p.b.close()
+	p.html = 0
 }
 
 // closeParagraph appends the pending paragraph, if one is open.

@@ -48,6 +48,15 @@ func TestParse(t *testing.T) {
 		{"closes fenced code only with a long enough fence of its character", "````\n```\n~~~~\n    ````", "Document{CodeBlock{FenceMarker \"````\", LineEnding \"\\n\", CodeText \"```\", VerbatimLineEnding \"\\n\", CodeText \"~~~~\", VerbatimLineEnding \"\\n\", CodeText \"    ````\"}}"},
 		{"interrupts a paragraph with fenced code", "a\n~~~\nb", "Document{Paragraph{Text \"a\", LineEnding \"\\n\"}, CodeBlock{FenceMarker \"~~~\", LineEnding \"\\n\", CodeText \"b\"}}"},
 		{"needs a backtick fence info string without backticks", "``` a`b", "Document{Paragraph{Text \"``` a`b\"}}"},
+		{"gives an html block that ends at a blank line", "<div>\n*a*\n\nb", "Document{HTMLBlock[6]{HTMLText \"<div>\", VerbatimLineEnding \"\\n\", HTMLText \"*a*\", VerbatimLineEnding \"\\n\"}, BlankLine \"\\n\", Paragraph{Text \"b\"}}"},
+		{"keeps blank lines in an html comment block", " <!-- a\n  \n -->b\nc", "Document{HTMLBlock[2]{HTMLText \" <!-- a\", VerbatimLineEnding \"\\n\", HTMLText \"  \", VerbatimLineEnding \"\\n\", HTMLText \" -->b\", VerbatimLineEnding \"\\n\"}, Paragraph{Text \"c\"}}"},
+		{"ends an html block of kind 1 at any end tag of kind 1", "<pre>\n\n</STYLE>x\ny", "Document{HTMLBlock[1]{HTMLText \"<pre>\", VerbatimLineEnding \"\\n\", VerbatimLineEnding \"\\n\", HTMLText \"</STYLE>x\", VerbatimLineEnding \"\\n\"}, Paragraph{Text \"y\"}}"},
+		{"ends html blocks of kinds 3 and 5 on their first line", "<?a?>\n<![CDATA[]]>", "Document{HTMLBlock[3]{HTMLText \"<?a?>\", VerbatimLineEnding \"\\n\"}, HTMLBlock[5]{HTMLText \"<![CDATA[]]>\"}}"},
+		{"starts an html block of kind 4 with any ascii letter", "<!doctype html>", "Document{HTMLBlock[4]{HTMLText \"<!doctype html>\"}}"},
+		{"interrupts a paragraph with a search html block", "a\n<search>", "Document{Paragraph{Text \"a\", LineEnding \"\\n\"}, HTMLBlock[6]{HTMLText \"<search>\"}}"},
+		{"gives a complete tag an html block of kind 7", "<source src='x' a>  \n</b >\n\n<a b=c/>", "Document{HTMLBlock[7]{HTMLText \"<source src='x' a>  \", VerbatimLineEnding \"\\n\", HTMLText \"</b >\", VerbatimLineEnding \"\\n\"}, BlankLine \"\\n\", HTMLBlock[7]{HTMLText \"<a b=c/>\"}}"},
+		{"does not interrupt a paragraph with an html block of kind 7", "a\n<source>", "Document{Paragraph{Text \"a\", LineEnding \"\\n\", Text \"<source>\"}}"},
+		{"needs only spaces and tabs after the tag of an html block of kind 7", "<a> b\n\n<a b='>\n\n<pre/>", "Document{Paragraph{Text \"<a> b\", LineEnding \"\\n\"}, BlankLine \"\\n\", Paragraph{Text \"<a b='>\", LineEnding \"\\n\"}, BlankLine \"\\n\", Paragraph{Text \"<pre/>\"}}"},
 		{"needs a thematic break indented less than four columns", "a\n  \t___", `Document{Paragraph{Text "a", LineEnding "\n", Indent "  \t", Text "___"}}`},
 	}
 	for _, tt := range tests {
@@ -266,8 +275,8 @@ func FuzzParse(f *testing.F) {
 	})
 }
 
-// dump returns tree as nested kinds with the bytes of each leaf, as in
-// Document{Paragraph{Text "a", LineEnding "\n"}, BlankLine "\n"}.
+// dump returns tree as nested kinds with their flags and the bytes of each
+// leaf, as in Document{HTMLBlock[6]{HTMLText "<p>"}, BlankLine "\n"}.
 func dump(tree *Tree) string {
 	var b strings.Builder
 	sep := ""
@@ -279,7 +288,11 @@ func dump(tree *Tree) string {
 			b.WriteString("}")
 			sep = ", "
 		case k.class() == classStructure:
-			b.WriteString(sep + k.String() + "{")
+			b.WriteString(sep + k.String())
+			if f := tree.nodes[e.ID].flags; f != 0 {
+				b.WriteString("[" + strconv.Itoa(int(f)) + "]")
+			}
+			b.WriteString("{")
 			sep = ""
 		default:
 			b.WriteString(sep + k.String() + " " + strconv.Quote(string(tree.Raw(e.ID))))

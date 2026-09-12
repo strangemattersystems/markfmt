@@ -109,8 +109,10 @@ func (t *Tree) Verify() error {
 		switch c := n.kind.class(); {
 		case c == classInvalid:
 			return fmt.Errorf("markdown: invariant 6: node %d has kind %d", i, n.kind)
-		case n.flags != 0:
+		case !n.kind.validFlags(n.flags):
 			return fmt.Errorf("markdown: invariant 7: node %d has flags %#x", i, n.flags)
+		case n.kind == HTMLBlock && !t.htmlKindAgrees(i):
+			return fmt.Errorf("markdown: invariant 7: html block %d has kind %d, which its first line does not start", i, n.flags)
 		case c == classStructure:
 			limit := len(nodes)
 			if len(open) > 0 {

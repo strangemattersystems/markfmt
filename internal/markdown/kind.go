@@ -12,10 +12,12 @@ const (
 	ThematicBreak
 	Heading
 	CodeBlock
+	HTMLBlock
 	Text
 	CodeText
 	VerbatimLineEnding
 	InfoString
+	HTMLText
 	BOM
 	LineEnding
 	BlankLine
@@ -43,14 +45,22 @@ const (
 func (k Kind) class() class {
 	//exhaustive:enforce
 	switch k {
-	case Document, Paragraph, ThematicBreak, Heading, CodeBlock:
+	case Document, Paragraph, ThematicBreak, Heading, CodeBlock, HTMLBlock:
 		return classStructure
-	case Text, CodeText, VerbatimLineEnding, InfoString:
+	case Text, CodeText, VerbatimLineEnding, InfoString, HTMLText:
 		return classContent
 	case BOM, LineEnding, BlankLine, Indent, ThematicRun, ATXMarker, ATXClose, Whitespace, CodeIndent, FenceMarker, SetextUnderline:
 		return classSyntax
 	}
 	return classInvalid
+}
+
+// validFlags reports whether f is a flags value in range for kind k.
+func (k Kind) validFlags(f uint8) bool {
+	if k == HTMLBlock {
+		return 1 <= f && f <= 7
+	}
+	return f == 0
 }
 
 func (k Kind) String() string {
@@ -96,6 +106,10 @@ func (k Kind) String() string {
 		return "FenceMarker"
 	case SetextUnderline:
 		return "SetextUnderline"
+	case HTMLBlock:
+		return "HTMLBlock"
+	case HTMLText:
+		return "HTMLText"
 	}
 	return "Kind(" + strconv.Itoa(int(k)) + ")"
 }

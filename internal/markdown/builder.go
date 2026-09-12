@@ -38,6 +38,18 @@ func (b *builder) open(k Kind) {
 	b.tree.nodes = append(b.tree.nodes, Node{kind: k, start: b.pos})
 }
 
+// flag sets the flags of the innermost open node.
+func (b *builder) flag(f uint8) {
+	if len(b.stack) == 0 {
+		panic("markdown: flag with no open node")
+	}
+	n := &b.tree.nodes[b.stack[len(b.stack)-1]]
+	if !n.kind.validFlags(f) {
+		panic(fmt.Sprintf("markdown: flags %#x out of range for kind %v", f, n.kind))
+	}
+	n.flags = f
+}
+
 // leaf appends a leaf of kind k from the end of the last leaf to end.
 func (b *builder) leaf(k Kind, end uint32) {
 	switch c := k.class(); {

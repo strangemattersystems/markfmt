@@ -155,6 +155,16 @@ func TestTree_Verify(t *testing.T) {
 				{kind: Document, start: 0, end: 1, link: 2},
 				{kind: Text, flags: 1, start: 0, end: 1},
 			}}},
+			{"rejects an html block kind out of range", Tree{src: []byte("<p>"), nodes: []Node{
+				{kind: Document, start: 0, end: 3, link: 3},
+				{kind: HTMLBlock, flags: 8, start: 0, end: 3, link: 3},
+				{kind: HTMLText, start: 0, end: 3},
+			}}},
+			{"rejects an html block kind that its first line does not start", Tree{src: []byte(" <p>"), nodes: []Node{
+				{kind: Document, start: 0, end: 4, link: 3},
+				{kind: HTMLBlock, flags: 7, start: 0, end: 4, link: 3},
+				{kind: HTMLText, start: 0, end: 4},
+			}}},
 		}},
 		{"invariant 8", []badTree{
 			{"rejects more than 3 nodes per byte plus 3", Tree{nodes: []Node{

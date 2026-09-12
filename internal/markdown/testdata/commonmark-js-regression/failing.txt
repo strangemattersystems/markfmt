@@ -7,22 +7,18 @@
 #     sed -n 's/^ *--- FAIL: TestParse\/commonmark-js-regression\/commonmark-js-regression_example_\([0-9]*\) .*/\1/p' |
 #     sort -n
 1
-2
-3
 6
 7
 8
 11
 12
 13
-14
 16
 17
 18
 19
 20
 21
-23
 24
 25
 26

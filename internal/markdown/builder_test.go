@@ -23,6 +23,35 @@ func TestBuilder_Open(t *testing.T) {
 	})
 }
 
+func TestBuilder_Flag(t *testing.T) {
+	t.Parallel()
+
+	t.Run("sets the flags of the innermost open node", func(t *testing.T) {
+		t.Parallel()
+
+		b := newBuilder([]byte("<p>"))
+		b.open(Document)
+		b.open(HTMLBlock)
+		b.flag(6)
+		b.leaf(HTMLText, 3)
+		b.close()
+		b.close()
+		if got := b.finish().nodes[1].flags; got != 6 {
+			t.Fatalf("flags = %d, want 6", got)
+		}
+	})
+
+	testPanics(t, []panicTest{
+		{"panics on flags out of range for the kind", "", func(b *builder) {
+			b.open(Document)
+			b.flag(1)
+		}},
+		{"panics with no open node", "", func(b *builder) {
+			b.flag(1)
+		}},
+	})
+}
+
 func TestBuilder_Leaf(t *testing.T) {
 	t.Parallel()
 
