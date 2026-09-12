@@ -145,7 +145,7 @@ Gate: the user approves the design document. Approved 2026-09-12.
 - [x] `.golangci.yml`: `exhaustive` with `explicit-exhaustive-switch: true`
   and `default-signifies-exhaustive: false`. `task fuzz` takes `PKG` and
   `FUZZ`.
-- [ ] Line iterator, LineEnding and BOM leaves.
+- [x] Line iterator, LineEnding and BOM leaves.
 - [ ] A reader for `spec.txt` example blocks, with an example count test per
   pinned file.
 - [ ] Pin the corpora in `internal/markdown/testdata` with a notice for each.

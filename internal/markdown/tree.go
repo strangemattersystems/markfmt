@@ -3,6 +3,7 @@ package markdown
 import (
 	"errors"
 	"fmt"
+	"math"
 )
 
 // Node is one node of a [Tree]: a leaf that covers input bytes, or an
@@ -86,4 +87,14 @@ func (t *Tree) Verify() error {
 		return fmt.Errorf("markdown: invariant 1: leaves end at %d, want %d", pos, len(t.src))
 	}
 	return nil
+}
+
+// inputSize returns len(src). It panics when src is too large for uint32
+// offsets and node indices: a tree has up to 3 × len(src) + 3 nodes.
+func inputSize(src []byte) uint32 {
+	n := len(src)
+	if n > (math.MaxUint32-3)/3 {
+		panic(fmt.Sprintf("markdown: input of %d bytes is too large for uint32 node indices", n))
+	}
+	return uint32(n)
 }

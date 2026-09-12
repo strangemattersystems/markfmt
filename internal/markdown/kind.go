@@ -7,6 +7,8 @@ type Kind uint8
 const (
 	Document Kind = iota
 	Text
+	BOM
+	LineEnding
 )
 
 type class uint8
@@ -15,10 +17,11 @@ const (
 	classInvalid class = iota
 	classStructure
 	classContent
+	classSyntax
 )
 
 // class returns the comparison class of k. Structure kinds are interior;
-// content kinds are leaves.
+// content and syntax kinds are leaves.
 func (k Kind) class() class {
 	//exhaustive:enforce
 	switch k {
@@ -26,6 +29,8 @@ func (k Kind) class() class {
 		return classStructure
 	case Text:
 		return classContent
+	case BOM, LineEnding:
+		return classSyntax
 	}
 	return classInvalid
 }

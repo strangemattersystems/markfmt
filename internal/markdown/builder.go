@@ -15,13 +15,7 @@ type builder struct {
 }
 
 func newBuilder(src []byte) *builder {
-	// Offsets and node indices are uint32, and a tree has up to 3 × len(src) + 3
-	// nodes.
-	n := len(src)
-	if n > (math.MaxUint32-3)/3 {
-		panic(fmt.Sprintf("markdown: input of %d bytes is too large for uint32 node indices", n))
-	}
-	return &builder{tree: Tree{src: src}, size: uint32(n)}
+	return &builder{tree: Tree{src: src}, size: inputSize(src)}
 }
 
 func (b *builder) next() uint32 {

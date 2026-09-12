@@ -1,0 +1,49 @@
+package markdown
+
+import "bytes"
+
+// bom is the UTF-8 byte order mark. At offset 0 it is a BOM leaf, and the
+// first line starts after it.
+const bom = "\xEF\xBB\xBF"
+
+type line struct {
+	start, end uint32 // content bytes, without the line ending
+	eol        uint32 // end of the line ending: end, end+1 (LF or CR) or end+2 (CRLF)
+}
+
+// lines iterates over the lines of an input. LF, CR and CRLF are line
+// endings, and no other code looks for them.
+type lines struct {
+	src       []byte
+	pos, size uint32
+}
+
+func newLines(src []byte) lines {
+	it := lines{src: src, size: inputSize(src)}
+	if bytes.HasPrefix(src, []byte(bom)) {
+		it.pos = uint32(len(bom))
+	}
+	return it
+}
+
+// next returns the next line, or false after the last line. The last line
+// has no line ending when the input does not end with one.
+func (it *lines) next() (line, bool) {
+	if it.pos == it.size {
+		return line{}, false
+	}
+	i := it.pos
+	for i < it.size && it.src[i] != '\n' && it.src[i] != '\r' {
+		i++
+	}
+	l := line{start: it.pos, end: i, eol: i}
+	switch {
+	case i == it.size:
+	case it.src[i] == '\r' && i+1 < it.size && it.src[i+1] == '\n':
+		l.eol += 2
+	default:
+		l.eol++
+	}
+	it.pos = l.eol
+	return l, true
+}
