@@ -10,12 +10,16 @@ const (
 	Document Kind = iota
 	Paragraph
 	ThematicBreak
+	Heading
 	Text
 	BOM
 	LineEnding
 	BlankLine
 	Indent
 	ThematicRun
+	ATXMarker
+	ATXClose
+	Whitespace
 )
 
 type class uint8
@@ -32,11 +36,11 @@ const (
 func (k Kind) class() class {
 	//exhaustive:enforce
 	switch k {
-	case Document, Paragraph, ThematicBreak:
+	case Document, Paragraph, ThematicBreak, Heading:
 		return classStructure
 	case Text:
 		return classContent
-	case BOM, LineEnding, BlankLine, Indent, ThematicRun:
+	case BOM, LineEnding, BlankLine, Indent, ThematicRun, ATXMarker, ATXClose, Whitespace:
 		return classSyntax
 	}
 	return classInvalid
@@ -63,6 +67,14 @@ func (k Kind) String() string {
 		return "ThematicBreak"
 	case ThematicRun:
 		return "ThematicRun"
+	case Heading:
+		return "Heading"
+	case ATXMarker:
+		return "ATXMarker"
+	case ATXClose:
+		return "ATXClose"
+	case Whitespace:
+		return "Whitespace"
 	}
 	return "Kind(" + strconv.Itoa(int(k)) + ")"
 }

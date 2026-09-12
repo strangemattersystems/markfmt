@@ -29,6 +29,11 @@ func TestParse(t *testing.T) {
 		{"gives a thematic break", " - - -\t\n", `Document{ThematicBreak{Indent " ", ThematicRun "- - -\t", LineEnding "\n"}}`},
 		{"interrupts a paragraph with a thematic break", "a\n***\nb", `Document{Paragraph{Text "a", LineEnding "\n"}, ThematicBreak{ThematicRun "***", LineEnding "\n"}, Paragraph{Text "b"}}`},
 		{"needs three markers of one kind", "**\n*-*", `Document{Paragraph{Text "**", LineEnding "\n", Text "*-*"}}`},
+		{"gives an atx heading", "## a ##  \n", `Document{Heading{ATXMarker "##", Whitespace " ", Text "a", Whitespace " ", ATXClose "##", Whitespace "  ", LineEnding "\n"}}`},
+		{"keeps a closing sequence that follows text", " #\ta#", `Document{Heading{Indent " ", ATXMarker "#", Whitespace "\t", Text "a#"}}`},
+		{"gives an empty atx heading", "#\n### ###", `Document{Heading{ATXMarker "#", LineEnding "\n"}, Heading{ATXMarker "###", Whitespace " ", ATXClose "###"}}`},
+		{"interrupts a paragraph with an atx heading", "a\n# b", `Document{Paragraph{Text "a", LineEnding "\n"}, Heading{ATXMarker "#", Whitespace " ", Text "b"}}`},
+		{"needs one to six markers and a space", "####### a\n#a", `Document{Paragraph{Text "####### a", LineEnding "\n", Text "#a"}}`},
 		{"needs a thematic break indented less than four columns", "  \t___", `Document{Paragraph{Indent "  \t", Text "___"}}`},
 	}
 	for _, tt := range tests {

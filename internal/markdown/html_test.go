@@ -22,7 +22,8 @@ func TestRenderHTML(t *testing.T) {
 	}{
 		{"escapes text", `a<&>"'b`, "<p>a&lt;&amp;&gt;&quot;'b</p>\n"},
 		{"writes thematic breaks", "***\n", "<hr />\n"},
-		{"writes paragraphs", "\xEF\xBB\xBFa\r\n b\n \nc", "<p>a\nb\n</p>\n<p>c</p>\n"},
+		{"writes headings", "## a\n", "<h2>a</h2>\n"},
+		{"writes paragraphs", "\xEF\xBB\xBFa\r\n b\n \nc", "<p>a\nb</p>\n<p>c</p>\n"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -81,15 +82,19 @@ var htmlEscaper = strings.NewReplacer("&", "&amp;", "<", "&lt;", ">", "&gt;", `"
 // renderHTML renders tree as HTML, as cmark does, for conformance tests.
 func renderHTML(tree *Tree) string {
 	var b strings.Builder
-	inText := false // in a block whose line endings are text
+	var textEnd uint32 // end of the last block whose inner line endings are text
 	c := tree.Walk()
 	for e, ok := c.Next(); ok; e, ok = c.Next() {
+		n := tree.nodes[e.ID]
 		//exhaustive:enforce
-		switch tree.Kind(e.ID) {
-		case Document, BOM, BlankLine, Indent, ThematicRun:
+		switch n.kind {
+		case Document, BOM, BlankLine, Indent, ThematicRun, ATXMarker, ATXClose, Whitespace:
 		case Paragraph:
 			b.WriteString(tag("p", e.Exit))
-			inText = !e.Exit
+			textEnd = n.end
+		case Heading:
+			b.WriteString(tag("h"+strconv.Itoa(tree.HeadingLevel(e.ID)), e.Exit))
+			textEnd = n.end
 		case ThematicBreak:
 			if !e.Exit {
 				b.WriteString("<hr />\n")
@@ -97,7 +102,7 @@ func renderHTML(tree *Tree) string {
 		case Text:
 			b.WriteString(htmlEscaper.Replace(string(tree.Raw(e.ID))))
 		case LineEnding:
-			if inText {
+			if n.end < textEnd {
 				b.WriteByte('\n')
 			}
 		}
