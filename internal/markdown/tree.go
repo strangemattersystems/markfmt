@@ -125,7 +125,7 @@ func (t *Tree) Verify() error {
 				return fmt.Errorf("markdown: invariant 3: node %d starts at %d, want %d", i, n.start, pos)
 			}
 			open = append(open, i)
-		case n.link != 0:
+		case !t.leafLinkValid(i):
 			return fmt.Errorf("markdown: invariant 5: leaf %d links to %d", i, n.link)
 		case n.start != pos:
 			return fmt.Errorf("markdown: invariant 1: leaf %d starts at %d, want %d", i, n.start, pos)
@@ -142,6 +142,17 @@ func (t *Tree) Verify() error {
 		return fmt.Errorf("markdown: invariant 1: leaves end at %d, want %d", pos, len(t.src))
 	}
 	return nil
+}
+
+// leafLinkValid reports whether leaf i links to an ancestor container of
+// its owner kind when it is a prefix leaf, and to 0 when it is not.
+func (t *Tree) leafLinkValid(i int) bool {
+	n := t.nodes[i]
+	want, ok := n.kind.owner()
+	if !ok {
+		return n.link == 0
+	}
+	return int(n.link) < i && t.nodes[n.link].kind == want && int(t.nodes[n.link].link) > i
 }
 
 // inputSize returns len(src). It panics when src is too large for uint32

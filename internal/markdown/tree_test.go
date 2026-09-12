@@ -143,6 +143,16 @@ func TestTree_Verify(t *testing.T) {
 				{kind: Document, start: 0, end: 1, link: 2},
 				{kind: Text, start: 0, end: 1, link: 1},
 			}}},
+			{"rejects a prefix leaf whose owner is not an ancestor", Tree{src: []byte(">>"), nodes: []Node{
+				{kind: Document, start: 0, end: 2, link: 4},
+				{kind: BlockQuote, start: 0, end: 1, link: 3},
+				{kind: QuoteMarker, start: 0, end: 1, link: 1},
+				{kind: QuoteMarker, start: 1, end: 2, link: 1},
+			}}},
+			{"rejects a prefix leaf whose owner has another kind", Tree{src: []byte(">"), nodes: []Node{
+				{kind: Document, start: 0, end: 1, link: 2},
+				{kind: QuoteMarker, start: 0, end: 1},
+			}}},
 		}},
 		{"invariant 6", []badTree{
 			{"rejects a value that is not a kind", Tree{src: []byte("a"), nodes: []Node{

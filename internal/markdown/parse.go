@@ -5,14 +5,15 @@ package markdown
 func Parse(src []byte) *Tree {
 	p := blockParser{b: newBuilder(src), src: src}
 	p.b.open(Document)
+	p.containers = append(p.containers, container{kind: Document})
 	it := newLines(src)
 	if it.pos > 0 {
 		p.b.leaf(BOM, it.pos)
 	}
 	for l, ok := it.next(); ok; l, ok = it.next() {
-		p.line(l)
+		p.parseLine(l)
 	}
-	p.closeBlocks()
+	p.closeUnmatched(1)
 	p.b.close()
 	return p.b.finish()
 }

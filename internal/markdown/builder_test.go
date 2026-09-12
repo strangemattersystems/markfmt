@@ -64,6 +64,11 @@ func TestBuilder_Leaf(t *testing.T) {
 			b.open(Document)
 			b.leaf(255, 1)
 		}},
+		{"panics on a prefix kind", ">", func(b *builder) {
+			b.open(Document)
+			b.open(BlockQuote)
+			b.leaf(QuoteMarker, 1)
+		}},
 		{"panics outside the document", "a", func(b *builder) {
 			b.leaf(Text, 1)
 		}},
@@ -103,6 +108,50 @@ func TestBuilder_LeafIf(t *testing.T) {
 		if got := b.finish().nodes; !slices.Equal(got, want) {
 			t.Fatalf("nodes = %+v, want %+v", got, want)
 		}
+	})
+}
+
+func TestBuilder_Prefix(t *testing.T) {
+	t.Parallel()
+
+	t.Run("appends a leaf with its owner", func(t *testing.T) {
+		t.Parallel()
+
+		b := newBuilder([]byte(">"))
+		b.open(Document)
+		b.open(BlockQuote)
+		b.prefix(QuoteMarker, 1, 1)
+		b.close()
+		b.close()
+		want := []Node{
+			{kind: Document, start: 0, end: 1, link: 3},
+			{kind: BlockQuote, start: 0, end: 1, link: 3},
+			{kind: QuoteMarker, start: 0, end: 1, link: 1},
+		}
+		if got := b.finish().nodes; !slices.Equal(got, want) {
+			t.Fatalf("nodes = %+v, want %+v", got, want)
+		}
+	})
+
+	testPanics(t, []panicTest{
+		{"panics on a kind that is not a prefix kind", "a", func(b *builder) {
+			b.open(Document)
+			b.prefix(Text, 1, 0)
+		}},
+		{"panics on an owner of another kind", ">", func(b *builder) {
+			b.open(Document)
+			b.prefix(QuoteMarker, 1, 0)
+		}},
+		{"panics on a closed owner", ">", func(b *builder) {
+			b.open(Document)
+			b.open(BlockQuote)
+			b.close()
+			b.prefix(QuoteMarker, 1, 1)
+		}},
+		{"panics on an owner after the last node", ">", func(b *builder) {
+			b.open(Document)
+			b.prefix(QuoteMarker, 1, 5)
+		}},
 	})
 }
 

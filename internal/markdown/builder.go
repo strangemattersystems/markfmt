@@ -50,8 +50,33 @@ func (b *builder) flag(f uint8) {
 	n.flags = f
 }
 
+// top returns the index of the innermost open node.
+func (b *builder) top() uint32 {
+	return b.stack[len(b.stack)-1]
+}
+
 // leaf appends a leaf of kind k from the end of the last leaf to end.
 func (b *builder) leaf(k Kind, end uint32) {
+	if _, ok := k.owner(); ok {
+		panic(fmt.Sprintf("markdown: leaf of prefix kind %v, which needs an owner", k))
+	}
+	b.appendLeaf(k, end, 0)
+}
+
+// prefix appends a prefix leaf of kind k from the end of the last leaf to
+// end, owned by the open container at index owner.
+func (b *builder) prefix(k Kind, end, owner uint32) {
+	want, ok := k.owner()
+	switch {
+	case !ok:
+		panic(fmt.Sprintf("markdown: prefix leaf of kind %v, which is not a prefix kind", k))
+	case uint64(owner) >= uint64(len(b.tree.nodes)) || b.tree.nodes[owner].kind != want || b.tree.nodes[owner].link != 0:
+		panic(fmt.Sprintf("markdown: prefix leaf of kind %v owned by node %d, which is not an open %v", k, owner, want))
+	}
+	b.appendLeaf(k, end, owner)
+}
+
+func (b *builder) appendLeaf(k Kind, end, link uint32) {
 	switch c := k.class(); {
 	case c == classInvalid || c == classStructure:
 		panic(fmt.Sprintf("markdown: leaf of kind %d, which is not a leaf kind", k))
@@ -64,7 +89,7 @@ func (b *builder) leaf(k Kind, end uint32) {
 	case uint64(len(b.tree.nodes)) >= 3*uint64(end)+3:
 		panic(fmt.Sprintf("markdown: more than 3 × %d + 3 nodes", end))
 	}
-	b.tree.nodes = append(b.tree.nodes, Node{kind: k, start: b.pos, end: end})
+	b.tree.nodes = append(b.tree.nodes, Node{kind: k, start: b.pos, end: end, link: link})
 	b.pos = end
 }
 

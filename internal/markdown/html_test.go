@@ -26,6 +26,7 @@ func TestRenderHTML(t *testing.T) {
 		{"writes indented code", "    <a>\n\n     b", "<pre><code>&lt;a&gt;\n\n b\n</code></pre>\n"},
 		{"writes fenced code", "```a b\n<\n```", "<pre><code class=\"language-a\">&lt;\n</code></pre>\n"},
 		{"writes html blocks", "<div>\n  <a>\n", "<div>\n  <a>\n"},
+		{"writes block quotes", "> a\n", "<blockquote>\n<p>a</p>\n</blockquote>\n"},
 		{"writes paragraphs", "\xEF\xBB\xBFa\r\n b\n \nc", "<p>a\nb</p>\n<p>c</p>\n"},
 	}
 	for _, tt := range tests {
@@ -92,7 +93,7 @@ func renderHTML(tree *Tree) string {
 		//exhaustive:enforce
 		switch n.kind {
 		case Document, BOM, BlankLine, Indent, ThematicRun, ATXMarker, ATXClose, Whitespace,
-			CodeIndent, CodeText, VerbatimLineEnding, FenceMarker, InfoString, SetextUnderline, HTMLText:
+			CodeIndent, CodeText, VerbatimLineEnding, FenceMarker, InfoString, SetextUnderline, HTMLText, QuoteMarker:
 		case CodeBlock:
 			if e.Exit {
 				break
@@ -106,6 +107,12 @@ func renderHTML(tree *Tree) string {
 				b.WriteString(` class="language-` + htmlEscaper.Replace(word) + `"`)
 			}
 			b.WriteString(">" + htmlEscaper.Replace(string(tree.AppendCode(nil, e.ID))) + "</code></pre>\n")
+		case BlockQuote:
+			if e.Exit {
+				b.WriteString("</blockquote>\n")
+			} else {
+				b.WriteString("<blockquote>\n")
+			}
 		case HTMLBlock:
 			if !e.Exit {
 				b.Write(tree.AppendHTML(nil, e.ID))

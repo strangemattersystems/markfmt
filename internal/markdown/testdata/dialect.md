@@ -10,4 +10,5 @@ each row gets a dialect predicate.
 | --- | --- | --- | --- | --- |
 | HTML block kind 6 tag list: `search` is in the list, `source` is not | `a⏎<search>` | Paragraph `a`, then an HTML block `<search>` | Paragraph `a⏎<search>` with raw HTML: `<search>` is kind 7, which cannot interrupt a paragraph | `TestParse/interrupts_a_paragraph_with_a_search_html_block` |
 | HTML block kind 6 tag list: `source` is kind 7 | `a⏎<source>` | Paragraph `a⏎<source>` with raw HTML | Paragraph `a`, then an HTML block `<source>` | `TestParse/does_not_interrupt_a_paragraph_with_an_html_block_of_kind_7` |
+| HTML block kind 7 on a lazy candidate line: kind 7 does not start while a paragraph is open, matched or not | `> a⏎<del>` | Block quote with paragraph `a⏎<del>`: the line is lazy | Block quote with paragraph `a`, then an HTML block `<del>` | `TestParse/does_not_start_an_html_block_of_kind_7_on_a_lazy_line` |
 | HTML block kind 4 start: `<!` and any ASCII letter | `<!doctype html>` | HTML block | Paragraph with the text `<!doctype html>`: the kind 4 start and the declaration grammar need an uppercase letter | `TestParse/starts_an_html_block_of_kind_4_with_any_ascii_letter` |

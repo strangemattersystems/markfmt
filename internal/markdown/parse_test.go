@@ -57,6 +57,19 @@ func TestParse(t *testing.T) {
 		{"gives a complete tag an html block of kind 7", "<source src='x' a>  \n</b >\n\n<a b=c/>", "Document{HTMLBlock[7]{HTMLText \"<source src='x' a>  \", VerbatimLineEnding \"\\n\", HTMLText \"</b >\", VerbatimLineEnding \"\\n\"}, BlankLine \"\\n\", HTMLBlock[7]{HTMLText \"<a b=c/>\"}}"},
 		{"does not interrupt a paragraph with an html block of kind 7", "a\n<source>", "Document{Paragraph{Text \"a\", LineEnding \"\\n\", Text \"<source>\"}}"},
 		{"needs only spaces and tabs after the tag of an html block of kind 7", "<a> b\n\n<a b='>\n\n<pre/>", "Document{Paragraph{Text \"<a> b\", LineEnding \"\\n\"}, BlankLine \"\\n\", Paragraph{Text \"<a b='>\", LineEnding \"\\n\"}, BlankLine \"\\n\", Paragraph{Text \"<pre/>\"}}"},
+		{"gives a block quote", "> a\n > b", "Document{BlockQuote{QuoteMarker@1 \"> \", Paragraph{Text \"a\", LineEnding \"\\n\", QuoteMarker@1 \" > \", Text \"b\"}}}"},
+		{"gives an empty block quote", ">", "Document{BlockQuote{QuoteMarker@1 \">\"}}"},
+		{"continues a paragraph in a block quote on a lazy line", "> a\nb", "Document{BlockQuote{QuoteMarker@1 \"> \", Paragraph{Text \"a\", LineEnding \"\\n\", Text \"b\"}}}"},
+		{"gives a lazy line the prefix leaves of the containers it matches", " > >a\n>b", "Document{BlockQuote{QuoteMarker@1 \" > \", BlockQuote{QuoteMarker@3 \">\", Paragraph{Text \"a\", LineEnding \"\\n\", QuoteMarker@1 \">\", Text \"b\"}}}}"},
+		{"puts a blank line in a block quote after its prefix leaf", "> a\n>\n> b", "Document{BlockQuote{QuoteMarker@1 \"> \", Paragraph{Text \"a\", LineEnding \"\\n\"}, QuoteMarker@1 \">\", BlankLine \"\\n\", QuoteMarker@1 \"> \", Paragraph{Text \"b\"}}}"},
+		{"ends a block quote at a blank line", "> a\n\nb", "Document{BlockQuote{QuoteMarker@1 \"> \", Paragraph{Text \"a\", LineEnding \"\\n\"}}, BlankLine \"\\n\", Paragraph{Text \"b\"}}"},
+		{"puts the prefix leaves of later code lines inside the code block", ">     a\n>     b", "Document{BlockQuote{QuoteMarker@1 \"> \", CodeBlock{CodeIndent \"    \", CodeText \"a\", VerbatimLineEnding \"\\n\", QuoteMarker@1 \"> \", CodeIndent \"    \", CodeText \"b\"}}}"},
+		{"keeps the prefix leaves of pending blank code lines", ">     a\n>\n>     b\n>\nc", "Document{BlockQuote{QuoteMarker@1 \"> \", CodeBlock{CodeIndent \"    \", CodeText \"a\", VerbatimLineEnding \"\\n\", QuoteMarker@1 \">\", VerbatimLineEnding \"\\n\", QuoteMarker@1 \"> \", CodeIndent \"    \", CodeText \"b\", VerbatimLineEnding \"\\n\"}, QuoteMarker@1 \">\", BlankLine \"\\n\"}, Paragraph{Text \"c\"}}"},
+		{"does not start indented code on a lazy line", "> a\n    b", "Document{BlockQuote{QuoteMarker@1 \"> \", Paragraph{Text \"a\", LineEnding \"\\n\", Indent \"    \", Text \"b\"}}}"},
+		{"does not start an html block of kind 7 on a lazy line", "> a\n<del>", "Document{BlockQuote{QuoteMarker@1 \"> \", Paragraph{Text \"a\", LineEnding \"\\n\", Text \"<del>\"}}}"},
+		{"closes a block quote at a thematic break", "> a\n---", "Document{BlockQuote{QuoteMarker@1 \"> \", Paragraph{Text \"a\", LineEnding \"\\n\"}}, ThematicBreak{ThematicRun \"---\"}}"},
+		{"gives a setext heading in a block quote", "> a\n> ---\n> b\n===", "Document{BlockQuote{QuoteMarker@1 \"> \", Heading{Text \"a\", LineEnding \"\\n\", QuoteMarker@1 \"> \", SetextUnderline \"---\", LineEnding \"\\n\"}, QuoteMarker@1 \"> \", Paragraph{Text \"b\", LineEnding \"\\n\", Text \"===\"}}}"},
+		{"closes fenced code and html blocks with their block quote", "> ```\n> a\nb\n> <div>\nc", "Document{BlockQuote{QuoteMarker@1 \"> \", CodeBlock{FenceMarker \"```\", LineEnding \"\\n\", QuoteMarker@1 \"> \", CodeText \"a\", VerbatimLineEnding \"\\n\"}}, Paragraph{Text \"b\", LineEnding \"\\n\"}, BlockQuote{QuoteMarker@12 \"> \", HTMLBlock[6]{HTMLText \"<div>\", VerbatimLineEnding \"\\n\"}}, Paragraph{Text \"c\"}}"},
 		{"needs a thematic break indented less than four columns", "a\n  \t___", `Document{Paragraph{Text "a", LineEnding "\n", Indent "  \t", Text "___"}}`},
 	}
 	for _, tt := range tests {
@@ -277,8 +290,9 @@ func FuzzParse(f *testing.F) {
 	})
 }
 
-// dump returns tree as nested kinds with their flags and the bytes of each
-// leaf, as in Document{HTMLBlock[6]{HTMLText "<p>"}, BlankLine "\n"}.
+// dump returns tree as nested kinds with their flags, and each leaf with the
+// owner of a prefix leaf and its bytes, as in
+// Document{BlockQuote{QuoteMarker@1 "> ", HTMLBlock[6]{HTMLText "<p>"}}}.
 func dump(tree *Tree) string {
 	var b strings.Builder
 	sep := ""
@@ -297,7 +311,11 @@ func dump(tree *Tree) string {
 			b.WriteString("{")
 			sep = ""
 		default:
-			b.WriteString(sep + k.String() + " " + strconv.Quote(string(tree.Raw(e.ID))))
+			b.WriteString(sep + k.String())
+			if link := tree.nodes[e.ID].link; link != 0 {
+				b.WriteString("@" + strconv.Itoa(int(link)))
+			}
+			b.WriteString(" " + strconv.Quote(string(tree.Raw(e.ID))))
 			sep = ", "
 		}
 	}

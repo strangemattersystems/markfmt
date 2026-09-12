@@ -41,17 +41,18 @@ func (f codeFence) closes(src []byte, i, end uint32) (uint32, bool) {
 	return j, j-i >= f.length && trimSpaceRight(src, j, end) == j
 }
 
-// codeLine appends a line of code: up to n columns of indentation as a
-// CodeIndent leaf, the rest as CodeText, and the line ending.
-func (p *blockParser) codeLine(l line, n int) {
-	i, col := l.start, 0
-	for i < l.end && col < n && isSpaceOrTab(p.src[i]) {
-		col = nextColumn(p.src[i], col)
+// codeLine appends rest, the rest of a line at column col, as code: up to n
+// columns of indentation as a CodeIndent leaf, the rest as CodeText, and the
+// line ending.
+func (p *blockParser) codeLine(rest line, col, n int) {
+	i, c := rest.start, col
+	for i < rest.end && c-col < n && isSpaceOrTab(p.src[i]) {
+		c = nextColumn(p.src[i], c)
 		i++
 	}
 	p.b.leafIf(CodeIndent, i)
-	p.b.leafIf(CodeText, l.end)
-	p.b.leafIf(VerbatimLineEnding, l.eol)
+	p.b.leafIf(CodeText, rest.end)
+	p.b.leafIf(VerbatimLineEnding, rest.eol)
 }
 
 // AppendCode appends the content of code block id to dst: its CodeText
