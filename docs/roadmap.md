@@ -79,33 +79,30 @@ CommonMark example 210. Our own parser makes this finding obsolete.
 | No HTML output in markfmt | markfmt is Markdown in, Markdown out. |
 | Runtime safety check compares our own trees | The parser parses input and output, and the trees must be equal with spans ignored. No renderer quirks, no circular check. |
 | Remove goldmark completely | It is a temporary test oracle only. See stage 7 for the exit criteria. |
+| Test-only HTML renderer | The specs give expected results only as HTML. The renderer lives in `_test.go` files, never in the binary or the API. |
+| Grammar scope: CommonMark, GFM, front matter, and GitHub syntax (footnotes, math, alerts) | Most users expect what GitHub renders. Math in the grammar stops the printer from changing math source. |
+| Design document at `docs/design/parser.md` | It is reviewed and versioned with the code. |
+| Canonical style by consensus | The style follows modern best practice across the major formatters and style guides, not personal preference. See Open decisions. |
 
 ## Open decisions
 
-1. **Test-only HTML renderer.** The specs give expected results only as HTML.
-   The proposal is a small renderer in `_test.go` files, never in the binary
-   or the API, used only to check conformance. The alternative is to convert
-   652 expected outputs to trees by hand.
-2. **Grammar scope.** Should the grammar include math (`$…$`, `$$…$$`) and
-   footnotes (`[^1]`)? GitHub renders both. Without math in the grammar, the
-   printer could rewrite `*` inside `$a*b*c$` as emphasis. The recommendation
-   is math at least. Alerts (`> [!NOTE]`) are ordinary block quotes and need
-   nothing.
-3. **Design document location.** The default is `docs/design/parser.md`.
-4. **Canonical style.** Stage 6 needs these. The recommendation is first.
+1. **Canonical style.** Stage 6 needs this, not before. The style follows
+   modern best-practice consensus, not personal preference. At stage 6:
+   1. Survey the defaults of Prettier, dprint (which `deno fmt` uses),
+      mdformat, markdownlint and the Google Markdown style guide for each
+      construct below.
+   2. Where a clear majority exists, adopt it and record the evidence in
+      Decisions.
+   3. Where no consensus exists, ask the user one clear question with the
+      evidence.
 
-   | Construct | Recommendation | Other choice |
-   | --- | --- | --- |
-   | Bullet marker | `-` | `*` |
-   | Ordered list numbers | `1.` `2.` `3.` | all `1.` |
-   | Emphasis / strong | `_x_` / `**x**` | `*x*` |
-   | Code fence | ```` ``` ````, longer if the content has backticks | `~~~` |
-   | Thematic break | `---` | `***` |
-   | Hard line break | `\` | two trailing spaces |
-   | Tables | aligned columns | no padding |
+   Constructs: bullet marker, ordered list numbering, emphasis and strong
+   delimiters, code fence character and length, thematic break, hard line
+   break, table alignment, heading style, list indentation, escaping.
 
-   Decided already: ATX headings, one blank line between blocks, prose line
-   breaks kept as written, one final newline.
+   The current formatter writes ATX headings, one blank line between blocks
+   and one final newline, and keeps prose line breaks. The survey confirms or
+   replaces these.
 
 ## Plan
 
@@ -118,17 +115,18 @@ checkbox in the same commit that passes the gates.
   values, positions, parser and renderer separation, block parsers by trigger
   character, inline parsers, AST transformers, extensions. Record what we take,
   what we drop, and why. Read for design only; do not copy code.
-- [ ] Write the parser design from first principles for a formatter. Current
-  views for the design to test:
+- [ ] Write the parser design in `docs/design/parser.md`, from first
+  principles for a formatter. Current views for the design to test:
   - A lossless concrete syntax tree: tokens for markers, delimiters and
     whitespace, not only content nodes.
-  - A closed set of node kinds: CommonMark, GFM, front matter, and the scope
-    from open decision 2. No plugin system. Exhaustive switches.
+  - A closed set of node kinds: CommonMark, GFM, GitHub syntax and front
+    matter. No plugin system. Exhaustive switches.
   - Two phases, as in the CommonMark appendix: blocks line by line, then
     inlines after all link reference definitions are known. This fits a later
     two-pass streaming parser.
   - Parsing cannot fail: every input is valid Markdown.
-- [ ] Settle open decisions 1 to 3.
+- [x] Settle the grammar scope, the test-only HTML renderer and the design
+  document location. See Decisions.
 
 Gate: the user approves the design document.
 
@@ -140,7 +138,7 @@ Gate: the user approves the design document.
   fails if an unlisted example fails, and also if a listed example passes. The
   list can only get shorter.
 - [ ] The test-only HTML renderer and HTML normalization, as in cmark's
-  `normalize.py`, if open decision 1 is accepted.
+  `normalize.py`.
 - [ ] Fuzz targets: lossless round trip, no panic, time limit per input.
 
 Gate: `task ci` passes with every example on the expected-failure list.
@@ -171,15 +169,42 @@ Gates:
 Gates: CommonMark 0.31.2 conformance at 100%, cmark and commonmark.js
 regression corpora at 100%, pathological inline inputs in linear time.
 
-### Stage 4: GFM and extra scope
+### Stage 4: GFM and GitHub syntax
 
-- [ ] Tables, strikethrough, task list items, extended autolinks, disallowed
-  raw HTML.
-- [ ] Math and footnotes, if open decision 2 includes them.
+The scope is what GitHub renders, because most users expect it.
 
-Gate: the GFM extension examples and cmark-gfm `extensions.txt` at 100%.
-Take only extension examples from the GFM spec: it is pinned at 0.29, and its
-copies of core examples are older than CommonMark 0.31.2.
+- [ ] GFM extensions: tables, strikethrough, task list items, extended
+  autolinks, disallowed raw HTML.
+- [ ] Footnote references and definitions.
+- [ ] Math: inline `$…$` and `` $`…`$ ``, and block `$$…$$`. A ```` ```math ````
+  fence is an ordinary code block.
+- [ ] Alerts: a block quote whose first line is `[!NOTE]`, `[!TIP]`,
+  `[!IMPORTANT]`, `[!WARNING]` or `[!CAUTION]`.
+- [ ] Plain text that GitHub gives meaning to needs no grammar, but escaping
+  must never change it: emoji shortcodes (`:+1:`), mentions (`@user`) and
+  issue references (`#1`).
+
+Study GitHub's math behaviour with the Markdown REST API
+(`gh api markdown -f mode=gfm -f text=...`) before writing the math rules.
+Observations on 2026-09-12:
+
+| Input | GitHub HTML |
+| --- | --- |
+| `$a*b*c$` | `$a<em>b</em>c$`. Emphasis wins, and there is no math element. |
+| `` $`a*b`$ `` | A `math-renderer` element with `$a*b$`. The content is raw. |
+| `$$`, `a*b*c`, `$$` on three lines | A display `math-renderer` element with `$$ a_b_c $$`. Emphasis applies inside, and GitHub writes it back as `_`. |
+
+GitHub math is not a simple raw span. The grammar must match GitHub's
+behaviour, and the printer must never change what MathJax receives.
+
+Gates:
+
+- The GFM extension examples and cmark-gfm `extensions.txt` at 100%. Take
+  only extension examples from the GFM spec: it is pinned at 0.29, and its
+  copies of core examples are older than CommonMark 0.31.2.
+- Footnotes, math and alerts have no public spec. Their cases come from the
+  GitHub docs examples and from captured GitHub API output, saved as
+  fixtures, at 100%.
 
 ### Stage 5: differential fuzzing
 
@@ -194,7 +219,7 @@ that has not been triaged.
 
 ### Stage 6: printers on the new tree
 
-- [ ] Settle open decision 4.
+- [ ] Settle the canonical style. See Open decisions.
 - [ ] A printer for every node kind. Raw content is written from its exact
   span. No copying by guessed positions.
 - [ ] The runtime check: parse input and output, compare the trees with
@@ -232,6 +257,7 @@ goldmark's copied test files can stay as data, with their MIT notice.
 | No panic, linear time | Fuzz with a time limit, plus cmark pathological inputs. |
 | Spec conformance | Corpus runner with the expected-failure list. |
 | Agreement with a second parser | Differential fuzzing against goldmark, stages 5 to 7 only. |
+| GitHub syntax | Fixtures captured from the GitHub Markdown API. Compare document structure, not GitHub's extra attributes. |
 | Printer is idempotent | Fuzz and `testdata/cases`. |
 | Printer keeps meaning | Fuzz and `testdata/cases`: equal trees for input and output. |
 
@@ -248,6 +274,8 @@ goldmark's copied test files can stay as data, with their MIT notice.
 | goldmark cases | `yuin/goldmark` `_test/extra.txt`, `extension/_test/*.txt` | v2.0.2 | MIT | Extra edge cases, already in `testdata/spec` |
 | markdown-it fixtures | `markdown-it/markdown-it` `test/fixtures` | optional | MIT | Extra cases |
 | HTML entities | WHATWG `entities.json` | pin at import | CC BY 4.0 | Generate the entity table |
+| GitHub docs Markdown examples | `github/docs` `content/get-started/writing-on-github` | pin at import | CC BY 4.0 | Footnote, math and alert cases |
+| GitHub Markdown API output | `POST /markdown` with `mode=gfm` | capture date | GitHub API terms | Expected results for GitHub syntax, captured once into fixtures |
 
 ## Licensing rules
 
@@ -261,6 +289,8 @@ This is our reading of the licenses, not legal advice.
   license, as `internal/format/testdata/spec/README.md` does.
 - Generate tables from primary sources: WHATWG `entities.json`, and Go's
   `unicode` package for punctuation.
+- Send only test inputs written for the purpose to the GitHub Markdown API,
+  never user documents.
 
 ## Known goldmark deviations
 
