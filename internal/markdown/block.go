@@ -10,12 +10,21 @@ type blockParser struct {
 
 // line adds one line to the tree.
 func (p *blockParser) line(l line) {
-	if p.skipSpace(l.start, l.end) == l.end {
+	first, col := p.indent(l.start, l.end, 0)
+	switch {
+	case first == l.end:
 		p.closeParagraph()
 		p.b.leafIf(BlankLine, l.eol)
-		return
+	case col < 4 && isThematicBreak(p.src, first, l.end):
+		p.closeParagraph()
+		p.b.open(ThematicBreak)
+		p.b.leafIf(Indent, first)
+		p.b.leaf(ThematicRun, l.end)
+		p.b.leafIf(LineEnding, l.eol)
+		p.b.close()
+	default:
+		p.para = append(p.para, l)
 	}
-	p.para = append(p.para, l)
 }
 
 // closeParagraph appends the pending paragraph, if one is open.
@@ -25,7 +34,8 @@ func (p *blockParser) closeParagraph() {
 	}
 	p.b.open(Paragraph)
 	for _, l := range p.para {
-		p.b.leafIf(Indent, p.skipSpace(l.start, l.end))
+		first, _ := p.indent(l.start, l.end, 0)
+		p.b.leafIf(Indent, first)
 		p.b.leaf(Text, l.end)
 		p.b.leafIf(LineEnding, l.eol)
 	}
@@ -33,11 +43,19 @@ func (p *blockParser) closeParagraph() {
 	p.para = p.para[:0]
 }
 
-// skipSpace returns the offset of the first byte in src[i:end] that is not a
-// space or a tab, or end.
-func (p *blockParser) skipSpace(i, end uint32) uint32 {
-	for i < end && (p.src[i] == ' ' || p.src[i] == '\t') {
-		i++
+// indent returns the offset of the first byte in src[i:end] that is not a
+// space or a tab, or end, and the column of that offset when i is at column
+// col. A tab advances to the next multiple of 4.
+func (p *blockParser) indent(i, end uint32, col int) (uint32, int) {
+	for ; i < end; i++ {
+		switch p.src[i] {
+		case ' ':
+			col++
+		case '\t':
+			col += 4 - col%4
+		default:
+			return i, col
+		}
 	}
-	return i
+	return i, col
 }
