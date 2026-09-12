@@ -7,6 +7,7 @@ type blockParser struct {
 	src    []byte
 	para   []line // lines of the open paragraph, pending until it closes
 	code   bool   // an indented code block is open
+	fence  codeFence
 	blanks []line // trailing blank lines of the open indented code, pending
 }
 
@@ -14,6 +15,19 @@ type blockParser struct {
 func (p *blockParser) line(l line) {
 	first, col := p.indent(l.start, l.end, 0)
 	blank := first == l.end
+	if p.fence.length > 0 {
+		if end, ok := p.fence.closes(p.src, first, l.end); ok && col < 4 {
+			p.b.leafIf(Indent, first)
+			p.b.leaf(FenceMarker, end)
+			p.b.leafIf(Whitespace, l.end)
+			p.b.leafIf(LineEnding, l.eol)
+			p.b.close()
+			p.fence = codeFence{}
+			return
+		}
+		p.codeLine(l, p.fence.indent)
+		return
+	}
 	if p.code {
 		switch {
 		case blank:
@@ -21,10 +35,10 @@ func (p *blockParser) line(l line) {
 			return
 		case col >= 4:
 			for _, b := range p.blanks {
-				p.codeLine(b)
+				p.codeLine(b, 4)
 			}
 			p.blanks = p.blanks[:0]
-			p.codeLine(l)
+			p.codeLine(l, 4)
 			return
 		}
 		p.closeCode()
@@ -38,7 +52,7 @@ func (p *blockParser) line(l line) {
 		if len(p.para) == 0 {
 			p.b.open(CodeBlock)
 			p.code = true
-			p.codeLine(l)
+			p.codeLine(l, 4)
 			return
 		}
 		p.para = append(p.para, l)
@@ -67,6 +81,20 @@ func (p *blockParser) line(l line) {
 		p.b.close()
 		return
 	}
+	if n := openingFence(p.src, first, l.end); n > 0 {
+		p.closeParagraph()
+		p.b.open(CodeBlock)
+		p.b.leafIf(Indent, first)
+		p.b.leaf(FenceMarker, first+n)
+		infoEnd := trimSpaceRight(p.src, first+n, l.end)
+		infoStart, _ := p.indent(first+n, infoEnd, 0)
+		p.b.leafIf(Whitespace, infoStart)
+		p.b.leafIf(InfoString, infoEnd)
+		p.b.leafIf(Whitespace, l.end)
+		p.b.leafIf(LineEnding, l.eol)
+		p.fence = codeFence{char: p.src[first], length: n, indent: col}
+		return
+	}
 	p.para = append(p.para, l)
 }
 
@@ -74,6 +102,10 @@ func (p *blockParser) line(l line) {
 func (p *blockParser) closeBlocks() {
 	p.closeParagraph()
 	p.closeCode()
+	if p.fence.length > 0 {
+		p.b.close()
+		p.fence = codeFence{}
+	}
 }
 
 // closeParagraph appends the pending paragraph, if one is open.

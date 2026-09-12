@@ -24,6 +24,7 @@ func TestRenderHTML(t *testing.T) {
 		{"writes thematic breaks", "***\n", "<hr />\n"},
 		{"writes headings", "## a\n", "<h2>a</h2>\n"},
 		{"writes indented code", "    <a>\n\n     b", "<pre><code>&lt;a&gt;\n\n b\n</code></pre>\n"},
+		{"writes fenced code", "```a b\n<\n```", "<pre><code class=\"language-a\">&lt;\n</code></pre>\n"},
 		{"writes paragraphs", "\xEF\xBB\xBFa\r\n b\n \nc", "<p>a\nb</p>\n<p>c</p>\n"},
 	}
 	for _, tt := range tests {
@@ -90,11 +91,20 @@ func renderHTML(tree *Tree) string {
 		//exhaustive:enforce
 		switch n.kind {
 		case Document, BOM, BlankLine, Indent, ThematicRun, ATXMarker, ATXClose, Whitespace,
-			CodeIndent, CodeText, VerbatimLineEnding:
+			CodeIndent, CodeText, VerbatimLineEnding, FenceMarker, InfoString:
 		case CodeBlock:
-			if !e.Exit {
-				b.WriteString("<pre><code>" + htmlEscaper.Replace(string(tree.AppendCode(nil, e.ID))) + "</code></pre>\n")
+			if e.Exit {
+				break
 			}
+			b.WriteString("<pre><code")
+			if info := string(tree.AppendInfo(nil, e.ID)); info != "" {
+				word := info
+				if i := strings.IndexAny(info, " \t\n\v\f\r"); i >= 0 {
+					word = info[:i]
+				}
+				b.WriteString(` class="language-` + htmlEscaper.Replace(word) + `"`)
+			}
+			b.WriteString(">" + htmlEscaper.Replace(string(tree.AppendCode(nil, e.ID))) + "</code></pre>\n")
 		case Paragraph:
 			b.WriteString(tag("p", e.Exit))
 			textEnd = n.end

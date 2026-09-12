@@ -39,6 +39,11 @@ func TestParse(t *testing.T) {
 		{"ends indented code before trailing blank lines", "    a\n\n      \nb", `Document{CodeBlock{CodeIndent "    ", CodeText "a", VerbatimLineEnding "\n"}, BlankLine "\n", BlankLine "      \n", Paragraph{Text "b"}}`},
 		{"ends indented code before blank lines at the end of the input", "    a\n  ", `Document{CodeBlock{CodeIndent "    ", CodeText "a", VerbatimLineEnding "\n"}, BlankLine "  "}`},
 		{"does not interrupt a paragraph with indented code", "a\n    b", `Document{Paragraph{Text "a", LineEnding "\n", Indent "    ", Text "b"}}`},
+		{"gives fenced code", "```js x \n<\n```  ", "Document{CodeBlock{FenceMarker \"```\", InfoString \"js x\", Whitespace \" \", LineEnding \"\\n\", CodeText \"<\", VerbatimLineEnding \"\\n\", FenceMarker \"```\", Whitespace \"  \"}}"},
+		{"removes the fence indentation from fenced code lines", " ~~~\n  a\n\n ~~~~\nb", "Document{CodeBlock{Indent \" \", FenceMarker \"~~~\", LineEnding \"\\n\", CodeIndent \" \", CodeText \" a\", VerbatimLineEnding \"\\n\", VerbatimLineEnding \"\\n\", Indent \" \", FenceMarker \"~~~~\", LineEnding \"\\n\"}, Paragraph{Text \"b\"}}"},
+		{"closes fenced code only with a long enough fence of its character", "````\n```\n~~~~\n    ````", "Document{CodeBlock{FenceMarker \"````\", LineEnding \"\\n\", CodeText \"```\", VerbatimLineEnding \"\\n\", CodeText \"~~~~\", VerbatimLineEnding \"\\n\", CodeText \"    ````\"}}"},
+		{"interrupts a paragraph with fenced code", "a\n~~~\nb", "Document{Paragraph{Text \"a\", LineEnding \"\\n\"}, CodeBlock{FenceMarker \"~~~\", LineEnding \"\\n\", CodeText \"b\"}}"},
+		{"needs a backtick fence info string without backticks", "``` a`b", "Document{Paragraph{Text \"``` a`b\"}}"},
 		{"needs a thematic break indented less than four columns", "a\n  \t___", `Document{Paragraph{Text "a", LineEnding "\n", Indent "  \t", Text "___"}}`},
 	}
 	for _, tt := range tests {
