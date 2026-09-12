@@ -954,8 +954,9 @@ adds its set of `Dialect(row)` values to its Enter event. `Equal` requires:
   selected. The first list is generated once by a documented command and
   reviewed as data. No flag adds entries.
 - One grammar, in production and in tests. `testdata/<corpus>/grammar-differs.txt`
-  lists examples of a core corpus that markfmt's GFM or front matter rules
-  change. Each entry gives the rule and names a case in
+  lists examples that markfmt's GFM or front matter rules change: CommonMark
+  examples, and regression examples that upstream runs without GFM
+  extensions. Each entry gives the rule and names a case in
   `testdata/markfmt/grammar.txt` (`spec.txt` format) with the same input and
   the expected HTML under markfmt's grammar: hand-written for front matter, the
   normalized GitHub fixture for GFM. The named case runs as ordinary
@@ -969,8 +970,9 @@ adds its set of `Dialect(row)` values to its Enter event. `Equal` requires:
   `img`, `code` or `br`) or a character reference other than `&quot;`,
   `&amp;`, `&lt;` and `&gt;`, or its Markdown contains `\` or `&`. The block
   sections are Tabs, Precedence, and the sections of Leaf blocks and Container
-  blocks. Every block-section example that does not need inlines passes: 252
-  of 296. Link reference definitions get unit tests on the tree. The
+  blocks. Every block-section example that does not need inlines passes, or
+  is in `grammar-differs.txt` and its named case passes: 252 of 296. CM 96
+  and 98 are front matter (section 8.1). Link reference definitions get unit tests on the tree. The
   classification is deleted in the commit that passes the stage 3 gate.
 - `internal/format/testdata/spec` (goldmark's `spec.json`) stays until stage 6
   deletes the goldmark-based formatter.
@@ -983,6 +985,9 @@ adds its set of `Dialect(row)` values to its Enter event. `Equal` requires:
 - It writes missing table cells up to cmark-gfm's cap. Stage 4 captures what
   GitHub does above that cap; if structure changes there, the cap is grammar and
   gets a `dialect.md` row.
+- It applies the GFM tag filter to raw HTML, as cmark-gfm's renderer does. The
+  filter is rendering, not grammar (section 2), so its examples need no
+  grammar rule.
 - The GitHub normalizer lands at stage 4 with the fixtures. It removes a fixed
   list of GitHub decorations, each with a unit test: `dir` attributes, heading
   anchors, `user-content-` prefixes, footnote back references and hashes, task

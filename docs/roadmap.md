@@ -179,8 +179,9 @@ Passed 2026-09-12.
 Gates:
 
 - The lossless fuzz test holds.
-- Every block-section example that does not need inlines passes (252 of 296,
-  by the mechanical classification in design 11.2).
+- Every block-section example that does not need inlines passes, or is in
+  `grammar-differs.txt` and its named case passes (252 of 296, by the
+  mechanical classification in design 11.2).
 - The pathological subtest of `TestParse` passes, including `- `×n `a` and
   deep lists with blank lines. `task long` passes.
 - `Equal` passes the stage 2 pairs, and `FuzzEqual` finds no false acceptance.
@@ -198,8 +199,10 @@ Gates:
 
 Gates:
 
-- CommonMark 0.31.2, cmark and commonmark.js regression corpora at 100%: every
-  example passes, or is in `grammar-differs.txt` and its named case passes.
+- CommonMark 0.31.2, cmark-gfm and commonmark.js regression corpora at 100%:
+  every example passes, or is in `grammar-differs.txt` and its named case
+  passes. cmark-gfm regression examples tagged with GFM extensions count at
+  stage 4.
 - Pathological inline inputs pass the pathological subtest and `task long`.
 - `benchstat` output recorded here: parse throughput within 2 times goldmark's,
   with pass 1 included.
@@ -213,6 +216,9 @@ The scope is what GitHub renders, because most users expect it.
 - [ ] Footnote definitions and references (design 6.3, 9.2).
 - [ ] GitHub fixtures for footnotes, tasks, tables, strikethrough and every
   `dialect.md` row, with the GitHub normalizer.
+- [ ] The test renderer applies the GFM tag filter (design 11.3).
+- [ ] `grammar-differs.txt` entries for regression examples that GFM rules
+  change (design 11.2).
 - [ ] Capture math and alert fixtures for stage 6. Math and alerts are GitHub
   HTML filters, not grammar (design 9.1, 9.3).
 - [ ] Plain text that GitHub gives meaning to needs no grammar, but escaping
@@ -224,6 +230,7 @@ Gates:
 - The GFM extension examples and cmark-gfm `extensions.txt` at 100%. Take
   only extension examples from the GFM spec: it is pinned at 0.29, and its
   copies of core examples are older than CommonMark 0.31.2.
+- The cmark-gfm regression examples tagged with GFM extensions at 100%.
 - Footnote, task, table and strikethrough fixtures at 100%.
 
 ### Stage 5: differential fuzzing
