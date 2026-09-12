@@ -22,11 +22,16 @@ var (
 
 var errMeaningChanged = errors.New("formatted output renders differently from the input")
 
-// Source returns src in the canonical style.
+// Source returns src in the canonical style, with LF line endings.
 //
 // Source returns an error, not output, if the output would render to
-// different HTML than src.
+// different HTML than src with LF line endings.
 func Source(src []byte) ([]byte, error) {
+	// CommonMark reads CRLF, CR and LF as line endings.
+	if bytes.IndexByte(src, '\r') >= 0 {
+		src = bytes.ReplaceAll(bytes.ReplaceAll(src, []byte("\r\n"), []byte("\n")), []byte("\r"), []byte("\n"))
+	}
+
 	front, body := splitFrontMatter(src)
 	// The end of the input is a line ending. goldmark renders a final HTML
 	// block differently without an explicit one.
@@ -44,7 +49,7 @@ func Source(src []byte) ([]byte, error) {
 		return formatted, nil
 	}
 	out := make([]byte, 0, len(front)+len(formatted)+2)
-	out = append(out, bytes.TrimRight(front, "\r\n")...)
+	out = append(out, bytes.TrimRight(front, "\n")...)
 	out = append(out, '\n')
 	if len(formatted) > 0 {
 		out = append(out, '\n')
@@ -78,7 +83,7 @@ var trailingSpace = regexp.MustCompile(`[ \t]+</`)
 // thematic break and a setext heading, which the printer would rewrite.
 func splitFrontMatter(src []byte) (front, body []byte) {
 	first, rest, _ := bytes.Cut(src, []byte("\n"))
-	delim := bytes.TrimRight(first, " \t\r")
+	delim := bytes.TrimRight(first, " \t")
 	if string(delim) != "---" && string(delim) != "+++" {
 		return nil, src
 	}
@@ -86,7 +91,7 @@ func splitFrontMatter(src []byte) (front, body []byte) {
 	for len(rest) > 0 {
 		line, next, _ := bytes.Cut(rest, []byte("\n"))
 		end = min(end+len(line)+1, len(src))
-		if bytes.Equal(bytes.TrimRight(line, " \t\r"), delim) {
+		if bytes.Equal(bytes.TrimRight(line, " \t"), delim) {
 			return src[:end], src[end:]
 		}
 		rest = next
@@ -171,17 +176,10 @@ func printParagraph(out *bytes.Buffer, src []byte, p *ast.Paragraph) {
 	var text []byte
 	for _, seg := range p.Source() {
 		line := seg.Bytes(src)
-		stop := seg.Stop
-		// goldmark leaves a final \r out of the segment, but it is content:
-		// without it, "*\r" becomes a list item.
-		if !bytes.HasSuffix(line, []byte("\n")) && stop < len(src) && src[stop] == '\r' {
-			stop++
-			line = append(slices.Clip(line), '\r')
-		}
 		// ponytail: indentation stays on a line that could start a block
 		// without it. Replace with escapes when the inline printer lands.
 		if len(line) > 0 && strings.IndexByte("#>-+*=_`~<|:0123456789", line[0]) >= 0 {
-			line = src[lineStart(src, seg.Start):stop]
+			line = src[lineStart(src, seg.Start):seg.Stop]
 		}
 		text = append(text, line...)
 	}
@@ -250,7 +248,7 @@ func trimBlankLines(b []byte) []byte {
 		i := bytes.LastIndexByte(b, '\n')
 		// A blank line holds only spaces and tabs. Other Unicode space, such
 		// as \f, is content.
-		if len(bytes.Trim(b[i+1:], " \t\r")) > 0 {
+		if len(bytes.Trim(b[i+1:], " \t")) > 0 {
 			break
 		}
 		b = b[:max(i, 0)]
