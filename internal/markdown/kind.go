@@ -26,6 +26,7 @@ const (
 	Whitespace
 	CodeIndent
 	FenceMarker
+	SetextUnderline
 )
 
 type class uint8
@@ -46,7 +47,7 @@ func (k Kind) class() class {
 		return classStructure
 	case Text, CodeText, VerbatimLineEnding, InfoString:
 		return classContent
-	case BOM, LineEnding, BlankLine, Indent, ThematicRun, ATXMarker, ATXClose, Whitespace, CodeIndent, FenceMarker:
+	case BOM, LineEnding, BlankLine, Indent, ThematicRun, ATXMarker, ATXClose, Whitespace, CodeIndent, FenceMarker, SetextUnderline:
 		return classSyntax
 	}
 	return classInvalid
@@ -93,6 +94,8 @@ func (k Kind) String() string {
 		return "InfoString"
 	case FenceMarker:
 		return "FenceMarker"
+	case SetextUnderline:
+		return "SetextUnderline"
 	}
 	return "Kind(" + strconv.Itoa(int(k)) + ")"
 }

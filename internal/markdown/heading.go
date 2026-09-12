@@ -35,13 +35,39 @@ func parseATXHeading(src []byte, i, end uint32) (atxHeading, bool) {
 	return h, true
 }
 
+// setextUnderline returns the end of the setext heading underline at
+// src[i:end], a non-blank line after its indentation, or 0: a run of '=' or
+// '-' with only spaces and tabs after it.
+func setextUnderline(src []byte, i, end uint32) uint32 {
+	c := src[i]
+	if c != '=' && c != '-' {
+		return 0
+	}
+	j := i
+	for j < end && src[j] == c {
+		j++
+	}
+	if trimSpaceRight(src, j, end) != j {
+		return 0
+	}
+	return j
+}
+
 // HeadingLevel returns the level of heading id, from 1 to 6.
 func (t *Tree) HeadingLevel(id NodeID) int {
-	for i := id + 1; ; i++ {
-		if n := t.nodes[i]; n.kind == ATXMarker {
-			return int(n.end - n.start)
-		}
+	i := t.nodes[id].link - 1
+	for t.nodes[i].kind == LineEnding || t.nodes[i].kind == Whitespace {
+		i--
 	}
+	if n := t.nodes[i]; n.kind == SetextUnderline {
+		if t.src[n.start] == '=' {
+			return 1
+		}
+		return 2
+	}
+	for i = uint32(id) + 1; t.nodes[i].kind != ATXMarker; i++ {
+	}
+	return int(t.nodes[i].end - t.nodes[i].start)
 }
 
 func isSpaceOrTab(c byte) bool {

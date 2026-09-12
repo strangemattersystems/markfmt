@@ -12,6 +12,8 @@ func TestTree_HeadingLevel(t *testing.T) {
 	}{
 		{"reads an atx heading", "### a", 3},
 		{"reads an indented atx heading", "  ###### a", 6},
+		{"reads a setext heading", "a\n= \n", 1},
+		{"reads a setext heading of level 2", "a\nb\n--", 2},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

@@ -58,6 +58,18 @@ func (p *blockParser) line(l line) {
 		p.para = append(p.para, l)
 		return
 	}
+	if len(p.para) > 0 {
+		if end := setextUnderline(p.src, first, l.end); end > 0 {
+			p.b.open(Heading)
+			p.appendPending()
+			p.b.leafIf(Indent, first)
+			p.b.leaf(SetextUnderline, end)
+			p.b.leafIf(Whitespace, l.end)
+			p.b.leafIf(LineEnding, l.eol)
+			p.b.close()
+			return
+		}
+	}
 	if isThematicBreak(p.src, first, l.end) {
 		p.closeParagraph()
 		p.b.open(ThematicBreak)
@@ -114,13 +126,18 @@ func (p *blockParser) closeParagraph() {
 		return
 	}
 	p.b.open(Paragraph)
+	p.appendPending()
+	p.b.close()
+}
+
+// appendPending appends the lines of the pending paragraph and clears them.
+func (p *blockParser) appendPending() {
 	for _, l := range p.para {
 		first, _ := p.indent(l.start, l.end, 0)
 		p.b.leafIf(Indent, first)
 		p.b.leaf(Text, l.end)
 		p.b.leafIf(LineEnding, l.eol)
 	}
-	p.b.close()
 	p.para = p.para[:0]
 }
 

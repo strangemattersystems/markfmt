@@ -91,7 +91,7 @@ func renderHTML(tree *Tree) string {
 		//exhaustive:enforce
 		switch n.kind {
 		case Document, BOM, BlankLine, Indent, ThematicRun, ATXMarker, ATXClose, Whitespace,
-			CodeIndent, CodeText, VerbatimLineEnding, FenceMarker, InfoString:
+			CodeIndent, CodeText, VerbatimLineEnding, FenceMarker, InfoString, SetextUnderline:
 		case CodeBlock:
 			if e.Exit {
 				break
