@@ -964,10 +964,12 @@ adds its set of `Dialect(row)` values to its Enter event. `Equal` requires:
   differ: front matter at stage 2, GFM at stage 4. "100%" gates mean "every
   example passes, or is listed here and its named case passes".
 - Stage 2 gate: an example "needs inlines" when its expected HTML, outside
-  `<pre>`, contains an inline element or a character reference other than
-  `&quot;`, `&amp;`, `&lt;` and `&gt;`, or its Markdown contains `\` or `&`.
-  Every block-section example that does not need inlines passes: about 246 of
-  296. Link reference definitions get unit tests on the tree. The
+  every `<pre>` element, contains an inline element (`em`, `strong`, `a`,
+  `img`, `code` or `br`) or a character reference other than `&quot;`,
+  `&amp;`, `&lt;` and `&gt;`, or its Markdown contains `\` or `&`. The block
+  sections are Tabs, Precedence, and the sections of Leaf blocks and Container
+  blocks. Every block-section example that does not need inlines passes: 252
+  of 296. Link reference definitions get unit tests on the tree. The
   classification is deleted in the commit that passes the stage 3 gate.
 - `internal/format/testdata/spec` (goldmark's `spec.json`) stays until stage 6
   deletes the goldmark-based formatter.
@@ -1137,7 +1139,7 @@ Apply these in the commit that marks stage 0 done.
   limit" with "the pathological and long subtests of `TestParse`, and `task
   long`" (11.1).
 - Stage 2 gate: every block-section example that does not need inlines passes
-  (about 246 of 296); pathological block inputs, including `- `×n `a` and deep
+  (252 of 296); pathological block inputs, including `- `×n `a` and deep
   lists with blank lines; the long test; `Equal` for block kinds with the stage
   2 pairs and `FuzzEqual`.
 - Stage 3: pass 1 with reference links; the pass label check; the `benchstat`

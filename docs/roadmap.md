@@ -174,8 +174,8 @@ Gate: `task ci` passes with every example on the expected-failure list.
 Gates:
 
 - The lossless fuzz test holds.
-- Every block-section example that does not need inlines passes (about 246 of
-  296, by the mechanical classification in design 11.2).
+- Every block-section example that does not need inlines passes (252 of 296,
+  by the mechanical classification in design 11.2).
 - The pathological subtest of `TestParse` passes, including `- `×n `a` and
   deep lists with blank lines. `task long` passes.
 - `Equal` passes the stage 2 pairs, and `FuzzEqual` finds no false acceptance.

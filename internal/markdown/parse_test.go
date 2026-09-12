@@ -139,6 +139,85 @@ func readFailing(t *testing.T, path string, examples []example) map[int]bool {
 	return failing
 }
 
+func TestNeedsInlines(t *testing.T) {
+	t.Parallel()
+
+	t.Run("leaves 252 of 296 block-section commonmark examples to stage 2", func(t *testing.T) {
+		t.Parallel()
+
+		var block, blockOnly int
+		for _, ex := range readExamples(t, "testdata/commonmark/spec.txt") {
+			if slices.Contains(blockSections, ex.section) {
+				block++
+				if !needsInlines(ex) {
+					blockOnly++
+				}
+			}
+		}
+		if block != 296 || blockOnly != 252 {
+			t.Fatalf("%d of %d block-section examples do not need inlines, want 252 of 296", blockOnly, block)
+		}
+	})
+}
+
+// blockSections are the CommonMark spec sections about block structure.
+var blockSections = []string{
+	"Tabs", "Precedence", "Thematic breaks", "ATX headings", "Setext headings",
+	"Indented code blocks", "Fenced code blocks", "HTML blocks",
+	"Link reference definitions", "Paragraphs", "Blank lines", "Block quotes",
+	"List items", "Lists",
+}
+
+// needsInlines reports whether a CommonMark example needs the inline phase to
+// pass (design 11.2): its expected HTML, outside every <pre> element, has an
+// inline element or a character reference other than &quot;, &amp;, &lt; and
+// &gt;, or its Markdown has "\" or "&". Stage 2 passes every block-section
+// example that does not. Delete it in the commit that passes the stage 3 gate.
+func needsInlines(ex example) bool {
+	if strings.ContainsAny(ex.markdown, `\&`) {
+		return true
+	}
+	for html := ex.html; ; {
+		outside, rest, found := strings.Cut(html, "<pre")
+		if hasInlineHTML(outside) {
+			return true
+		}
+		if !found {
+			return false
+		}
+		if _, html, found = strings.Cut(rest, "</pre>"); !found {
+			return false
+		}
+	}
+}
+
+// hasInlineHTML reports whether html has an element that the inline phase
+// writes, or a character reference other than &quot;, &amp;, &lt; and &gt;.
+func hasInlineHTML(html string) bool {
+	for _, tag := range []string{"<em", "<strong", "<a", "<img", "<code", "<br"} {
+		for rest, found := html, true; found; {
+			_, rest, found = strings.Cut(rest, tag)
+			if found && rest != "" && strings.IndexByte(" \t\n\r\f\v/>", rest[0]) >= 0 {
+				return true
+			}
+		}
+	}
+	for rest, found := html, true; found; {
+		_, rest, found = strings.Cut(rest, "&")
+		name, _, semicolon := strings.Cut(rest, ";")
+		if !found || !semicolon || slices.Contains([]string{"quot", "amp", "lt", "gt"}, name) {
+			continue
+		}
+		digits := strings.TrimPrefix(name, "#")
+		if digits != "" && strings.TrimFunc(digits, func(r rune) bool {
+			return 'a' <= r|0x20 && r|0x20 <= 'z' || '0' <= r && r <= '9'
+		}) == "" {
+			return true
+		}
+	}
+	return false
+}
+
 func FuzzParse(f *testing.F) {
 	for _, src := range []string{"", "a", "a\nb\r\nc\rd\r\r\n"} {
 		f.Add([]byte(src))
