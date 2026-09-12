@@ -1,0 +1,50 @@
+# https://taskfile.dev
+version: "3"
+
+vars:
+  BINARY: markfmt
+  # golangci-lint lives in tools/go.mod so its dependencies stay out of go.mod.
+  GOLANGCI_LINT: go tool -modfile=tools/go.mod golangci-lint
+
+tasks:
+  default:
+    desc: List available tasks
+    cmds:
+      - task --list
+    silent: true
+
+  build:
+    desc: Build the markfmt binary
+    cmds:
+      - go build -o {{.BINARY}} ./cmd/markfmt
+
+  exec:
+    desc: Build and run the markfmt binary (e.g. task exec -- -check README.md)
+    cmds:
+      - task: build
+      - ./{{.BINARY}} {{.CLI_ARGS}}
+
+  test:
+    desc: Run the test suite with the race detector and coverage
+    cmds:
+      - go test -race -cover ./...
+
+  lint:
+    desc: Run golangci-lint
+    cmds:
+      - "{{.GOLANGCI_LINT}} run ./..."
+
+  fmt:
+    desc: Format the code
+    cmds:
+      - "{{.GOLANGCI_LINT}} fmt ./..."
+
+  ci:
+    desc: Run the full CI suite
+    cmds:
+      - task: build
+      - cmd: |
+          rc=0
+          task test || rc=1
+          task lint || rc=1
+          exit $rc

@@ -1,0 +1,3 @@
+# Fixture bytes are exact. Stop the line-ending conversion that Windows
+# checkouts do by default.
+**/testdata/** -text

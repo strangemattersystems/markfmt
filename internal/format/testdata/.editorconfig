@@ -1,0 +1,5 @@
+# Fixture bytes are exact. Trailing spaces are hard line breaks, and some
+# files have no final newline.
+[*]
+trim_trailing_whitespace = false
+insert_final_newline = false

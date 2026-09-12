@@ -1,0 +1,5 @@
+# build artifacts
+/markfmt
+
+# macOS
+.DS_Store
