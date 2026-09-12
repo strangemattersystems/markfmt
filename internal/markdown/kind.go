@@ -11,7 +11,10 @@ const (
 	Paragraph
 	ThematicBreak
 	Heading
+	CodeBlock
 	Text
+	CodeText
+	VerbatimLineEnding
 	BOM
 	LineEnding
 	BlankLine
@@ -20,6 +23,7 @@ const (
 	ATXMarker
 	ATXClose
 	Whitespace
+	CodeIndent
 )
 
 type class uint8
@@ -36,11 +40,11 @@ const (
 func (k Kind) class() class {
 	//exhaustive:enforce
 	switch k {
-	case Document, Paragraph, ThematicBreak, Heading:
+	case Document, Paragraph, ThematicBreak, Heading, CodeBlock:
 		return classStructure
-	case Text:
+	case Text, CodeText, VerbatimLineEnding:
 		return classContent
-	case BOM, LineEnding, BlankLine, Indent, ThematicRun, ATXMarker, ATXClose, Whitespace:
+	case BOM, LineEnding, BlankLine, Indent, ThematicRun, ATXMarker, ATXClose, Whitespace, CodeIndent:
 		return classSyntax
 	}
 	return classInvalid
@@ -75,6 +79,14 @@ func (k Kind) String() string {
 		return "ATXClose"
 	case Whitespace:
 		return "Whitespace"
+	case CodeBlock:
+		return "CodeBlock"
+	case CodeText:
+		return "CodeText"
+	case VerbatimLineEnding:
+		return "VerbatimLineEnding"
+	case CodeIndent:
+		return "CodeIndent"
 	}
 	return "Kind(" + strconv.Itoa(int(k)) + ")"
 }

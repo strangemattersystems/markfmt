@@ -34,7 +34,12 @@ func TestParse(t *testing.T) {
 		{"gives an empty atx heading", "#\n### ###", `Document{Heading{ATXMarker "#", LineEnding "\n"}, Heading{ATXMarker "###", Whitespace " ", ATXClose "###"}}`},
 		{"interrupts a paragraph with an atx heading", "a\n# b", `Document{Paragraph{Text "a", LineEnding "\n"}, Heading{ATXMarker "#", Whitespace " ", Text "b"}}`},
 		{"needs one to six markers and a space", "####### a\n#a", `Document{Paragraph{Text "####### a", LineEnding "\n", Text "#a"}}`},
-		{"needs a thematic break indented less than four columns", "  \t___", `Document{Paragraph{Indent "  \t", Text "___"}}`},
+		{"gives indented code", "    a\n\t b\n", `Document{CodeBlock{CodeIndent "    ", CodeText "a", VerbatimLineEnding "\n", CodeIndent "\t", CodeText " b", VerbatimLineEnding "\n"}}`},
+		{"keeps blank lines inside indented code", "    a\n  \n      \r\n    b", `Document{CodeBlock{CodeIndent "    ", CodeText "a", VerbatimLineEnding "\n", CodeIndent "  ", VerbatimLineEnding "\n", CodeIndent "    ", CodeText "  ", VerbatimLineEnding "\r\n", CodeIndent "    ", CodeText "b"}}`},
+		{"ends indented code before trailing blank lines", "    a\n\n      \nb", `Document{CodeBlock{CodeIndent "    ", CodeText "a", VerbatimLineEnding "\n"}, BlankLine "\n", BlankLine "      \n", Paragraph{Text "b"}}`},
+		{"ends indented code before blank lines at the end of the input", "    a\n  ", `Document{CodeBlock{CodeIndent "    ", CodeText "a", VerbatimLineEnding "\n"}, BlankLine "  "}`},
+		{"does not interrupt a paragraph with indented code", "a\n    b", `Document{Paragraph{Text "a", LineEnding "\n", Indent "    ", Text "b"}}`},
+		{"needs a thematic break indented less than four columns", "a\n  \t___", `Document{Paragraph{Text "a", LineEnding "\n", Indent "  \t", Text "___"}}`},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

@@ -12,7 +12,7 @@ func Parse(src []byte) *Tree {
 	for l, ok := it.next(); ok; l, ok = it.next() {
 		p.line(l)
 	}
-	p.closeParagraph()
+	p.closeBlocks()
 	p.b.close()
 	return p.b.finish()
 }

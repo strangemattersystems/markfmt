@@ -23,6 +23,7 @@ func TestRenderHTML(t *testing.T) {
 		{"escapes text", `a<&>"'b`, "<p>a&lt;&amp;&gt;&quot;'b</p>\n"},
 		{"writes thematic breaks", "***\n", "<hr />\n"},
 		{"writes headings", "## a\n", "<h2>a</h2>\n"},
+		{"writes indented code", "    <a>\n\n     b", "<pre><code>&lt;a&gt;\n\n b\n</code></pre>\n"},
 		{"writes paragraphs", "\xEF\xBB\xBFa\r\n b\n \nc", "<p>a\nb</p>\n<p>c</p>\n"},
 	}
 	for _, tt := range tests {
@@ -88,7 +89,12 @@ func renderHTML(tree *Tree) string {
 		n := tree.nodes[e.ID]
 		//exhaustive:enforce
 		switch n.kind {
-		case Document, BOM, BlankLine, Indent, ThematicRun, ATXMarker, ATXClose, Whitespace:
+		case Document, BOM, BlankLine, Indent, ThematicRun, ATXMarker, ATXClose, Whitespace,
+			CodeIndent, CodeText, VerbatimLineEnding:
+		case CodeBlock:
+			if !e.Exit {
+				b.WriteString("<pre><code>" + htmlEscaper.Replace(string(tree.AppendCode(nil, e.ID))) + "</code></pre>\n")
+			}
 		case Paragraph:
 			b.WriteString(tag("p", e.Exit))
 			textEnd = n.end
