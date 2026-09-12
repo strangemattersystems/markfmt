@@ -39,7 +39,7 @@ section numbers are cited below as "design 5.4".
 
 ## Current state
 
-Last updated: 2026-09-12. Nothing after `ff7de5b` is pushed.
+Last updated: 2026-09-13. Nothing after `ff7de5b` is pushed.
 
 | Commit | Content |
 | --- | --- |
@@ -51,6 +51,7 @@ Last updated: 2026-09-12. Nothing after `ff7de5b` is pushed.
 | `1f63d60`, `f32fd7e` | Parser design, after five review rounds |
 | `104566e` | `.scratch/` is gitignored |
 | `59e930f` onwards | Stage 1: tree, builder, `Verify`, line iterator, test HTML renderer, conformance runner, five corpora |
+| `1604b94` onwards | Stage 2: paragraphs, blank lines, thematic breaks, ATX and setext headings, indented and fenced code, HTML blocks |
 
 Layout:
 
@@ -61,6 +62,8 @@ Layout:
 - `internal/markdown/testdata/<corpus>`: the conformance corpora `commonmark`,
   `gfm`, `cmark-gfm-extensions`, `cmark-gfm-regression` and
   `commonmark-js-regression`, each with a README and `failing.txt`.
+- `internal/markdown/testdata/dialect.md`: the rules where GitHub and
+  CommonMark 0.31.2 differ, one row each (design 2.1).
 - `internal/format`: the goldmark-based formatter. It formats headings (ATX)
   and paragraphs, copies other blocks from source, passes front matter
   through, and compares goldmark HTML of input and output.
@@ -164,7 +167,7 @@ Passed 2026-09-12.
 
 ### Stage 2: block structure
 
-- [ ] Paragraphs, blank lines, thematic breaks, ATX and setext headings,
+- [x] Paragraphs, blank lines, thematic breaks, ATX and setext headings,
   indented and fenced code, HTML blocks (all 7 kinds), with their `dialect.md`
   rows.
 - [ ] Block quotes, lazy lines, prefix leaves and emission order; tabs and
@@ -180,7 +183,7 @@ Gates:
 
 - The lossless fuzz test holds.
 - Every block-section example that does not need inlines passes, or is in
-  `grammar-differs.txt` and its named case passes (252 of 296, by the
+  `grammar-differs.txt` and its named case passes (251 of 296, by the
   mechanical classification in design 11.2).
 - The pathological subtest of `TestParse` passes, including `- `×n `a` and
   deep lists with blank lines. `task long` passes.

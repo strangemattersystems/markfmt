@@ -968,10 +968,12 @@ adds its set of `Dialect(row)` values to its Enter event. `Equal` requires:
 - Stage 2 gate: an example "needs inlines" when its expected HTML, outside
   every `<pre>` element, contains an inline element (`em`, `strong`, `a`,
   `img`, `code` or `br`) or a character reference other than `&quot;`,
-  `&amp;`, `&lt;` and `&gt;`, or its Markdown contains `\` or `&`. The block
-  sections are Tabs, Precedence, and the sections of Leaf blocks and Container
-  blocks. Every block-section example that does not need inlines passes, or
-  is in `grammar-differs.txt` and its named case passes: 252 of 296. CM 96
+  `&amp;`, `&lt;` and `&gt;`, or its Markdown contains `\` or `&`. CM 148
+  also needs inlines: its expected HTML has `<em>` inside the raw `<pre>` of
+  an HTML block. The block sections are Tabs, Precedence, and the sections of
+  Leaf blocks and Container blocks. Every block-section example that does not
+  need inlines passes, or is in `grammar-differs.txt` and its named case
+  passes: 251 of 296. CM 96
   and 98 are front matter (section 8.1). Link reference definitions get unit tests on the tree. The
   classification is deleted in the commit that passes the stage 3 gate.
 - `internal/format/testdata/spec` (goldmark's `spec.json`) stays until stage 6
@@ -1104,8 +1106,9 @@ Stage 2, blocks:
 7. Paragraphs and blank lines: the block loop with only the document.
 8. Thematic breaks. 9. ATX headings. 10. Indented code. 11. Fenced code.
 12. Setext headings.
-13. HTML blocks, with the block rows of `dialect.md` (tag lists, kind 4 start,
-    the block part of the comment rule).
+13. HTML blocks, with the block rows of `dialect.md` (tag lists, kind 4
+    start). The comment row has no block part: kind 2 starts and ends the same
+    way in both grammars.
 14. Block quotes: continuation, starts, lazy lines, prefix leaves, emission
     order, and the kind 7 lazy line row. This is the largest commit.
 15. Tabs and `virt`.
@@ -1118,8 +1121,8 @@ Stage 2, blocks:
     mutations only.
 20. The pathological block inputs, the long test and `task long`.
 
-Stage 3 adds inlines kind by kind (with the inline part of the comment row
-and the flanking row), pass 1 with reference links, and extends `Equal`, the
+Stage 3 adds inlines kind by kind (with the comment row and the flanking
+row), pass 1 with reference links, and extends `Equal`, the
 pairs and the `FuzzEqual` mutations with each construct. Stage 4 adds GFM,
 footnotes, their `dialect.md` rows and the GitHub fixtures.
 
@@ -1145,7 +1148,7 @@ Apply these in the commit that marks stage 0 done.
   limit" with "the pathological and long subtests of `TestParse`, and `task
   long`" (11.1).
 - Stage 2 gate: every block-section example that does not need inlines passes
-  (252 of 296); pathological block inputs, including `- `×n `a` and deep
+  (251 of 296); pathological block inputs, including `- `×n `a` and deep
   lists with blank lines; the long test; `Equal` for block kinds with the stage
   2 pairs and `FuzzEqual`.
 - Stage 3: pass 1 with reference links; the pass label check; the `benchstat`
