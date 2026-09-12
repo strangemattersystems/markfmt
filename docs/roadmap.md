@@ -7,9 +7,10 @@ the plan with its gates. Update it in the same commit as the work it tracks.
 ## Product rules
 
 1. markfmt reads Markdown and writes Markdown. It has no other output format.
-2. markfmt has one canonical style. The style is not configurable.
-3. Configuration may only describe the language or which files to format.
-   There is no configuration yet.
+2. markfmt has one canonical style with minimal optional configuration. The
+   defaults must suit at least 95% of users, who never set an option.
+3. Add an option only for a real need that the default cannot meet. Record
+   the reason for each option in Decisions. There are no options yet.
 4. markfmt canonicalizes syntax and preserves content: prose line breaks,
    code, raw HTML, front matter and link destinations.
 5. Formatting is idempotent: `format(format(x)) == format(x)`.
