@@ -151,7 +151,8 @@ it on every tree.
    `end` is its last descendant leaf's `end`. An interior node with no leaves
    has `start == end`, equal to the `start` of the next leaf, or `len(src)`.
 4. An interior node's `link` is greater than its own index and not greater
-   than its parent's `link`.
+   than its parent's `link`. `nodes[0]` is the Document, and its `link` is
+   `len(nodes)`, so every other node is inside it.
 5. A prefix leaf's `link` is the index of an ancestor container. Every other
    leaf has `link == 0`.
 6. Each kind is a leaf kind or an interior kind, and has one comparison class

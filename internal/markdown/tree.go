@@ -28,7 +28,7 @@ type Tree struct {
 func (t *Tree) Verify() error {
 	nodes := t.nodes
 	if len(nodes) == 0 || nodes[0].kind != Document {
-		return errors.New("markdown: node 0 is not a document")
+		return errors.New("markdown: invariant 4: node 0 is not a document")
 	}
 	if uint64(len(nodes)) > 3*uint64(len(t.src))+3 {
 		return fmt.Errorf("markdown: invariant 8: %d nodes for %d bytes", len(nodes), len(t.src))

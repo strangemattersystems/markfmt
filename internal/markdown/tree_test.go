@@ -22,19 +22,6 @@ func TestTree_Verify(t *testing.T) {
 		}
 	})
 
-	t.Run("rejects a tree whose first node is not a document", func(t *testing.T) {
-		t.Parallel()
-
-		for _, tree := range []*Tree{
-			{src: []byte("a"), nodes: []Node{{kind: Text, start: 0, end: 1}}},
-			{},
-		} {
-			if err := tree.Verify(); err == nil {
-				t.Errorf("Verify() of %+v = nil, want an error", tree.nodes)
-			}
-		}
-	})
-
 	type badTree struct {
 		name string
 		tree Tree
@@ -102,6 +89,10 @@ func TestTree_Verify(t *testing.T) {
 			}}},
 		}},
 		{"invariant 4", []badTree{
+			{"rejects a first node that is not a document", Tree{src: []byte("a"), nodes: []Node{
+				{kind: Text, start: 0, end: 1},
+			}}},
+			{"rejects a tree with no nodes", Tree{}},
 			{"rejects a link not after its own index", Tree{src: []byte("a"), nodes: []Node{
 				{kind: Document, start: 0, end: 1, link: 3},
 				{kind: Document, start: 0, end: 1, link: 1},
