@@ -29,6 +29,11 @@ tasks:
     cmds:
       - go test -race -cover ./...
 
+  fuzz:
+    desc: Fuzz the formatter (e.g. task fuzz -- -fuzztime=5m)
+    cmds:
+      - go test -run='^$' -fuzz=FuzzSource -fuzztime=30s {{.CLI_ARGS}} ./internal/format
+
   lint:
     desc: Run golangci-lint
     cmds:
