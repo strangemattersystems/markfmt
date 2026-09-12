@@ -16,31 +16,27 @@ func TestParse(t *testing.T) {
 	tests := []struct {
 		name string
 		src  string
-		want []Node
+		want string
 	}{
-		{"gives an empty document for empty input", "", []Node{
-			{kind: Document, link: 1},
-		}},
-		{"gives line ending leaves", "a\r\n\nb", []Node{
-			{kind: Document, start: 0, end: 5, link: 5},
-			{kind: Text, start: 0, end: 1},
-			{kind: LineEnding, start: 1, end: 3},
-			{kind: LineEnding, start: 3, end: 4},
-			{kind: Text, start: 4, end: 5},
-		}},
-		{"gives a bom leaf", "\xEF\xBB\xBFa\n", []Node{
-			{kind: Document, start: 0, end: 5, link: 4},
-			{kind: BOM, start: 0, end: 3},
-			{kind: Text, start: 3, end: 4},
-			{kind: LineEnding, start: 4, end: 5},
-		}},
+		{"gives an empty document for empty input", "", `Document{}`},
+		{"gives a bom leaf", "\xEF\xBB\xBFa\n", `Document{BOM "\ufeff", Paragraph{Text "a", LineEnding "\n"}}`},
+		{"joins lines into a paragraph", "a\r\n  b\rc", `Document{Paragraph{Text "a", LineEnding "\r\n", Indent "  ", Text "b", LineEnding "\r", Text "c"}}`},
+		{"keeps trailing spaces in text", "a  \n", `Document{Paragraph{Text "a  ", LineEnding "\n"}}`},
+		{"gives the indentation of a first line", "   a", `Document{Paragraph{Indent "   ", Text "a"}}`},
+		{"ends a paragraph at a blank line", "a\n\nb", `Document{Paragraph{Text "a", LineEnding "\n"}, BlankLine "\n", Paragraph{Text "b"}}`},
+		{"gives one leaf per blank line", "\n \t\r\n", `Document{BlankLine "\n", BlankLine " \t\r\n"}`},
+		{"gives a blank line at the end of the input", "a\n  ", `Document{Paragraph{Text "a", LineEnding "\n"}, BlankLine "  "}`},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			if got := Parse([]byte(tt.src)).nodes; !slices.Equal(got, tt.want) {
-				t.Fatalf("Parse(%q) nodes = %+v\nwant %+v", tt.src, got, tt.want)
+			tree := Parse([]byte(tt.src))
+			if err := tree.Verify(); err != nil {
+				t.Fatalf("Parse(%q).Verify() = %v", tt.src, err)
+			}
+			if got := dump(tree); got != tt.want {
+				t.Fatalf("Parse(%q)\n got %s\nwant %s", tt.src, got, tt.want)
 			}
 		})
 	}
@@ -245,4 +241,27 @@ func FuzzParse(f *testing.F) {
 			t.Fatalf("leaves of Parse(%q) = %q", src, leaves)
 		}
 	})
+}
+
+// dump returns tree as nested kinds with the bytes of each leaf, as in
+// Document{Paragraph{Text "a", LineEnding "\n"}, BlankLine "\n"}.
+func dump(tree *Tree) string {
+	var b strings.Builder
+	sep := ""
+	c := tree.Walk()
+	for e, ok := c.Next(); ok; e, ok = c.Next() {
+		k := tree.Kind(e.ID)
+		switch {
+		case e.Exit:
+			b.WriteString("}")
+			sep = ", "
+		case k.class() == classStructure:
+			b.WriteString(sep + k.String() + "{")
+			sep = ""
+		default:
+			b.WriteString(sep + k.String() + " " + strconv.Quote(string(tree.Raw(e.ID))))
+			sep = ", "
+		}
+	}
+	return b.String()
 }

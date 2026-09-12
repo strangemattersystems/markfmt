@@ -56,6 +56,14 @@ func (b *builder) leaf(k Kind, end uint32) {
 	b.pos = end
 }
 
+// leafIf is [builder.leaf], but appends nothing when end is the end of the
+// last leaf.
+func (b *builder) leafIf(k Kind, end uint32) {
+	if end != b.pos {
+		b.leaf(k, end)
+	}
+}
+
 // close closes the innermost open node at the end of the last leaf.
 func (b *builder) close() {
 	if len(b.stack) == 0 {

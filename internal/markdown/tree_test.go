@@ -1,9 +1,35 @@
 package markdown
 
 import (
+	"slices"
 	"strings"
 	"testing"
 )
+
+func TestTree_Walk(t *testing.T) {
+	t.Parallel()
+
+	t.Run("enters and exits nodes in preorder", func(t *testing.T) {
+		t.Parallel()
+
+		tree := &Tree{src: []byte("ab"), nodes: []Node{
+			{kind: Document, start: 0, end: 2, link: 5},
+			{kind: Paragraph, start: 0, end: 1, link: 3},
+			{kind: Text, start: 0, end: 1},
+			{kind: Paragraph, start: 1, end: 1, link: 4},
+			{kind: Text, start: 1, end: 2},
+		}}
+		want := []Event{{0, false}, {1, false}, {2, false}, {1, true}, {3, false}, {3, true}, {4, false}, {0, true}}
+		var got []Event
+		c := tree.Walk()
+		for e, ok := c.Next(); ok; e, ok = c.Next() {
+			got = append(got, e)
+		}
+		if !slices.Equal(got, want) {
+			t.Fatalf("events = %v, want %v", got, want)
+		}
+	})
+}
 
 func TestTree_Verify(t *testing.T) {
 	t.Parallel()

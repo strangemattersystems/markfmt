@@ -3,20 +3,16 @@ package markdown
 
 // Parse parses src into a [Tree].
 func Parse(src []byte) *Tree {
-	b := newBuilder(src)
-	b.open(Document)
+	p := blockParser{b: newBuilder(src), src: src}
+	p.b.open(Document)
 	it := newLines(src)
 	if it.pos > 0 {
-		b.leaf(BOM, it.pos)
+		p.b.leaf(BOM, it.pos)
 	}
 	for l, ok := it.next(); ok; l, ok = it.next() {
-		if l.end > l.start {
-			b.leaf(Text, l.end)
-		}
-		if l.eol > l.end {
-			b.leaf(LineEnding, l.eol)
-		}
+		p.line(l)
 	}
-	b.close()
-	return b.finish()
+	p.closeParagraph()
+	p.b.close()
+	return p.b.finish()
 }

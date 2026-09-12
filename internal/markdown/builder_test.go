@@ -55,6 +55,28 @@ func TestBuilder_Leaf(t *testing.T) {
 	})
 }
 
+func TestBuilder_LeafIf(t *testing.T) {
+	t.Parallel()
+
+	t.Run("appends nothing for an empty leaf", func(t *testing.T) {
+		t.Parallel()
+
+		b := newBuilder([]byte("a"))
+		b.open(Document)
+		b.leafIf(Text, 0)
+		b.leafIf(Text, 1)
+		b.leafIf(Text, 1)
+		b.close()
+		want := []Node{
+			{kind: Document, start: 0, end: 1, link: 2},
+			{kind: Text, start: 0, end: 1},
+		}
+		if got := b.finish().nodes; !slices.Equal(got, want) {
+			t.Fatalf("nodes = %+v, want %+v", got, want)
+		}
+	})
+}
+
 func TestBuilder_Close(t *testing.T) {
 	t.Parallel()
 

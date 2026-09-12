@@ -20,8 +20,8 @@ func TestRenderHTML(t *testing.T) {
 		src  string
 		want string
 	}{
-		{"escapes text", `a<&>"'b`, "a&lt;&amp;&gt;&quot;'b"},
-		{"writes nothing for a bom and line endings", "\xEF\xBB\xBFa\r\nb\n", "ab"},
+		{"escapes text", `a<&>"'b`, "<p>a&lt;&amp;&gt;&quot;'b</p>\n"},
+		{"writes paragraphs", "\xEF\xBB\xBFa\r\n b\n \nc", "<p>a\nb\n</p>\n<p>c</p>\n"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -80,15 +80,28 @@ var htmlEscaper = strings.NewReplacer("&", "&amp;", "<", "&lt;", ">", "&gt;", `"
 // renderHTML renders tree as HTML, as cmark does, for conformance tests.
 func renderHTML(tree *Tree) string {
 	var b strings.Builder
-	for _, n := range tree.nodes {
+	c := tree.Walk()
+	for e, ok := c.Next(); ok; e, ok = c.Next() {
 		//exhaustive:enforce
-		switch n.kind {
-		case Document, BOM, LineEnding:
+		switch tree.Kind(e.ID) {
+		case Document, BOM, BlankLine, Indent:
+		case Paragraph:
+			b.WriteString(tag("p", e.Exit))
 		case Text:
-			b.WriteString(htmlEscaper.Replace(string(tree.src[n.start:n.end])))
+			b.WriteString(htmlEscaper.Replace(string(tree.Raw(e.ID))))
+		case LineEnding:
+			b.WriteByte('\n')
 		}
 	}
 	return b.String()
+}
+
+// tag returns the start tag of an element, or its end tag and a line ending.
+func tag(name string, end bool) string {
+	if end {
+		return "</" + name + ">\n"
+	}
+	return "<" + name + ">"
 }
 
 // normalizeHTML returns s in the normal form of cmark's test/normalize.py, so

@@ -23,6 +23,59 @@ type Tree struct {
 	nodes []Node // nodes[0] is the document
 }
 
+// NodeID is the index of a node in a [Tree].
+type NodeID uint32
+
+// Kind returns the kind of node id.
+func (t *Tree) Kind(id NodeID) Kind {
+	return t.nodes[id].kind
+}
+
+// Raw returns the source bytes of node id.
+func (t *Tree) Raw(id NodeID) []byte {
+	n := t.nodes[id]
+	return t.src[n.start:n.end]
+}
+
+// Event is the enter or the exit of a node in a walk. A leaf has only an
+// enter event.
+type Event struct {
+	ID   NodeID
+	Exit bool
+}
+
+// Cursor walks a [Tree] in preorder. Its stack is explicit, so a deep tree
+// cannot overflow the Go stack.
+type Cursor struct {
+	nodes []Node
+	next  uint32
+	stack []uint32 // entered interior nodes, innermost last
+}
+
+// Walk returns a cursor at the start of t.
+func (t *Tree) Walk() Cursor {
+	return Cursor{nodes: t.nodes}
+}
+
+// Next returns the next event, or false after the exit of the document.
+func (c *Cursor) Next() (Event, bool) {
+	if n := len(c.stack); n > 0 {
+		if top := c.stack[n-1]; c.nodes[top].link == c.next {
+			c.stack = c.stack[:n-1]
+			return Event{ID: NodeID(top), Exit: true}, true
+		}
+	}
+	if int(c.next) == len(c.nodes) {
+		return Event{}, false
+	}
+	id := c.next
+	c.next++
+	if c.nodes[id].kind.class() == classStructure {
+		c.stack = append(c.stack, id)
+	}
+	return Event{ID: NodeID(id)}, true
+}
+
 // Verify reports the first broken invariant of t, or nil. Section 3.2 of
 // docs/design/parser.md numbers the invariants.
 func (t *Tree) Verify() error {
