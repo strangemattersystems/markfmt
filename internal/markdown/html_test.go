@@ -27,6 +27,8 @@ func TestRenderHTML(t *testing.T) {
 		{"writes fenced code", "```a b\n<\n```", "<pre><code class=\"language-a\">&lt;\n</code></pre>\n"},
 		{"writes html blocks", "<div>\n  <a>\n", "<div>\n  <a>\n"},
 		{"writes block quotes", "> a\n", "<blockquote>\n<p>a</p>\n</blockquote>\n"},
+		{"writes tight lists", "- a\n- b\n", "<ul>\n<li>a</li>\n<li>b</li>\n</ul>\n"},
+		{"writes loose ordered lists", "3. a\n\n4. b", "<ol start=\"3\">\n<li><p>a</p>\n</li>\n<li><p>b</p>\n</li>\n</ol>\n"},
 		{"writes paragraphs", "\xEF\xBB\xBFa\r\n b\n \nc", "<p>a\nb</p>\n<p>c</p>\n"},
 	}
 	for _, tt := range tests {
@@ -87,13 +89,17 @@ var htmlEscaper = strings.NewReplacer("&", "&amp;", "<", "&lt;", ">", "&gt;", `"
 func renderHTML(tree *Tree) string {
 	var b strings.Builder
 	var textEnd uint32 // end of the last block whose inner line endings are text
+	var open []NodeID  // entered interior nodes, innermost last
 	c := tree.Walk()
 	for e, ok := c.Next(); ok; e, ok = c.Next() {
 		n := tree.nodes[e.ID]
+		if e.Exit {
+			open = open[:len(open)-1]
+		}
 		//exhaustive:enforce
 		switch n.kind {
 		case Document, BOM, BlankLine, Indent, ThematicRun, ATXMarker, ATXClose, Whitespace,
-			CodeIndent, CodeText, VerbatimLineEnding, FenceMarker, InfoString, SetextUnderline, HTMLText, QuoteMarker:
+			CodeIndent, CodeText, VerbatimLineEnding, FenceMarker, InfoString, SetextUnderline, HTMLText, QuoteMarker, ListMarker, ItemIndent:
 		case CodeBlock:
 			if e.Exit {
 				break
@@ -117,8 +123,26 @@ func renderHTML(tree *Tree) string {
 			if !e.Exit {
 				b.Write(tree.AppendHTML(nil, e.ID))
 			}
+		case List:
+			switch start, ordered := tree.ListStart(e.ID); {
+			case !ordered && e.Exit:
+				b.WriteString("</ul>\n")
+			case !ordered:
+				b.WriteString("<ul>\n")
+			case e.Exit:
+				b.WriteString("</ol>\n")
+			case start != 1:
+				b.WriteString(`<ol start="` + strconv.Itoa(start) + "\">\n")
+			default:
+				b.WriteString("<ol>\n")
+			}
+		case ListItem:
+			b.WriteString(tag("li", e.Exit))
 		case Paragraph:
-			b.WriteString(tag("p", e.Exit))
+			// A paragraph in an item of a tight list has no tags.
+			if len(open) < 2 || tree.Kind(open[len(open)-1]) != ListItem || tree.ListLoose(open[len(open)-2]) {
+				b.WriteString(tag("p", e.Exit))
+			}
 			textEnd = n.end
 		case Heading:
 			b.WriteString(tag("h"+strconv.Itoa(tree.HeadingLevel(e.ID)), e.Exit))
@@ -133,6 +157,9 @@ func renderHTML(tree *Tree) string {
 			if n.end < textEnd {
 				b.WriteByte('\n')
 			}
+		}
+		if !e.Exit && n.kind.class() == classStructure {
+			open = append(open, e.ID)
 		}
 	}
 	return b.String()

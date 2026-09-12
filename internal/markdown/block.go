@@ -22,8 +22,13 @@ type blockParser struct {
 }
 
 type container struct {
-	kind Kind
-	node uint32
+	kind   Kind
+	node   uint32
+	blank  bool       // the last line that the container received was blank (design 5.6)
+	child  bool       // a block started in the container
+	loose  bool       // a List is loose
+	indent int        // a ListItem continues on this many columns of indentation
+	marker listMarker // the marker of a ListItem, or of the first item of a List
 }
 
 type leafKind uint8
@@ -38,6 +43,7 @@ const (
 
 type leafBlock struct {
 	kind  leafKind
+	blank bool      // the last line that the leaf block received was blank
 	fence codeFence // the opening fence of fenced code
 	html  uint8     // the kind of an HTML block
 }
@@ -72,9 +78,17 @@ func (p *blockParser) parseLine(l line) {
 	}
 
 	first, indent := p.indentation()
-	for indent < 4 && first < l.end && p.src[first] == '>' {
-		p.startBlock(matched)
-		p.startQuote(indent)
+starts:
+	for indent < 4 && first < l.end {
+		switch m, item := p.listItemStart(first, allMatched); {
+		case p.src[first] == '>':
+			p.startBlock(matched)
+			p.startQuote(indent)
+		case item:
+			p.startItem(m, indent, matched)
+		default:
+			break starts
+		}
 		matched, allMatched = len(p.containers), true
 		first, indent = p.indentation()
 	}
@@ -88,12 +102,14 @@ func (p *blockParser) parseLine(l line) {
 		p.addPending()
 		return
 	}
-	p.closeUnmatched(matched)
-	p.appendPrefix()
 	if blank {
+		p.closeUnmatched(matched)
+		p.appendPrefix()
+		p.receiveBlank()
 		p.b.leafIf(BlankLine, l.eol)
 		return
 	}
+	p.startBlock(matched)
 	p.leaf.kind = paragraphLeaf
 	p.addPending()
 }
@@ -101,8 +117,13 @@ func (p *blockParser) parseLine(l line) {
 // continues reports whether open container c continues on the rest of the
 // line, and consumes its prefix.
 func (p *blockParser) continues(c container) bool {
-	if c.kind == BlockQuote {
+	switch c.kind {
+	case BlockQuote:
 		return p.continueQuote(c)
+	case ListItem:
+		return p.continueItem(c)
+	case List:
+		return true
 	}
 	return false
 }
@@ -130,6 +151,7 @@ func (p *blockParser) continueLeaf() bool {
 		if first == l.end && p.leaf.html >= 6 {
 			return false
 		}
+		p.leaf.blank = first == l.end
 		p.appendPrefix()
 		p.b.leafIf(HTMLText, l.end)
 		p.b.leafIf(VerbatimLineEnding, l.eol)
@@ -140,9 +162,11 @@ func (p *blockParser) continueLeaf() bool {
 	case indentedCodeLeaf:
 		switch {
 		case first == l.end:
+			p.leaf.blank = true
 			p.addPending()
 			return true
 		case indent >= 4:
+			p.leaf.blank = false
 			for _, pl := range p.pending {
 				p.appendPendingPrefix(pl)
 				p.codeLine(pl.rest, int(pl.col), int(pl.used), 4)
@@ -239,21 +263,65 @@ func (p *blockParser) startLeaf(first uint32, indent, matched int, allMatched bo
 	return false
 }
 
-// startBlock prepares the start of a block after the first matched
-// containers: it closes the other open blocks and appends the line's prefix
-// leaves.
+// startBlock prepares the start of a block that is not a list item after the
+// first matched containers. It closes the other open blocks, and a matched
+// list, because the block is not one of its items (design 5.5). It appends
+// the line's prefix leaves and records the new child.
 func (p *blockParser) startBlock(matched int) {
+	if p.containers[matched-1].kind == List {
+		matched--
+	}
 	p.closeUnmatched(matched)
 	p.appendPrefix()
+	p.addChild()
 }
 
 // closeUnmatched closes the open leaf block and every open container after
 // the first n.
 func (p *blockParser) closeUnmatched(n int) {
 	p.closeLeaf()
-	for len(p.containers) > n {
+	for i := len(p.containers) - 1; i >= n; i-- {
+		c := p.containers[i]
+		if c.loose {
+			p.b.flag(1)
+		}
 		p.b.close()
-		p.containers = p.containers[:len(p.containers)-1]
+		p.containers = p.containers[:i]
+		p.orBlank(c.blank)
+	}
+}
+
+// addChild records that a block starts in the innermost open container. A
+// list item or list whose last line was blank makes its list loose (design
+// 5.6).
+func (p *blockParser) addChild() {
+	i := len(p.containers) - 1
+	c := &p.containers[i]
+	if c.blank {
+		switch c.kind {
+		case ListItem:
+			p.containers[i-1].loose = true
+		case List:
+			c.loose = true
+		}
+		c.blank = false
+	}
+	c.child = true
+}
+
+// receiveBlank records a blank line in the innermost open container. A block
+// quote, and a list item on its own empty marker line, do not record one.
+func (p *blockParser) receiveBlank() {
+	if c := &p.containers[len(p.containers)-1]; c.kind != BlockQuote && (c.kind != ListItem || c.child) {
+		c.blank = true
+	}
+}
+
+// orBlank adds the blank line bit of a block that closed to its parent, the
+// innermost open container, when that is a list or a list item.
+func (p *blockParser) orBlank(blank bool) {
+	if c := &p.containers[len(p.containers)-1]; c.kind == List || c.kind == ListItem {
+		c.blank = c.blank || blank
 	}
 }
 
@@ -278,6 +346,7 @@ func (p *blockParser) closeLeaf() {
 	case fencedCodeLeaf, htmlLeaf:
 		p.b.close()
 	}
+	p.orBlank(p.leaf.blank)
 	p.leaf = leafBlock{}
 }
 

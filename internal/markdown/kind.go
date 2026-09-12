@@ -9,6 +9,8 @@ type Kind uint8
 const (
 	Document Kind = iota
 	BlockQuote
+	List
+	ListItem
 	Paragraph
 	ThematicBreak
 	Heading
@@ -31,6 +33,8 @@ const (
 	FenceMarker
 	SetextUnderline
 	QuoteMarker
+	ListMarker
+	ItemIndent
 )
 
 type class uint8
@@ -47,11 +51,11 @@ const (
 func (k Kind) class() class {
 	//exhaustive:enforce
 	switch k {
-	case Document, BlockQuote, Paragraph, ThematicBreak, Heading, CodeBlock, HTMLBlock:
+	case Document, BlockQuote, List, ListItem, Paragraph, ThematicBreak, Heading, CodeBlock, HTMLBlock:
 		return classStructure
 	case Text, CodeText, VerbatimLineEnding, InfoString, HTMLText:
 		return classContent
-	case BOM, LineEnding, BlankLine, Indent, ThematicRun, ATXMarker, ATXClose, Whitespace, CodeIndent, FenceMarker, SetextUnderline, QuoteMarker:
+	case BOM, LineEnding, BlankLine, Indent, ThematicRun, ATXMarker, ATXClose, Whitespace, CodeIndent, FenceMarker, SetextUnderline, QuoteMarker, ListMarker, ItemIndent:
 		return classSyntax
 	}
 	return classInvalid
@@ -60,16 +64,22 @@ func (k Kind) class() class {
 // owner returns the kind of the container that owns a prefix leaf of kind k,
 // and whether k is a prefix kind.
 func (k Kind) owner() (Kind, bool) {
-	if k == QuoteMarker {
+	switch k {
+	case QuoteMarker:
 		return BlockQuote, true
+	case ListMarker, ItemIndent:
+		return ListItem, true
 	}
 	return 0, false
 }
 
 // validFlags reports whether f is a flags value in range for kind k.
 func (k Kind) validFlags(f uint8) bool {
-	if k == HTMLBlock {
+	switch k {
+	case HTMLBlock:
 		return 1 <= f && f <= 7
+	case List:
+		return f <= 1
 	}
 	return f == 0
 }
@@ -125,6 +135,14 @@ func (k Kind) String() string {
 		return "BlockQuote"
 	case QuoteMarker:
 		return "QuoteMarker"
+	case List:
+		return "List"
+	case ListItem:
+		return "ListItem"
+	case ListMarker:
+		return "ListMarker"
+	case ItemIndent:
+		return "ItemIndent"
 	}
 	return "Kind(" + strconv.Itoa(int(k)) + ")"
 }

@@ -173,6 +173,12 @@ func TestTree_Verify(t *testing.T) {
 				{kind: Document, start: 0, end: 1, link: 2},
 				{kind: Text, flags: 1, start: 0, end: 1},
 			}}},
+			{"rejects a list flag out of range", Tree{src: []byte("-"), nodes: []Node{
+				{kind: Document, start: 0, end: 1, link: 4},
+				{kind: List, flags: 2, start: 0, end: 1, link: 4},
+				{kind: ListItem, start: 0, end: 1, link: 4},
+				{kind: ListMarker, start: 0, end: 1, link: 2},
+			}}},
 			{"rejects an html block kind out of range", Tree{src: []byte("<p>"), nodes: []Node{
 				{kind: Document, start: 0, end: 3, link: 3},
 				{kind: HTMLBlock, flags: 8, start: 0, end: 3, link: 3},
