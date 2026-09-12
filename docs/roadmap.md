@@ -146,7 +146,7 @@ Gate: the user approves the design document. Approved 2026-09-12.
   and `default-signifies-exhaustive: false`. `task fuzz` takes `PKG` and
   `FUZZ`.
 - [x] Line iterator, LineEnding and BOM leaves.
-- [ ] A reader for `spec.txt` example blocks, with an example count test per
+- [x] A reader for `spec.txt` example blocks, with an example count test per
   pinned file.
 - [ ] Pin the corpora in `internal/markdown/testdata` with a notice for each.
   See Corpora.
