@@ -493,7 +493,9 @@ At `]`, find the nearest bracket entry.
 4. Try a footnote reference: if the decoded bracket text starts with `^` and
    has at least one more character, the span becomes a FootnoteReference.
    - Everything scanned between the brackets becomes label leaves
-     (FootnoteLabel, VerbatimLineEnding). Prefix and Indent leaves stay syntax.
+     (FootnoteLabel, VerbatimLineEnding). Prefix and Indent leaves stay syntax,
+     and in a table cell CellPipeEscape leaves stay CellPipeEscape, with label
+     bytes per section 6.7.
    - Removal is a suffix: truncate the scratch buffer and every table keyed by
      scratch index (side records, span index), pop delimiter and bracket
      entries, and set every `openers_bottom` value and `linkFormedAfter` to the
@@ -560,6 +562,9 @@ preorder. The scratch buffer never inserts:
   VerbatimLineEnding; for a collapsed or shortcut reference, every leaf between
   the brackets except prefix and Indent leaves, syntax leaves included
   (`[*foo* bar]` has the label `*foo* bar`).
+- In a table cell, a CellPipeEscape leaf gives label bytes equal to its source
+  bytes minus the backslash of its `\|` pair: a 3-byte `\\|` gives `\|`, a
+  2-byte `\|` gives `|`. So `[x\\|y]` has the label `x\|y` (GitHub).
 - Label normalization: UTF-8 decoding only (escapes and entity references stay
   as written, so `[foo\!]` does not match `[foo!]`, CM 545), Unicode full case
   fold, trim and collapse runs of space, tab and line ending to one space.
@@ -893,22 +898,29 @@ adds its set of `Dialect(row)` values to its Enter event. `Equal` requires:
   commit that adds its constructs. Stage 2 pairs: block quote and blank line,
   code blank lines, math fence info, list start, looseness, code and HTML at end
   of input.
-- `FuzzEqual` has two properties:
-  1. After a syntax-only mutation (bullet character, emphasis character, line
-     ending kind, ordered delimiter, fence character, blank line count,
-     prefix form), if `Equal` reports equal, the test HTML renderings are equal.
-  2. After a meaning-keeping mutation, `Equal` reports equal. Each mutation
-     applies only where its precondition holds, and each has seeds at the
-     edge of its precondition:
-     - code span padding: the content does not start or end with a backtick,
-       and is not all spaces;
-     - table row padding: the row is shorter than the header;
-     - hard break form (`\` against two spaces): the break is not the last
-       line of the block, and the text before it does not end in `\`;
-     - fenced to indented code: no info string, no blank first or last
-       content line (CM 127, 129), and the block does not directly follow a
-       paragraph line;
-     - a final newline: the input does not end with one.
+- `FuzzEqual` finds false acceptances: after a syntax-only mutation (bullet
+  character, emphasis character, line ending kind, ordered delimiter, fence
+  character, blank line count, prefix form), if `Equal` reports equal, the
+  test HTML renderings must be equal. The mutation may change meaning; the
+  property holds either way, so mutations need no preconditions.
+- The pair test checks every "equal" pair against the test HTML: both files
+  must render equal HTML, so a wrong pair cannot teach `Equal` to accept a
+  change of meaning. A "different" pair renders different test HTML, or names
+  the GitHub fixture that shows the difference (math, alerts, dialect rows).
+- False rejections are found in two ways:
+  - Before stage 6: the "equal" pairs of the pair corpus, each with a reason.
+    Rewrites that keep meaning only under conditions (code span padding, table
+    row padding, the hard break form, fenced against indented code, a final
+    newline) are pairs, one per condition, not fuzz mutations. Writing their
+    conditions correctly is printer work, and review round 5 showed that
+    hand-written preconditions miss cases.
+  - From stage 6: `FuzzFormat` asserts that `Format` never reports a check
+    mismatch, and that the test HTML of input and output is equal, so `Equal`
+    is not its own oracle. The real printer is the source of meaning-keeping
+    rewrites, so every failure is a printer bug or a check bug, and both must
+    be fixed. `FuzzFormat` lives in `internal/markdown` as an external test
+    (`package markdown_test`) that imports `internal/format` and reaches the
+    test renderer through `export_test.go`.
 - Stage 6 adds a dialect mutation test: for each `dialect.md` row, rewrite a
   neighbour and assert a dialect span or a rejection.
 
@@ -921,7 +933,7 @@ adds its set of `Dialect(row)` values to its Enter event. `Equal` requires:
 | `FuzzParse` | No panic. `Verify` passes. Printing leaves gives the input. |
 | Builder checks | Always on. `close()` closes the innermost open node, so mis-nesting cannot be written. |
 | `TestParse` subtest `"pathological"` | Each input of section 6.8 at size n and 10n, where the 10n run takes at least 50 ms. Best of 3. Fails at a ratio above 30. `TestParse` does not call `t.Parallel`, with one comment that gives the reason (timing). |
-| `TestParse` subtest `"long"` | Each input of section 6.8 at a tenth of the input limit and at the limit, through `Parse`, `Verify` and `Equal` of the tree with itself. Fails when the time ratio is above 30, or when the time per node is above 10 times the time per node of prose at the same size (this catches a linear path with a large constant). Each input runs in a child process (the test binary with `-test.run` and an environment variable), and the test fails when its `Maxrss` from `ProcessState.SysUsage` is above the bound: the parse share of the budget at stage 2, the 4 GiB `Format` budget from stage 6. `TotalAlloc` is not used: `append` growth allocates about 5 times an array's final size. Skipped under the race detector (a `//go:build race` constant in `race_test.go`) and unless `MARKFMT_LONG=1`. Runs as `task long`, without `-race`, in the ubuntu CI job. |
+| `TestParse` subtest `"long"` | Each input of section 6.8 runs in a child process (the test binary with `-test.run` and an environment variable), at a tenth of the input limit and at the limit. The child builds the input, then times only `Parse`, `Verify` and `Equal` of the tree with itself, best of 3, and reports the times and `len(nodes)` on stdout. The parent fails the input when: the time ratio between the two sizes is above 30; or the time at the limit is above 20 × (bytes × tb + nodes × tn), where tb is prose time per byte and tn is time per node of `>a` lines, both calibrated in the same run (this catches a linear path with a large constant, such as nested label normalization, whatever its node count); or its peak memory is above the bound (the parse share of the budget at stage 2, the 4 GiB `Format` budget from stage 6). Peak memory is `Maxrss` from `ProcessState.SysUsage`, converted by `maxrssBytes` (KiB on Linux, bytes on darwin; unit tested with a child that touches a known size), minus the `Maxrss` of a child that runs the same path on an empty input. `TotalAlloc` is not used: `append` growth allocates about 5 times an array's final size. Skipped under the race detector (a `//go:build race` constant in `race_test.go`) and unless `MARKFMT_LONG=1`. Runs as `task long`, without `-race`, in the ubuntu CI job. |
 
 ### 11.2 Conformance
 
@@ -1141,7 +1153,8 @@ Apply these in the commit that marks stage 0 done.
   module, and with known-deviation predicates.
 - Stage 6: remove the item "The runtime check: parse input and output, compare
   the trees" (it lands in stages 2 and 3). Add the printer requirements of
-  section 12, dialect predicates and spans, `Kept`, and the output bound. Gate
+  section 12, dialect predicates and spans, `Kept`, the output bound, and
+  `FuzzFormat` (no check mismatch on any input, section 10.5). Gate
   command for "goldmark is no longer in the binary": `go list -deps
   ./cmd/markfmt` lists no goldmark package.
 - Stage 7: delete `differential_test.go` and run `go mod tidy`. Gate wording:
@@ -1172,6 +1185,11 @@ Local reports (not tracked), 2026-09-12:
 - Review round 4, verification: spec (0, 0, 0), printer and check (0, 1, 0),
   performance (0, 2, 0), engineering (0, 1, 0), red team (all round 3 cases
   handled; 8 new: 1 broken). Each finding is fixed in draft 4.
+- Review round 5, verification of the post-round-4 edits: end-of-input rule
+  sound (14 cases); table cell pipe rule fixed for labels and footnote labels;
+  long test revised to a two-term time bound, `Maxrss` per OS and timing inside
+  the child, then confirmed; `FuzzEqual` preconditions replaced by pairs
+  checked against test HTML and `FuzzFormat` with the test HTML as oracle.
 - Open, not blocking: a bound on tab-to-space expansion for inputs near the
   input limit (stage 6 printer design).
 
