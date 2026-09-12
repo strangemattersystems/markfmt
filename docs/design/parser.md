@@ -108,7 +108,7 @@ input. Interior nodes group leaves.
 type Node struct {
 	kind  Kind
 	flags uint8  // per-kind facts (section 3.5)
-	virt  uint8  // virtual columns not yet consumed when this leaf starts (section 4.3)
+	virt  uint8  // columns left for the leaf of its first byte, a split tab (section 4.3)
 	_     uint8
 	start uint32 // byte offset
 	end   uint32 // byte offset, exclusive
@@ -146,7 +146,8 @@ it on every tree.
 1. Leaves in array order have `start == previous end`. The first leaf starts
    at 0. The last leaf ends at `len(src)`. A tree with no leaves has
    `len(src) == 0`.
-2. A leaf has `start < end`.
+2. A leaf has `start < end`. A leaf with `virt` above 0 starts with a tab, and
+   its `virt` is at most 3.
 3. An interior node's `start` is its first descendant leaf's `start`, and its
    `end` is its last descendant leaf's `end`. An interior node with no leaves
    has `start == end`, equal to the `start` of the next leaf, or `len(src)`.
@@ -282,18 +283,27 @@ The parser never moves a leaf after appending it.
   the indentation is at least `markerOffset + padding`.
 - The column is tracked while the line is consumed. It is never recomputed from
   the line start.
-- A tab byte belongs to the one leaf that consumes its first column.
-- `virt` on a leaf is the number of virtual columns of a split tab that are not
-  yet consumed when the leaf starts (0 to 3).
-- A structure that consumes only virtual columns emits no leaf. It lowers the
-  pending `virt` by the columns it consumed. So the number of prefix leaves on a
-  line does not give the number of matched containers.
-- Values that start at a line's content add `virt` spaces: `CodeText` and
-  `HTMLText` on each line. The printer writes `virt` as spaces when it moves
-  such content.
+- A tab byte belongs to the one leaf that consumes its last column. A
+  structure that consumes only some of a tab's columns splits the tab and emits
+  no leaf for them. A later structure that consumes more of the tab lowers the
+  columns left.
+- `virt` on a leaf whose first byte is a split tab is the number of the tab's
+  columns left for the leaf (1 to 3). On every other leaf it is 0.
+- So the number of prefix leaves on a line does not give the number of matched
+  containers.
+- A value that starts with a split tab writes `virt` spaces for that tab:
+  `CodeText` and `HTMLText` on each line. Every split tab is in a leaf, so a
+  content line that is only a split tab after its prefixes keeps its spaces,
+  also at the end of the input. The printer writes `virt` as spaces when it
+  moves such content.
+
+Reason: cmark and commonmark.js add the rest of a split tab as spaces to every
+content line. A rule that gives the tab to the leaf that consumes its first
+column leaves no leaf for those spaces when the rest of the line is empty.
 
 Examples: CM 5, 6, 7; `>  ```` then `>→→x` (content ` →x`); `   > - a` then
-`   >→    code` (content ` code`); `>→>→→foo` (content `  foo`).
+`   >→    code` (content ` code`); `>→>→→foo` (content `  foo`); `> ```` then
+`>→` (content `  `).
 
 ## 5. Block phase
 
@@ -412,7 +422,8 @@ Link reference definition details:
 ### 5.5 Containers
 
 - **BlockQuote.** One QuoteMarker leaf per line: indentation, `>`, optional
-  space. A lazy line has none.
+  space. A tab that the optional space splits is not in it (section 4.3). A
+  lazy line has none.
 - **ListItem.** Spec rules 1 to 4: padding N with 1 ≤ N ≤ 4; N ≥ 5 means N = 1
   and indented code; a blank first line gives padding 1; an empty item cannot
   interrupt a paragraph (CM 285). One ListMarker leaf on the first line
