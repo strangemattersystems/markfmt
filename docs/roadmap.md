@@ -4,6 +4,9 @@ Read this document first when you resume work on markfmt. It records the
 product rules, the current state, the decisions and the reasons for them, and
 the plan with its gates. Update it in the same commit as the work it tracks.
 
+The parser design is `docs/design/parser.md`. Read it before stage 1 work. Its
+section numbers are cited below as "design 5.4".
+
 ## Product rules
 
 1. markfmt reads Markdown and writes Markdown. It has no other output format.
@@ -44,6 +47,9 @@ Last updated: 2026-09-12. Nothing after `ff7de5b` is pushed.
 | `fac76fe` | Formatter skeleton on goldmark v2.0.2, CLI, golangci-lint, Taskfile, CI, Dependabot |
 | `bc99d39` | Spec corpus test, `FuzzSource`, fixes for 10 corpus and fuzz findings |
 | `3898ac7` | LF line endings |
+| `62af5e4` to `5123f12` | This roadmap |
+| `1f63d60`, `f32fd7e` | Parser design, after five review rounds |
+| `104566e` | `.scratch/` is gitignored |
 
 Layout:
 
@@ -58,6 +64,9 @@ Layout:
   `spec.json`) and goldmark's extra and GFM case files.
 - `internal/format/testdata/fuzz/FuzzSource`: 9 inputs that the fuzzer found.
 - `tools/go.mod`: golangci-lint v2.13.2, kept out of the root `go.mod`.
+- `docs/design/parser.md`: the parser design.
+- `.scratch/design-research/` (local only, not tracked): the research reports
+  and the five rounds of design reviews behind the parser design.
 
 The goldmark-based formatter is a stopgap. Stage 6 replaces it.
 
@@ -77,10 +86,16 @@ CommonMark example 210. Our own parser makes this finding obsolete.
 | LF output | gofmt writes LF, even inside raw strings. CommonMark reads CRLF, CR and LF as line endings. |
 | Write our own parser | 11 fuzz findings had three root causes. 6 came from rebuilding source from goldmark positions, which are not lossless. 2 came from goldmark HTML renderer quirks used as the safety check. 3 were goldmark deviations from the spec. We do not want to wait for upstream fixes. |
 | No HTML output in markfmt | markfmt is Markdown in, Markdown out. |
-| Runtime safety check compares our own trees | The parser parses input and output, and the trees must be equal with spans ignored. No renderer quirks, no circular check. |
+| Lossless concrete syntax tree in a flat node array | Every byte is in one leaf, so one linear check proves losslessness. 16-byte pointer-free nodes are not scanned by the collector. Design 3. |
+| Runtime safety check compares event sequences | Enter, Content and Exit events, with a key per structure kind, content groups and dialect spans. No renderer, no circular check. Design 10. |
 | Remove goldmark completely | It is a temporary test oracle only. See stage 7 for the exit criteria. |
 | Test-only HTML renderer | The specs give expected results only as HTML. The renderer lives in `_test.go` files, never in the binary or the API. |
-| Grammar scope: CommonMark, GFM, front matter, and GitHub syntax (footnotes, math, alerts) | Most users expect what GitHub renders. Math in the grammar stops the printer from changing math source. |
+| Grammar scope: CommonMark, GFM, front matter, and GitHub footnotes | Most users expect what GitHub renders. GitHub math and alerts are HTML filters, not grammar: the runtime check compares every input they read, so no math or alert kinds exist. Design 9. |
+| Dialect rows and predicates | Where GitHub and CommonMark 0.31.2 disagree, a `dialect.md` row records it. At stage 6 a predicate finds each span, `Equal` compares spans both ways with their bytes, and the printer keeps them. Design 2.1, 10.4. |
+| Input limit 8 MiB, output limit 16 MiB | Constants, not options, chosen from a 4 GiB worst-case memory budget. Design 7.2. |
+| `Format` recovers panics | A parser or printer bug returns an error and writes nothing, so one bad file does not stop the CLI. Design 1. |
+| One grammar in production and tests | No test-only grammar switch. Core examples that markfmt's GFM or front matter rules change are listed in `grammar-differs.txt`, each with a case of markfmt's expected result. Design 11.2. |
+| Streaming not planned | The documents that would need it are one top-level block, so per-block streaming would not help. Design 7.4. |
 | Design document at `docs/design/parser.md` | It is reviewed and versioned with the code. |
 | Canonical style by consensus | The style follows modern best practice across the major formatters and style guides, not personal preference. See Open decisions. |
 
@@ -102,114 +117,116 @@ CommonMark example 210. Our own parser makes this finding obsolete.
 
    The current formatter writes ATX headings, one blank line between blocks
    and one final newline, and keeps prose line breaks. The survey confirms or
-   replaces these.
+   replaces these. Design appendix B lists the printer traps the style must
+   respect.
 
 ## Plan
 
 Each stage has gates. A stage is done only when its gates pass. Mark the
-checkbox in the same commit that passes the gates.
+checkbox in the same commit that passes the gates. Design 15 sketches the
+commits for stages 1 and 2.
 
 ### Stage 0: design
 
-- [ ] Review the goldmark v2 design: AST, source-backed and owned text
-  values, positions, parser and renderer separation, block parsers by trigger
-  character, inline parsers, AST transformers, extensions. Record what we take,
-  what we drop, and why. Read for design only; do not copy code.
-- [ ] Write the parser design in `docs/design/parser.md`, from first
-  principles for a formatter. Current views for the design to test:
-  - A lossless concrete syntax tree: tokens for markers, delimiters and
-    whitespace, not only content nodes.
-  - A closed set of node kinds: CommonMark, GFM, GitHub syntax and front
-    matter. No plugin system. Exhaustive switches.
-  - Two phases, as in the CommonMark appendix: blocks line by line, then
-    inlines after all link reference definitions are known. This fits a later
-    two-pass streaming parser.
-  - Parsing cannot fail: every input is valid Markdown.
+- [x] Review the goldmark v2 design and record what we take, what we drop,
+  and why. Design appendix C.
+- [x] Write the parser design in `docs/design/parser.md`, from first
+  principles for a formatter.
 - [x] Settle the grammar scope, the test-only HTML renderer and the design
   document location. See Decisions.
 
-Gate: the user approves the design document.
+Gate: the user approves the design document. Approved 2026-09-12.
 
 ### Stage 1: harness
 
-- [ ] A reader for `spec.txt` example blocks.
-- [ ] Pin the corpora in `testdata` with a notice for each. See Corpora.
-- [ ] A conformance runner with a checked-in expected-failure list. The test
-  fails if an unlisted example fails, and also if a listed example passes. The
-  list can only get shorter.
-- [ ] The test-only HTML renderer and HTML normalization, as in cmark's
-  `normalize.py`.
-- [ ] Fuzz targets: lossless round trip, no panic, time limit per input.
+- [ ] Tree, builder with always-on checks, `Verify`, and `FuzzParse`
+  (lossless round trip, no panic). No per-input timer in fuzzing.
+- [ ] `.golangci.yml`: `exhaustive` with `explicit-exhaustive-switch: true`
+  and `default-signifies-exhaustive: false`. `task fuzz` takes `PKG` and
+  `FUZZ`.
+- [ ] Line iterator, LineEnding and BOM leaves.
+- [ ] A reader for `spec.txt` example blocks, with an example count test per
+  pinned file.
+- [ ] Pin the corpora in `internal/markdown/testdata` with a notice for each.
+  See Corpora.
+- [ ] The test-only HTML renderer and `normalize.py` normalization.
+- [ ] A conformance runner with `failing.txt` per corpus (design 11.2): the
+  test fails if an unlisted example fails, if a listed example passes, or if
+  an entry names no example. The list can only get shorter.
 
 Gate: `task ci` passes with every example on the expected-failure list.
 
 ### Stage 2: block structure
 
-- [ ] Containers: block quotes, list items and lists, with tabs.
-- [ ] Leaf blocks: thematic breaks, ATX and setext headings, indented and
-  fenced code, HTML blocks (all 7 kinds), link reference definitions,
-  paragraphs, blank lines.
-- [ ] Front matter.
+- [ ] Paragraphs, blank lines, thematic breaks, ATX and setext headings,
+  indented and fenced code, HTML blocks (all 7 kinds), with their `dialect.md`
+  rows.
+- [ ] Block quotes, lazy lines, prefix leaves and emission order; tabs and
+  `virt`; list items and lists with looseness.
+- [ ] Link reference definitions, labels, and the setext re-dispatch rule.
+- [ ] Front matter, `grammar-differs.txt` and `markfmt/grammar.txt`.
+- [ ] `Equal` for block kinds, the stage 2 pairs, `FuzzEqual` with block
+  mutations.
+- [ ] Pathological block inputs, the long test and `task long` in the ubuntu
+  CI job.
 
 Gates:
 
-- The lossless fuzz test holds: printing the tree unchanged gives the input
-  byte for byte.
-- Every block-level spec section conforms, with inline content as raw text.
-- cmark's pathological block inputs run in linear time.
+- The lossless fuzz test holds.
+- Every block-section example that does not need inlines passes (about 246 of
+  296, by the mechanical classification in design 11.2).
+- The pathological subtest of `TestParse` passes, including `- `×n `a` and
+  deep lists with blank lines. `task long` passes.
+- `Equal` passes the stage 2 pairs, and `FuzzEqual` finds no false acceptance.
 
 ### Stage 3: inlines
 
 - [ ] Backslash escapes, entity and numeric character references (table
   generated from WHATWG `entities.json`), code spans.
 - [ ] Emphasis and strong emphasis with the delimiter run algorithm.
-- [ ] Links, images, reference links, autolinks, raw HTML.
+- [ ] Links, images, reference links, autolinks, raw HTML, with pass 1 and the
+  pass label check.
 - [ ] Hard and soft line breaks.
+- [ ] `Equal`, the pairs and the `FuzzEqual` mutations extended with each
+  construct.
 
-Gates: CommonMark 0.31.2 conformance at 100%, cmark and commonmark.js
-regression corpora at 100%, pathological inline inputs in linear time.
+Gates:
+
+- CommonMark 0.31.2, cmark and commonmark.js regression corpora at 100%: every
+  example passes, or is in `grammar-differs.txt` and its named case passes.
+- Pathological inline inputs pass the pathological subtest and `task long`.
+- `benchstat` output recorded here: parse throughput within 2 times goldmark's,
+  with pass 1 included.
 
 ### Stage 4: GFM and GitHub syntax
 
 The scope is what GitHub renders, because most users expect it.
 
-- [ ] GFM extensions: tables, strikethrough, task list items, extended
-  autolinks, disallowed raw HTML.
-- [ ] Footnote references and definitions.
-- [ ] Math: inline `$…$` and `` $`…`$ ``, and block `$$…$$`. A ```` ```math ````
-  fence is an ordinary code block.
-- [ ] Alerts: a block quote whose first line is `[!NOTE]`, `[!TIP]`,
-  `[!IMPORTANT]`, `[!WARNING]` or `[!CAUTION]`.
+- [ ] GFM extensions: tables, strikethrough, task list items (design 6.5),
+  extended autolinks.
+- [ ] Footnote definitions and references (design 6.3, 9.2).
+- [ ] GitHub fixtures for footnotes, tasks, tables, strikethrough and every
+  `dialect.md` row, with the GitHub normalizer.
+- [ ] Capture math and alert fixtures for stage 6. Math and alerts are GitHub
+  HTML filters, not grammar (design 9.1, 9.3).
 - [ ] Plain text that GitHub gives meaning to needs no grammar, but escaping
   must never change it: emoji shortcodes (`:+1:`), mentions (`@user`) and
   issue references (`#1`).
-
-Study GitHub's math behaviour with the Markdown REST API
-(`gh api markdown -f mode=gfm -f text=...`) before writing the math rules.
-Observations on 2026-09-12:
-
-| Input | GitHub HTML |
-| --- | --- |
-| `$a*b*c$` | `$a<em>b</em>c$`. Emphasis wins, and there is no math element. |
-| `` $`a*b`$ `` | A `math-renderer` element with `$a*b$`. The content is raw. |
-| `$$`, `a*b*c`, `$$` on three lines | A display `math-renderer` element with `$$ a_b_c $$`. Emphasis applies inside, and GitHub writes it back as `_`. |
-
-GitHub math is not a simple raw span. The grammar must match GitHub's
-behaviour, and the printer must never change what MathJax receives.
 
 Gates:
 
 - The GFM extension examples and cmark-gfm `extensions.txt` at 100%. Take
   only extension examples from the GFM spec: it is pinned at 0.29, and its
   copies of core examples are older than CommonMark 0.31.2.
-- Footnotes, math and alerts have no public spec. Their cases come from the
-  GitHub docs examples and from captured GitHub API output, saved as
-  fixtures, at 100%.
+- Footnote, task, table and strikethrough fixtures at 100%.
 
 ### Stage 5: differential fuzzing
 
-- [ ] A separate test-only module that fuzzes our parser against goldmark and
-  compares test HTML. The root `go.mod` does not change.
+- [ ] `internal/markdown/differential_test.go` fuzzes our parser against
+  goldmark and compares test HTML. goldmark is a test-only requirement of the
+  root module until stage 7. No release happens before stage 7.
+- [ ] One predicate per row of Known goldmark deviations, so the fuzzer skips
+  known deviations.
 - [ ] Triage every disagreement against the spec text. Save each one as a
   permanent case, marked "fixed in markfmt" or "goldmark deviates, spec
   section X".
@@ -220,31 +237,37 @@ that has not been triaged.
 ### Stage 6: printers on the new tree
 
 - [ ] Settle the canonical style. See Open decisions.
-- [ ] A printer for every node kind. Raw content is written from its exact
-  span. No copying by guessed positions.
-- [ ] The runtime check: parse input and output, compare the trees with
-  spans ignored.
+- [ ] A printer for every node kind, meeting design 12: facts through
+  accessors, kept syntax and `Kept`, size decisions on canonical measures, and
+  the output limit.
+- [ ] Dialect predicates and spans in `Equal` (design 10.4).
+- [ ] `FuzzFormat`: no check mismatch on any input, and equal test HTML for
+  input and output (design 10.5).
 - [ ] Move `internal/format` to the new parser and delete the goldmark-based
   code. Keep `testdata/cases` and make every case pass.
 
-Gates: `testdata/cases` pass, and fuzzing shows idempotence and equal trees.
-goldmark is no longer in the binary.
+Gates: `testdata/cases` pass. Fuzzing shows idempotence and no check mismatch.
+Math and alert fixtures pass as printer cases. `go list -deps ./cmd/markfmt`
+lists no goldmark package.
 
 ### Stage 7: remove goldmark
 
-Remove the stage 5 module when all of these are true:
+Remove the differential test when all of these are true:
 
-- [ ] All corpora at 100% with an empty expected-failure list.
+- [ ] All corpora at 100%: every example passes, or is listed in a
+  `grammar-differs.txt` and its named case passes. Every `failing.txt` is
+  empty.
 - [ ] The stage 5 fuzz budget has run with every disagreement triaged.
 - [ ] Every disagreement is a permanent case in `testdata`.
 
-Gate: no goldmark import anywhere. The root `go.mod` has no requirements.
-goldmark's copied test files can stay as data, with their MIT notice.
+Gate: `differential_test.go` is deleted and `go mod tidy` has run. No goldmark
+import anywhere. The root `go.mod` has no requirements. goldmark's copied test
+files can stay as data, with their MIT notice.
 
 ### Stage 8: product
 
 - [ ] CLI directory walking that skips `testdata`, hidden directories and
-  vendored code.
+  vendored code. Concurrent work is limited by input bytes.
 - [ ] Release setup: goreleaser, version stamping, `release.yml`, Homebrew
   tap. Follow hamnir's conventions.
 - [ ] markfmt.com.
@@ -253,13 +276,14 @@ goldmark's copied test files can stay as data, with their MIT notice.
 
 | Property | Test |
 | --- | --- |
-| Lossless tree | Fuzz: printing the tree unchanged gives the input byte for byte. Needs no oracle. |
-| No panic, linear time | Fuzz with a time limit, plus cmark pathological inputs. |
-| Spec conformance | Corpus runner with the expected-failure list. |
+| Lossless tree | `FuzzParse` and `Verify`: printing the tree unchanged gives the input byte for byte. Needs no oracle. |
+| No panic, linear time | The pathological and long subtests of `TestParse`, and `task long` (design 11.1). |
+| Spec conformance | Corpus runner with `failing.txt` and `grammar-differs.txt`. |
+| Runtime check is sound | The pair corpus, checked against test HTML, and `FuzzEqual` (design 10.5). |
 | Agreement with a second parser | Differential fuzzing against goldmark, stages 5 to 7 only. |
 | GitHub syntax | Fixtures captured from the GitHub Markdown API. Compare document structure, not GitHub's extra attributes. |
-| Printer is idempotent | Fuzz and `testdata/cases`. |
-| Printer keeps meaning | Fuzz and `testdata/cases`: equal trees for input and output. |
+| Printer is idempotent | Fuzz, `Kept`, and `testdata/cases`. |
+| Printer keeps meaning | `FuzzFormat` and `testdata/cases`. |
 
 ## Corpora
 
@@ -271,11 +295,11 @@ goldmark's copied test files can stay as data, with their MIT notice.
 | cmark-gfm extension and regression tests | `github/cmark-gfm` `test/extensions.txt`, `test/regression.txt` | pin at import | BSD-2-Clause | Conformance and regressions |
 | cmark pathological inputs | `github/cmark-gfm` `test/pathological_tests.py` | pin at import | BSD-2-Clause | Linear-time tests |
 | commonmark.js regressions | `commonmark/commonmark.js` `test/regression.txt` | pin at import | BSD-2-Clause | Regressions |
-| goldmark cases | `yuin/goldmark` `_test/extra.txt`, `extension/_test/*.txt` | v2.0.2 | MIT | Extra edge cases, already in `testdata/spec` |
+| goldmark cases | `yuin/goldmark` `_test/extra.txt`, `extension/_test/*.txt` | v2.0.2 | MIT | Extra edge cases, already in `internal/format/testdata/spec` |
 | markdown-it fixtures | `markdown-it/markdown-it` `test/fixtures` | optional | MIT | Extra cases |
 | HTML entities | WHATWG `entities.json` | pin at import | CC BY 4.0 | Generate the entity table |
 | GitHub docs Markdown examples | `github/docs` `content/get-started/writing-on-github` | pin at import | CC BY 4.0 | Footnote, math and alert cases |
-| GitHub Markdown API output | `POST /markdown` with `mode=gfm` | capture date | GitHub API terms | Expected results for GitHub syntax, captured once into fixtures |
+| GitHub Markdown API output | `POST /markdown` with `mode=gfm` | capture date | GitHub API terms | Expected results for GitHub syntax, captured into fixtures; capture again before each release |
 
 ## Licensing rules
 
@@ -294,7 +318,8 @@ This is our reading of the licenses, not legal advice.
 
 ## Known goldmark deviations
 
-Use this list to triage stage 5 disagreements.
+Use this list to triage stage 5 disagreements. Each row gets a predicate in
+the differential test.
 
 | Input | goldmark behaviour | Expected |
 | --- | --- | --- |
@@ -308,7 +333,7 @@ Use this list to triage stage 5 disagreements.
 
 ## How to resume
 
-1. Read this document.
+1. Read this document, then `docs/design/parser.md`.
 2. Run `git log --oneline` and `git status`.
 3. Run `task ci`. It must pass before new work starts.
 4. Find the first unchecked item in the plan, or an open decision that blocks

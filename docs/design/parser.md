@@ -1,7 +1,7 @@
 # Parser design
 
-Status: draft 4, reviewed (four rounds, no blocking findings open), waiting for
-approval. Stage 0 of `docs/roadmap.md`.
+Status: approved 2026-09-12, after five review rounds. Stage 0 of
+`docs/roadmap.md`. Section 16's roadmap changes are applied.
 
 This document designs the markfmt parser: a lossless concrete syntax tree for
 CommonMark 0.31.2, GFM, front matter and GitHub footnotes, built for a
