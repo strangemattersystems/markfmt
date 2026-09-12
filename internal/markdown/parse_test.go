@@ -66,6 +66,7 @@ func testConformance(t *testing.T, c corpus) {
 
 	got := make([]string, len(examples))
 	want := make([]string, len(examples))
+	pass := make([]bool, len(examples))
 	var unlisted, passing []int
 	for i, ex := range examples {
 		tree := Parse([]byte(ex.markdown))
@@ -74,10 +75,13 @@ func testConformance(t *testing.T, c corpus) {
 		}
 		got[i] = normalizeHTML(renderHTML(tree))
 		want[i] = normalizeHTML(ex.html)
-		switch pass := got[i] == want[i]; {
-		case !pass && !failing[ex.id]:
+		// cmark-gfm counts an example whose expected HTML is <IGNORE> as passing:
+		// it tests only that parsing does not crash.
+		pass[i] = got[i] == want[i] || strings.TrimSpace(ex.html) == "<IGNORE>"
+		switch {
+		case !pass[i] && !failing[ex.id]:
 			unlisted = append(unlisted, ex.id)
-		case pass && failing[ex.id]:
+		case pass[i] && failing[ex.id]:
 			passing = append(passing, ex.id)
 		}
 	}
@@ -92,11 +96,11 @@ func testConformance(t *testing.T, c corpus) {
 		t.Run(c.name+" example "+strconv.Itoa(ex.id), func(t *testing.T) {
 			t.Parallel()
 
-			switch pass := got[i] == want[i]; {
-			case !pass && !failing[ex.id]:
+			switch {
+			case !pass[i] && !failing[ex.id]:
 				t.Errorf("fails and is not in failing.txt (section %s)\nmarkdown: %q\n     got: %q\n    want: %q",
 					ex.section, ex.markdown, got[i], want[i])
-			case pass && failing[ex.id]:
+			case pass[i] && failing[ex.id]:
 				t.Error("passes: remove it from failing.txt")
 			}
 		})

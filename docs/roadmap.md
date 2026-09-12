@@ -293,7 +293,8 @@ files can stay as data, with their MIT notice.
 | CommonMark spec examples | `commonmark/commonmark-spec` `spec.txt` | 0.31.2 | CC BY-SA 4.0 | Core conformance |
 | CommonMark HTML normalization | `commonmark/commonmark-spec` `test/normalize.py` | 0.31.2 | BSD-2-Clause | Design reference for test HTML comparison |
 | GFM spec extension examples | `github/cmark-gfm` `test/spec.txt` | 0.29, tag `0.29.0.gfm.13` | CC BY-SA 4.0 | GFM conformance, extension examples only |
-| cmark-gfm extension and regression tests | `github/cmark-gfm` `test/extensions.txt`, `test/regression.txt` | pin at import | BSD-2-Clause | Conformance and regressions |
+| cmark-gfm extension tests | `github/cmark-gfm` `test/extensions.txt` | tag `0.29.0.gfm.13` | CC BY-SA 4.0 | GFM conformance |
+| cmark-gfm regression tests | `github/cmark-gfm` `test/regression.txt` | pin at import | BSD-2-Clause | Regressions |
 | cmark pathological inputs | `github/cmark-gfm` `test/pathological_tests.py` | pin at import | BSD-2-Clause | Linear-time tests |
 | commonmark.js regressions | `commonmark/commonmark.js` `test/regression.txt` | pin at import | BSD-2-Clause | Regressions |
 | goldmark cases | `yuin/goldmark` `_test/extra.txt`, `extension/_test/*.txt` | v2.0.2 | MIT | Extra edge cases, already in `internal/format/testdata/spec` |

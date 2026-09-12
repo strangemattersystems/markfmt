@@ -1,0 +1,37 @@
+# cmark-gfm extension tests that TestParse expects to fail, one example ID per
+# line. The list only gets shorter: remove an ID when its example passes.
+#
+# The first list was generated once, from an empty list, with:
+#
+#   go test ./internal/markdown -run '^TestParse$/^cmark-gfm-extensions$' 2>&1 |
+#     sed -n 's/^ *--- FAIL: TestParse\/cmark-gfm-extensions\/cmark-gfm-extensions_example_\([0-9]*\) .*/\1/p' |
+#     sort -n
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
