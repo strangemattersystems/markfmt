@@ -3,3 +3,6 @@
 
 # macOS
 .DS_Store
+
+# local research and review notes
+/.scratch/
