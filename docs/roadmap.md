@@ -50,6 +50,7 @@ Last updated: 2026-09-12. Nothing after `ff7de5b` is pushed.
 | `62af5e4` to `5123f12` | This roadmap |
 | `1f63d60`, `f32fd7e` | Parser design, after five review rounds |
 | `104566e` | `.scratch/` is gitignored |
+| `59e930f` onwards | Stage 1: tree, builder, `Verify`, line iterator, test HTML renderer, conformance runner, five corpora |
 
 Layout:
 
@@ -57,6 +58,9 @@ Layout:
   it reads stdin and writes stdout. It writes files atomically.
 - `markfmt.go`: the public API, `Format(w io.Writer, r io.Reader) error`.
 - `internal/markdown`: the new parser and its tree (stage 1 onwards).
+- `internal/markdown/testdata/<corpus>`: the conformance corpora `commonmark`,
+  `gfm`, `cmark-gfm-extensions`, `cmark-gfm-regression` and
+  `commonmark-js-regression`, each with a README and `failing.txt`.
 - `internal/format`: the goldmark-based formatter. It formats headings (ATX)
   and paragraphs, copies other blocks from source, passes front matter
   through, and compares goldmark HTML of input and output.
@@ -148,7 +152,7 @@ Gate: the user approves the design document. Approved 2026-09-12.
 - [x] Line iterator, LineEnding and BOM leaves.
 - [x] A reader for `spec.txt` example blocks, with an example count test per
   pinned file.
-- [ ] Pin the corpora in `internal/markdown/testdata` with a notice for each.
+- [x] Pin the corpora in `internal/markdown/testdata` with a notice for each.
   See Corpora.
 - [x] The test-only HTML renderer and `normalize.py` normalization.
 - [x] A conformance runner with `failing.txt` per corpus (design 11.2): the
@@ -156,6 +160,7 @@ Gate: the user approves the design document. Approved 2026-09-12.
   an entry names no example. The list can only get shorter.
 
 Gate: `task ci` passes with every example on the expected-failure list.
+Passed 2026-09-12.
 
 ### Stage 2: block structure
 
@@ -296,7 +301,7 @@ files can stay as data, with their MIT notice.
 | cmark-gfm extension tests | `github/cmark-gfm` `test/extensions.txt` | tag `0.29.0.gfm.13` | CC BY-SA 4.0 | GFM conformance |
 | cmark-gfm regression tests | `github/cmark-gfm` `test/regression.txt` | tag `0.29.0.gfm.13` | BSD-2-Clause | Regressions |
 | cmark pathological inputs | `github/cmark-gfm` `test/pathological_tests.py` | pin at import | BSD-2-Clause | Linear-time tests |
-| commonmark.js regressions | `commonmark/commonmark.js` `test/regression.txt` | pin at import | BSD-2-Clause | Regressions |
+| commonmark.js regressions | `commonmark/commonmark.js` `test/regression.txt` | tag `0.31.2` | BSD-2-Clause | Regressions |
 | goldmark cases | `yuin/goldmark` `_test/extra.txt`, `extension/_test/*.txt` | v2.0.2 | MIT | Extra edge cases, already in `internal/format/testdata/spec` |
 | markdown-it fixtures | `markdown-it/markdown-it` `test/fixtures` | optional | MIT | Extra cases |
 | HTML entities | WHATWG `entities.json` | pin at import | CC BY 4.0 | Generate the entity table |

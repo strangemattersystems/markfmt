@@ -27,6 +27,7 @@ var corpora = []corpus{
 	{"gfm", "testdata/gfm/spec.txt", 670, " (extension)"},
 	{"cmark-gfm-extensions", "testdata/cmark-gfm-extensions/extensions.txt", 30, ""},
 	{"cmark-gfm-regression", "testdata/cmark-gfm-regression/regression.txt", 26, ""},
+	{"commonmark-js-regression", "testdata/commonmark-js-regression/regression.txt", 32, ""},
 }
 
 func TestReadExamples(t *testing.T) {
