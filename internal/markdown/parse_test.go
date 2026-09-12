@@ -70,6 +70,13 @@ func TestParse(t *testing.T) {
 		{"closes a block quote at a thematic break", "> a\n---", "Document{BlockQuote{QuoteMarker@1 \"> \", Paragraph{Text \"a\", LineEnding \"\\n\"}}, ThematicBreak{ThematicRun \"---\"}}"},
 		{"gives a setext heading in a block quote", "> a\n> ---\n> b\n===", "Document{BlockQuote{QuoteMarker@1 \"> \", Heading{Text \"a\", LineEnding \"\\n\", QuoteMarker@1 \"> \", SetextUnderline \"---\", LineEnding \"\\n\"}, QuoteMarker@1 \"> \", Paragraph{Text \"b\", LineEnding \"\\n\", Text \"===\"}}}"},
 		{"closes fenced code and html blocks with their block quote", "> ```\n> a\nb\n> <div>\nc", "Document{BlockQuote{QuoteMarker@1 \"> \", CodeBlock{FenceMarker \"```\", LineEnding \"\\n\", QuoteMarker@1 \"> \", CodeText \"a\", VerbatimLineEnding \"\\n\"}}, Paragraph{Text \"b\", LineEnding \"\\n\"}, BlockQuote{QuoteMarker@12 \"> \", HTMLBlock[6]{HTMLText \"<div>\", VerbatimLineEnding \"\\n\"}}, Paragraph{Text \"c\"}}"},
+		{"gives a tab split by a block quote to the next leaf", ">\t\tfoo", "Document{BlockQuote{QuoteMarker@1 \">\", CodeBlock{CodeIndent+2 \"\\t\", CodeText+2 \"\\tfoo\"}}}"},
+		{"lowers the columns left of a tab that fence indentation splits further", ">  ```\n>\t\tx\n>  ```", "Document{BlockQuote{QuoteMarker@1 \"> \", CodeBlock{Indent \" \", FenceMarker \"```\", LineEnding \"\\n\", QuoteMarker@1 \">\", CodeText+1 \"\\t\\tx\", VerbatimLineEnding \"\\n\", QuoteMarker@1 \"> \", Indent \" \", FenceMarker \"```\"}}}"},
+		{"keeps a split tab alone on the last line of fenced code", "> ```\n>\t", "Document{BlockQuote{QuoteMarker@1 \"> \", CodeBlock{FenceMarker \"```\", LineEnding \"\\n\", QuoteMarker@1 \">\", CodeText+2 \"\\t\"}}}"},
+		{"keeps a split tab alone on a line of an html block", "> <!--\n>\t\n> -->", "Document{BlockQuote{QuoteMarker@1 \"> \", HTMLBlock[2]{HTMLText \"<!--\", VerbatimLineEnding \"\\n\", QuoteMarker@1 \">\", HTMLText+2 \"\\t\", VerbatimLineEnding \"\\n\", QuoteMarker@1 \"> \", HTMLText \"-->\"}}}"},
+		{"gives a split tab before a paragraph to its indent leaf", ">\tfoo", "Document{BlockQuote{QuoteMarker@1 \">\", Paragraph{Indent+2 \"\\t\", Text \"foo\"}}}"},
+		{"gives a split tab before a nested block quote marker to that marker", ">\t>\t\tfoo", "Document{BlockQuote{QuoteMarker@1 \">\", BlockQuote{QuoteMarker@3+2 \"\\t>\", CodeBlock{CodeIndent+2 \"\\t\", CodeText+2 \"\\tfoo\"}}}}"},
+		{"splits a tab to remove the indentation of fenced code", "  ```\n\tx\n```", "Document{CodeBlock{Indent \"  \", FenceMarker \"```\", LineEnding \"\\n\", CodeText+2 \"\\tx\", VerbatimLineEnding \"\\n\", FenceMarker \"```\"}}"},
 		{"needs a thematic break indented less than four columns", "a\n  \t___", `Document{Paragraph{Text "a", LineEnding "\n", Indent "  \t", Text "___"}}`},
 	}
 	for _, tt := range tests {
@@ -290,9 +297,19 @@ func FuzzParse(f *testing.F) {
 	})
 }
 
+// firstOf returns the first node of kind k in tree.
+func firstOf(tree *Tree, k Kind) NodeID {
+	for i, n := range tree.nodes {
+		if n.kind == k {
+			return NodeID(i)
+		}
+	}
+	panic("no node of kind " + k.String())
+}
+
 // dump returns tree as nested kinds with their flags, and each leaf with the
-// owner of a prefix leaf and its bytes, as in
-// Document{BlockQuote{QuoteMarker@1 "> ", HTMLBlock[6]{HTMLText "<p>"}}}.
+// owner of a prefix leaf, its virt and its bytes, as in
+// Document{BlockQuote{QuoteMarker@1 ">", HTMLBlock[6]{HTMLText+2 "\t<p>"}}}.
 func dump(tree *Tree) string {
 	var b strings.Builder
 	sep := ""
@@ -314,6 +331,9 @@ func dump(tree *Tree) string {
 			b.WriteString(sep + k.String())
 			if link := tree.nodes[e.ID].link; link != 0 {
 				b.WriteString("@" + strconv.Itoa(int(link)))
+			}
+			if virt := tree.nodes[e.ID].virt; virt != 0 {
+				b.WriteString("+" + strconv.Itoa(int(virt)))
 			}
 			b.WriteString(" " + strconv.Quote(string(tree.Raw(e.ID))))
 			sep = ", "

@@ -12,6 +12,7 @@ type builder struct {
 	stack []uint32 // open interior nodes, innermost last
 	pos   uint32   // end of the last leaf
 	size  uint32   // len(tree.src)
+	split uint8    // virt of the next leaf: the columns left of a split tab at its start
 }
 
 func newBuilder(src []byte) *builder {
@@ -88,9 +89,11 @@ func (b *builder) appendLeaf(k Kind, end, link uint32) {
 		panic(fmt.Sprintf("markdown: leaf %d ends at %d, after the input end %d", len(b.tree.nodes), end, len(b.tree.src)))
 	case uint64(len(b.tree.nodes)) >= 3*uint64(end)+3:
 		panic(fmt.Sprintf("markdown: more than 3 × %d + 3 nodes", end))
+	case b.split > 3 || b.split > 0 && b.tree.src[b.pos] != '\t':
+		panic(fmt.Sprintf("markdown: leaf %d has virt %d at a byte %q", len(b.tree.nodes), b.split, b.tree.src[b.pos]))
 	}
-	b.tree.nodes = append(b.tree.nodes, Node{kind: k, start: b.pos, end: end, link: link})
-	b.pos = end
+	b.tree.nodes = append(b.tree.nodes, Node{kind: k, virt: b.split, start: b.pos, end: end, link: link})
+	b.pos, b.split = end, 0
 }
 
 // leafIf is [builder.leaf], but appends nothing when end is the end of the

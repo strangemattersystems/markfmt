@@ -17,12 +17,15 @@ func TestTree_AppendCode(t *testing.T) {
 		{"gives no content for an opening fence at the end of the input", "```js\n", ""},
 		{"removes up to the fence indentation", "  ```\n a\n   b\n```", "a\n b\n"},
 		{"keeps spaces beyond the indentation of blank lines", "    a\n  \n      \n    b", "a\n\n  \nb\n"},
+		{"writes the columns left of a split tab as spaces", ">\t\tfoo\n", "  foo\n"},
+		{"keeps a split tab alone on the last line", "> ```\n>\t", "  \n"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			if got := string(Parse([]byte(tt.src)).AppendCode(nil, 1)); got != tt.want {
+			tree := Parse([]byte(tt.src))
+			if got := string(tree.AppendCode(nil, firstOf(tree, CodeBlock))); got != tt.want {
 				t.Fatalf("AppendCode of %q = %q, want %q", tt.src, got, tt.want)
 			}
 		})

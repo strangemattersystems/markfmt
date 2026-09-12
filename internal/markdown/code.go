@@ -41,17 +41,21 @@ func (f codeFence) closes(src []byte, i, end uint32) (uint32, bool) {
 	return j, j-i >= f.length && trimSpaceRight(src, j, end) == j
 }
 
-// codeLine appends rest, the rest of a line at column col, as code: up to n
-// columns of indentation as a CodeIndent leaf, the rest as CodeText, and the
-// line ending.
-func (p *blockParser) codeLine(rest line, col, n int) {
-	i, c := rest.start, col
-	for i < rest.end && c-col < n && isSpaceOrTab(p.src[i]) {
-		c = nextColumn(p.src[i], c)
-		i++
+// codeLine appends rest, the rest of a line, as code: up to n columns of
+// indentation as a CodeIndent leaf, the rest as CodeText, and the line
+// ending. The byte at rest.start is at column col, with used columns of it
+// consumed.
+func (p *blockParser) codeLine(rest line, col, used, n int) {
+	virt := splitVirt(col, used)
+	i, col, used := skipColumns(p.src, rest.start, rest.end, col, used, n)
+	if i > rest.start {
+		p.b.split = virt
+		p.b.leaf(CodeIndent, i)
 	}
-	p.b.leafIf(CodeIndent, i)
-	p.b.leafIf(CodeText, rest.end)
+	if i < rest.end {
+		p.b.split = splitVirt(col, used)
+		p.b.leaf(CodeText, rest.end)
+	}
 	p.b.leafIf(VerbatimLineEnding, rest.eol)
 }
 
@@ -70,7 +74,13 @@ func (t *Tree) appendVerbatim(dst []byte, id NodeID, text Kind) []byte {
 	for _, m := range leaves {
 		switch m.kind {
 		case text:
-			dst = append(dst, t.src[m.start:m.end]...)
+			b := t.src[m.start:m.end]
+			if m.virt > 0 {
+				// The columns left of a split tab are spaces.
+				dst = append(dst, "   "[:m.virt]...)
+				b = b[1:]
+			}
+			dst = append(dst, b...)
 		case VerbatimLineEnding:
 			dst = append(dst, '\n')
 		}

@@ -1,15 +1,5 @@
 package markdown
 
-// quoteMarkerEnd returns the end of the block quote marker whose '>' is at
-// src[i]: the '>' and an optional space.
-func quoteMarkerEnd(src []byte, i, end uint32) uint32 {
-	i++
-	if i < end && src[i] == ' ' {
-		i++
-	}
-	return i
-}
-
 // continueQuote reports whether block quote c continues on the rest of the
 // line: up to 3 columns of indentation, '>' and an optional space. Its prefix
 // is one QuoteMarker leaf.
@@ -18,19 +8,28 @@ func (p *blockParser) continueQuote(c container) bool {
 	if indent >= 4 || first == p.l.end || p.src[first] != '>' {
 		return false
 	}
-	end := quoteMarkerEnd(p.src, first, p.l.end)
-	p.prefix = append(p.prefix, prefixLeaf{kind: QuoteMarker, end: end, owner: c.node})
-	p.consume(end)
+	virt := p.consumeQuoteMarker(indent)
+	p.prefix = append(p.prefix, prefixLeaf{kind: QuoteMarker, virt: virt, end: p.pos, owner: c.node})
 	return true
 }
 
-// startQuote opens a block quote whose '>' is at first, and appends its
-// marker.
-func (p *blockParser) startQuote(first uint32) {
+// startQuote opens a block quote whose '>' follows indent columns of
+// indentation, and appends its marker.
+func (p *blockParser) startQuote(indent int) {
 	p.b.open(BlockQuote)
 	node := p.b.top()
 	p.containers = append(p.containers, container{kind: BlockQuote, node: node})
-	end := quoteMarkerEnd(p.src, first, p.l.end)
-	p.b.prefix(QuoteMarker, end, node)
-	p.consume(end)
+	p.b.split = p.consumeQuoteMarker(indent)
+	p.b.prefix(QuoteMarker, p.pos, node)
+}
+
+// consumeQuoteMarker consumes indent columns of indentation, '>' and an
+// optional space, and returns the virt of the marker's leaf. A tab that the
+// optional space splits is not in the marker.
+func (p *blockParser) consumeQuoteMarker(indent int) uint8 {
+	virt := splitVirt(p.col, p.used)
+	p.consumeColumns(indent)
+	p.pos, p.col = p.pos+1, p.col+1
+	p.consumeColumns(1)
+	return virt
 }

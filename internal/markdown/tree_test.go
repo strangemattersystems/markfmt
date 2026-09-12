@@ -89,6 +89,14 @@ func TestTree_Verify(t *testing.T) {
 				{kind: Text, start: 0, end: 0},
 				{kind: Text, start: 0, end: 1},
 			}}},
+			{"rejects virt on a leaf that does not start with a tab", Tree{src: []byte("a"), nodes: []Node{
+				{kind: Document, start: 0, end: 1, link: 2},
+				{kind: Text, virt: 1, start: 0, end: 1},
+			}}},
+			{"rejects virt above 3", Tree{src: []byte("\t"), nodes: []Node{
+				{kind: Document, start: 0, end: 1, link: 2},
+				{kind: CodeText, virt: 4, start: 0, end: 1},
+			}}},
 		}},
 		{"invariant 3", []badTree{
 			{"rejects a start before the first leaf", Tree{src: []byte("ab"), nodes: []Node{

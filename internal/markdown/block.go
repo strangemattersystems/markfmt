@@ -12,8 +12,9 @@ type blockParser struct {
 	leaf       leafBlock   // the open leaf block of the innermost container
 
 	l      line         // the line being parsed
-	pos    uint32       // start of the rest of the line, after the matched prefixes
-	col    int          // column of pos
+	pos    uint32       // start of the rest of the line: the first byte after the prefix leaves
+	col    int          // column at the start of the byte at pos
+	used   int          // columns of a tab at pos that structures consumed (design 4.3)
 	prefix []prefixLeaf // prefix leaves of the line that are not appended yet
 
 	pending []pendingLine // lines of the open leaf block that are not appended yet (design 5.3)
@@ -43,6 +44,7 @@ type leafBlock struct {
 
 type prefixLeaf struct {
 	kind       Kind
+	virt       uint8
 	end, owner uint32
 }
 
@@ -50,14 +52,15 @@ type prefixLeaf struct {
 // code.
 type pendingLine struct {
 	rest        line   // the line after its prefix leaves
-	col         uint8  // column of rest.start, modulo 4
+	col         uint8  // column at rest.start, modulo 4
+	used        uint8  // columns of a tab at rest.start that structures consumed
 	prefixFirst uint32 // index of the line's first prefix leaf in the arena
 	prefixN     uint32
 }
 
 // parseLine adds one line to the tree (design 5.1 and 5.2).
 func (p *blockParser) parseLine(l line) {
-	p.l, p.pos, p.col = l, l.start, 0
+	p.l, p.pos, p.col, p.used = l, l.start, 0, 0
 
 	matched := 1
 	for matched < len(p.containers) && p.continues(p.containers[matched]) {
@@ -71,7 +74,7 @@ func (p *blockParser) parseLine(l line) {
 	first, indent := p.indentation()
 	for indent < 4 && first < l.end && p.src[first] == '>' {
 		p.startBlock(matched)
-		p.startQuote(first)
+		p.startQuote(indent)
 		matched, allMatched = len(p.containers), true
 		first, indent = p.indentation()
 	}
@@ -121,7 +124,7 @@ func (p *blockParser) continueLeaf() bool {
 			p.closeLeaf()
 			return true
 		}
-		p.codeLine(p.rest(), p.col, p.leaf.fence.indent)
+		p.codeLine(p.rest(), p.col, p.used, p.leaf.fence.indent)
 		return true
 	case htmlLeaf:
 		if first == l.end && p.leaf.html >= 6 {
@@ -142,11 +145,11 @@ func (p *blockParser) continueLeaf() bool {
 		case indent >= 4:
 			for _, pl := range p.pending {
 				p.appendPendingPrefix(pl)
-				p.codeLine(pl.rest, int(pl.col), 4)
+				p.codeLine(pl.rest, int(pl.col), int(pl.used), 4)
 			}
 			p.clearPending()
 			p.appendPrefix()
-			p.codeLine(p.rest(), p.col, 4)
+			p.codeLine(p.rest(), p.col, p.used, 4)
 			return true
 		}
 	case noLeaf, paragraphLeaf:
@@ -168,7 +171,7 @@ func (p *blockParser) startLeaf(first uint32, indent, matched int, allMatched bo
 		p.startBlock(matched)
 		p.b.open(CodeBlock)
 		p.leaf.kind = indentedCodeLeaf
-		p.codeLine(p.rest(), p.col, 4)
+		p.codeLine(p.rest(), p.col, p.used, 4)
 		return true
 	}
 	if end := setextUnderline(p.src, first, l.end); end > 0 && para && allMatched {
@@ -268,6 +271,7 @@ func (p *blockParser) closeLeaf() {
 		p.b.close()
 		for _, pl := range p.pending {
 			p.appendPendingPrefix(pl)
+			p.b.split = splitVirt(int(pl.col), int(pl.used))
 			p.b.leafIf(BlankLine, pl.rest.eol)
 		}
 		p.clearPending()
@@ -283,11 +287,13 @@ func (p *blockParser) addPending() {
 	p.pending = append(p.pending, pendingLine{
 		rest:        p.rest(),
 		col:         uint8(p.col & 3),
+		used:        uint8(p.used & 3),
 		prefixFirst: count(len(p.arena)),
 		prefixN:     count(len(p.prefix)),
 	})
 	p.arena = append(p.arena, p.prefix...)
 	p.prefix = p.prefix[:0]
+	p.b.split = 0
 }
 
 // appendPending appends the pending lines as paragraph lines and clears
@@ -295,6 +301,7 @@ func (p *blockParser) addPending() {
 func (p *blockParser) appendPending() {
 	for _, pl := range p.pending {
 		p.appendPendingPrefix(pl)
+		p.b.split = splitVirt(int(pl.col), int(pl.used))
 		p.b.leafIf(Indent, p.skipSpace(pl.rest.start, pl.rest.end))
 		p.b.leaf(Text, pl.rest.end)
 		p.b.leafIf(LineEnding, pl.rest.eol)
@@ -304,6 +311,7 @@ func (p *blockParser) appendPending() {
 
 func (p *blockParser) appendPendingPrefix(pl pendingLine) {
 	for _, x := range p.arena[pl.prefixFirst : pl.prefixFirst+pl.prefixN] {
+		p.b.split = x.virt
 		p.b.prefix(x.kind, x.end, x.owner)
 	}
 }
@@ -313,12 +321,14 @@ func (p *blockParser) clearPending() {
 }
 
 // appendPrefix appends the prefix leaves of the line that are not appended
-// yet.
+// yet, and gives the builder the virt of the leaf that starts the rest.
 func (p *blockParser) appendPrefix() {
 	for _, x := range p.prefix {
+		p.b.split = x.virt
 		p.b.prefix(x.kind, x.end, x.owner)
 	}
 	p.prefix = p.prefix[:0]
+	p.b.split = splitVirt(p.col, p.used)
 }
 
 // rest returns the rest of the line.
@@ -326,11 +336,10 @@ func (p *blockParser) rest() line {
 	return line{start: p.pos, end: p.l.end, eol: p.l.eol}
 }
 
-// consume moves the start of the rest of the line to end.
-func (p *blockParser) consume(end uint32) {
-	for ; p.pos < end; p.pos++ {
-		p.col = nextColumn(p.src[p.pos], p.col)
-	}
+// consumeColumns consumes n columns of the spaces and tabs at the start of
+// the rest of the line.
+func (p *blockParser) consumeColumns(n int) {
+	p.pos, p.col, p.used = skipColumns(p.src, p.pos, p.l.end, p.col, p.used, n)
 }
 
 // indentation returns the offset of the first byte in the rest of the line
@@ -340,7 +349,7 @@ func (p *blockParser) indentation() (uint32, int) {
 	for ; i < p.l.end && isSpaceOrTab(p.src[i]); i++ {
 		col = nextColumn(p.src[i], col)
 	}
-	return i, col - p.col
+	return i, col - p.col - p.used
 }
 
 // skipSpace returns the offset of the first byte in src[i:end] that is not a
@@ -359,6 +368,33 @@ func count(n int) uint32 {
 		panic("markdown: too many entries for uint32 indices")
 	}
 	return uint32(n)
+}
+
+// skipColumns returns the position after up to n columns of the spaces and
+// tabs at src[i:end]: its offset, the column at that offset, and the columns
+// of a tab there that are consumed. The byte at i is at column col, and used
+// columns of a tab there are consumed already. A tab that the n columns
+// consume only in part stays at the returned offset (design 4.3).
+func skipColumns(src []byte, i, end uint32, col, used, n int) (uint32, int, int) {
+	for n > 0 && i < end && isSpaceOrTab(src[i]) {
+		next := nextColumn(src[i], col)
+		left := next - col - used
+		if left > n {
+			return i, col, used + n
+		}
+		n -= left
+		i, col, used = i+1, next, 0
+	}
+	return i, col, used
+}
+
+// splitVirt returns the virt of a leaf that starts at a byte at column col
+// with used columns of it consumed: the columns left of that split tab, or 0.
+func splitVirt(col, used int) uint8 {
+	if used == 0 {
+		return 0
+	}
+	return uint8((4 - col%4 - used) & 3)
 }
 
 // nextColumn returns the column after byte c at column col. A tab advances

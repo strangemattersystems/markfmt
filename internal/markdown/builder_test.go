@@ -55,7 +55,36 @@ func TestBuilder_Flag(t *testing.T) {
 func TestBuilder_Leaf(t *testing.T) {
 	t.Parallel()
 
+	t.Run("gives the next leaf the columns left of a split tab", func(t *testing.T) {
+		t.Parallel()
+
+		b := newBuilder([]byte("\ta"))
+		b.open(Document)
+		b.split = 2
+		b.leaf(Text, 1)
+		b.leaf(Text, 2)
+		b.close()
+		want := []Node{
+			{kind: Document, start: 0, end: 2, link: 3},
+			{kind: Text, virt: 2, start: 0, end: 1},
+			{kind: Text, start: 1, end: 2},
+		}
+		if got := b.finish().nodes; !slices.Equal(got, want) {
+			t.Fatalf("nodes = %+v, want %+v", got, want)
+		}
+	})
+
 	testPanics(t, []panicTest{
+		{"panics on virt for a leaf that does not start with a tab", "a", func(b *builder) {
+			b.open(Document)
+			b.split = 1
+			b.leaf(Text, 1)
+		}},
+		{"panics on virt above 3", "\t", func(b *builder) {
+			b.open(Document)
+			b.split = 4
+			b.leaf(Text, 1)
+		}},
 		{"panics on an interior kind", "a", func(b *builder) {
 			b.open(Document)
 			b.leaf(Document, 1)

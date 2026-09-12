@@ -11,6 +11,8 @@ import (
 type Node struct {
 	kind  Kind
 	flags uint8
+	virt  uint8 // columns left for the leaf of its first byte, a split tab
+	_     uint8
 	start uint32 // byte offset
 	end   uint32 // byte offset, exclusive
 	link  uint32 // interior: index one past the last descendant; leaf: 0
@@ -131,6 +133,8 @@ func (t *Tree) Verify() error {
 			return fmt.Errorf("markdown: invariant 1: leaf %d starts at %d, want %d", i, n.start, pos)
 		case n.end <= n.start:
 			return fmt.Errorf("markdown: invariant 2: leaf %d is empty", i)
+		case n.virt > 3 || n.virt > 0 && (int(n.start) >= len(t.src) || t.src[n.start] != '\t'):
+			return fmt.Errorf("markdown: invariant 2: leaf %d has virt %d", i, n.virt)
 		default:
 			pos = n.end
 		}
