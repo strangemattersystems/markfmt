@@ -1,0 +1,89 @@
+package markdown
+
+import (
+	"fmt"
+	"math"
+)
+
+// builder is the only writer of tree nodes. Its checks are always on and
+// panic.
+type builder struct {
+	tree  Tree
+	stack []uint32 // open interior nodes, innermost last
+	pos   uint32   // end of the last leaf
+	size  uint32   // len(tree.src)
+}
+
+func newBuilder(src []byte) *builder {
+	// Offsets and node indices are uint32, and a tree has up to 3 × len(src) + 3
+	// nodes.
+	n := len(src)
+	if n > (math.MaxUint32-3)/3 {
+		panic(fmt.Sprintf("markdown: input of %d bytes is too large for uint32 node indices", n))
+	}
+	return &builder{tree: Tree{src: src}, size: uint32(n)}
+}
+
+func (b *builder) next() uint32 {
+	n := len(b.tree.nodes)
+	if n >= math.MaxUint32 {
+		panic("markdown: too many nodes for uint32 node indices")
+	}
+	return uint32(n)
+}
+
+// open appends an interior node of kind k at the end of the last leaf.
+func (b *builder) open(k Kind) {
+	switch {
+	case k.class() != classStructure:
+		panic(fmt.Sprintf("markdown: open of kind %d, which is not an interior kind", k))
+	case len(b.stack) == 0 && (len(b.tree.nodes) > 0 || k != Document):
+		panic(fmt.Sprintf("markdown: node %d of kind %d is outside the document", len(b.tree.nodes), k))
+	}
+	b.stack = append(b.stack, b.next())
+	b.tree.nodes = append(b.tree.nodes, Node{kind: k, start: b.pos})
+}
+
+// leaf appends a leaf of kind k from the end of the last leaf to end.
+func (b *builder) leaf(k Kind, end uint32) {
+	switch c := k.class(); {
+	case c == classInvalid || c == classStructure:
+		panic(fmt.Sprintf("markdown: leaf of kind %d, which is not a leaf kind", k))
+	case len(b.stack) == 0:
+		panic(fmt.Sprintf("markdown: leaf %d is outside the document", len(b.tree.nodes)))
+	case end <= b.pos:
+		panic(fmt.Sprintf("markdown: leaf %d ends at %d, not after its start %d", len(b.tree.nodes), end, b.pos))
+	case end > b.size:
+		panic(fmt.Sprintf("markdown: leaf %d ends at %d, after the input end %d", len(b.tree.nodes), end, len(b.tree.src)))
+	case uint64(len(b.tree.nodes)) >= 3*uint64(end)+3:
+		panic(fmt.Sprintf("markdown: more than 3 × %d + 3 nodes", end))
+	}
+	b.tree.nodes = append(b.tree.nodes, Node{kind: k, start: b.pos, end: end})
+	b.pos = end
+}
+
+// close closes the innermost open node at the end of the last leaf.
+func (b *builder) close() {
+	if len(b.stack) == 0 {
+		panic("markdown: close with no open node")
+	}
+	top := len(b.stack) - 1
+	n := &b.tree.nodes[b.stack[top]]
+	b.stack = b.stack[:top]
+	n.end = b.pos
+	n.link = b.next()
+}
+
+func (b *builder) finish() *Tree {
+	switch {
+	case len(b.tree.nodes) == 0:
+		panic("markdown: finish without a document")
+	case len(b.stack) > 0:
+		panic(fmt.Sprintf("markdown: finish with %d open nodes", len(b.stack)))
+	case uint64(b.pos) != uint64(len(b.tree.src)):
+		panic(fmt.Sprintf("markdown: leaves end at %d, before the input end %d", b.pos, len(b.tree.src)))
+	case uint64(len(b.tree.nodes)) > 3*uint64(len(b.tree.src))+3:
+		panic(fmt.Sprintf("markdown: %d nodes, more than 3 × %d + 3", len(b.tree.nodes), len(b.tree.src)))
+	}
+	return &b.tree
+}

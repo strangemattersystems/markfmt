@@ -30,9 +30,12 @@ tasks:
       - go test -race -cover ./...
 
   fuzz:
-    desc: Fuzz the formatter (e.g. task fuzz -- -fuzztime=5m)
+    desc: Fuzz one target (e.g. task fuzz PKG=./internal/markdown FUZZ=FuzzParse -- -fuzztime=5m)
+    vars:
+      PKG: '{{.PKG | default "./internal/format"}}'
+      FUZZ: '{{.FUZZ | default "FuzzSource"}}'
     cmds:
-      - go test -run='^$' -fuzz=FuzzSource -fuzztime=30s {{.CLI_ARGS}} ./internal/format
+      - go test -run='^$' -fuzz='^{{.FUZZ}}$' -fuzztime=30s {{.CLI_ARGS}} {{.PKG}}
 
   lint:
     desc: Run golangci-lint

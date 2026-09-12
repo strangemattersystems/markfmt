@@ -56,6 +56,7 @@ Layout:
 - `cmd/markfmt`: the CLI. `markfmt [-check] [path ...]`. With no path or `-`,
   it reads stdin and writes stdout. It writes files atomically.
 - `markfmt.go`: the public API, `Format(w io.Writer, r io.Reader) error`.
+- `internal/markdown`: the new parser and its tree (stage 1 onwards).
 - `internal/format`: the goldmark-based formatter. It formats headings (ATX)
   and paragraphs, copies other blocks from source, passes front matter
   through, and compares goldmark HTML of input and output.
@@ -139,9 +140,9 @@ Gate: the user approves the design document. Approved 2026-09-12.
 
 ### Stage 1: harness
 
-- [ ] Tree, builder with always-on checks, `Verify`, and `FuzzParse`
+- [x] Tree, builder with always-on checks, `Verify`, and `FuzzParse`
   (lossless round trip, no panic). No per-input timer in fuzzing.
-- [ ] `.golangci.yml`: `exhaustive` with `explicit-exhaustive-switch: true`
+- [x] `.golangci.yml`: `exhaustive` with `explicit-exhaustive-switch: true`
   and `default-signifies-exhaustive: false`. `task fuzz` takes `PKG` and
   `FUZZ`.
 - [ ] Line iterator, LineEnding and BOM leaves.
