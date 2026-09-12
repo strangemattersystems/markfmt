@@ -150,7 +150,7 @@ Gate: the user approves the design document. Approved 2026-09-12.
   pinned file.
 - [ ] Pin the corpora in `internal/markdown/testdata` with a notice for each.
   See Corpora.
-- [ ] The test-only HTML renderer and `normalize.py` normalization.
+- [x] The test-only HTML renderer and `normalize.py` normalization.
 - [ ] A conformance runner with `failing.txt` per corpus (design 11.2): the
   test fails if an unlisted example fails, if a listed example passes, or if
   an entry names no example. The list can only get shorter.
