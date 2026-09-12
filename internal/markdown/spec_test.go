@@ -18,11 +18,13 @@ type example struct {
 type corpus struct {
 	name     string
 	path     string
-	examples int
+	examples int    // in the file
+	sections string // suffix of the names of the sections that run
 }
 
 var corpora = []corpus{
-	{"commonmark", "testdata/commonmark/spec.txt", 652},
+	{"commonmark", "testdata/commonmark/spec.txt", 652, ""},
+	{"gfm", "testdata/gfm/spec.txt", 670, " (extension)"},
 }
 
 func TestReadExamples(t *testing.T) {

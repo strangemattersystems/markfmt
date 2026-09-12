@@ -1,0 +1,30 @@
+# GFM spec extension examples that TestParse expects to fail, one example ID
+# per line. The list only gets shorter: remove an ID when its example passes.
+#
+# The first list was generated once, from an empty list, with:
+#
+#   go test ./internal/markdown -run '^TestParse$/^gfm$' 2>&1 |
+#     sed -n 's/^ *--- FAIL: TestParse\/gfm\/gfm_example_\([0-9]*\) .*/\1/p' |
+#     sort -n
+198
+199
+200
+201
+202
+203
+204
+205
+491
+492
+621
+622
+623
+624
+625
+626
+627
+628
+629
+630
+631
+652

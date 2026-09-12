@@ -54,11 +54,14 @@ func TestParse(t *testing.T) {
 	}
 }
 
-// testConformance renders every example of c and compares it with the
-// expected HTML, against the examples listed in failing.txt next to c's file.
-// The list checks cover the whole corpus, whatever subtests -run selects.
+// testConformance renders the examples of c's sections and compares them with
+// the expected HTML, against the examples listed in failing.txt next to c's
+// file. The list checks cover the whole corpus, whatever subtests -run
+// selects.
 func testConformance(t *testing.T, c corpus) {
-	examples := readExamples(t, c.path)
+	examples := slices.DeleteFunc(readExamples(t, c.path), func(ex example) bool {
+		return !strings.HasSuffix(ex.section, c.sections)
+	})
 	failing := readFailing(t, filepath.Join(filepath.Dir(c.path), "failing.txt"), examples)
 
 	got := make([]string, len(examples))
