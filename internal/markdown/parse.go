@@ -4,6 +4,7 @@ package markdown
 // Parse parses src into a [Tree].
 func Parse(src []byte) *Tree {
 	p := blockParser{b: newBuilder(src), src: src}
+	p.inline = inlineParser{b: p.b, src: src}
 	p.b.open(Document)
 	p.containers = append(p.containers, container{kind: Document})
 	it := newLines(src)

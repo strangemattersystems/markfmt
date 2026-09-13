@@ -18,6 +18,8 @@ const (
 	CodeBlock
 	HTMLBlock
 	LinkReferenceDefinition
+	SoftBreak
+	HardBreak
 	Text
 	CodeText
 	VerbatimLineEnding
@@ -46,6 +48,8 @@ const (
 	AngleBracket
 	TitleQuote
 	FrontMatterFence
+	TrailingSpace
+	HardBreakMarker
 )
 
 type class uint8
@@ -62,11 +66,13 @@ const (
 func (k Kind) class() class {
 	//exhaustive:enforce
 	switch k {
-	case Document, FrontMatter, BlockQuote, List, ListItem, Paragraph, ThematicBreak, Heading, CodeBlock, HTMLBlock, LinkReferenceDefinition:
+	case Document, FrontMatter, BlockQuote, List, ListItem, Paragraph, ThematicBreak, Heading, CodeBlock, HTMLBlock, LinkReferenceDefinition,
+		SoftBreak, HardBreak:
 		return classStructure
 	case Text, CodeText, VerbatimLineEnding, InfoString, HTMLText, LinkLabel, Destination, Title, FrontMatterText:
 		return classContent
-	case BOM, LineEnding, BlankLine, Indent, ThematicRun, ATXMarker, ATXClose, Whitespace, CodeIndent, FenceMarker, SetextUnderline, QuoteMarker, ListMarker, ItemIndent, Bracket, Colon, AngleBracket, TitleQuote, FrontMatterFence:
+	case BOM, LineEnding, BlankLine, Indent, ThematicRun, ATXMarker, ATXClose, Whitespace, CodeIndent, FenceMarker, SetextUnderline, QuoteMarker, ListMarker, ItemIndent, Bracket, Colon, AngleBracket, TitleQuote, FrontMatterFence,
+		TrailingSpace, HardBreakMarker:
 		return classSyntax
 	}
 	return classInvalid
@@ -176,6 +182,14 @@ func (k Kind) String() string {
 		return "FrontMatterFence"
 	case FrontMatterText:
 		return "FrontMatterText"
+	case SoftBreak:
+		return "SoftBreak"
+	case HardBreak:
+		return "HardBreak"
+	case TrailingSpace:
+		return "TrailingSpace"
+	case HardBreakMarker:
+		return "HardBreakMarker"
 	}
 	return "Kind(" + strconv.Itoa(int(k)) + ")"
 }

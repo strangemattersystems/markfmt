@@ -60,6 +60,16 @@ func TestEqual(t *testing.T) {
 		}
 	})
 
+	t.Run("rejects a soft break against a space", func(t *testing.T) {
+		t.Parallel()
+
+		// No pair holds this case: the test HTML normalizes the line ending
+		// to a space (design 8.4).
+		if err := Equal(Parse([]byte("a\nb")), Parse([]byte("a b"))); err == nil {
+			t.Fatal("Equal = nil, want a difference")
+		}
+	})
+
 	t.Run("lists every pair", func(t *testing.T) {
 		t.Parallel()
 
@@ -100,6 +110,7 @@ func FuzzEqual(f *testing.F) {
 		"    code\n\n\nb\n\n~~~ info\nx\n~~~\n",
 		"# h\n\n<div>\n\n[a]: /u 't'\n---\n",
 		">     code\n>\n> - x\n>\n>   y\n",
+		"a  \nb \\\n> c \nd  \n",
 	} {
 		for op := range byte(mutations) {
 			f.Add([]byte(src), op)
@@ -122,12 +133,12 @@ func FuzzEqual(f *testing.F) {
 	})
 }
 
-const mutations = 6
+const mutations = 7
 
 // mutateSyntax returns the source of tree with one kind of block syntax
 // changed everywhere, chosen by op: bullet characters, line endings, ordered
-// delimiters, fence characters, the number of blank lines, or the space after
-// a block quote marker (design 10.5). A mutation may change meaning.
+// delimiters, fence characters, the number of blank lines, the space after a
+// block quote marker, or trailing spaces (design 10.5). A mutation may change meaning.
 func mutateSyntax(tree *Tree, op byte) []byte {
 	var out []byte
 	for _, n := range tree.nodes {
@@ -163,6 +174,10 @@ func mutateSyntax(tree *Tree, op byte) []byte {
 				} else {
 					b = append(bytes.Clone(b), ' ')
 				}
+			}
+		case 6:
+			if n.kind == TrailingSpace {
+				continue
 			}
 		}
 		out = append(out, b...)

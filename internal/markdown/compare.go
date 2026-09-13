@@ -69,7 +69,7 @@ func (c *comparer) equalKeys(ia, ib NodeID) bool {
 	a, b := c.a, c.b
 	//exhaustive:enforce
 	switch a.nodes[ia].kind {
-	case Document, BlockQuote, ListItem, Paragraph, ThematicBreak:
+	case Document, BlockQuote, ListItem, Paragraph, ThematicBreak, SoftBreak, HardBreak:
 		return true
 	case FrontMatter:
 		return a.FrontMatterTOML(ia) == b.FrontMatterTOML(ib)
@@ -91,7 +91,7 @@ func (c *comparer) equalKeys(ia, ib NodeID) bool {
 	case Text, CodeText, VerbatimLineEnding, InfoString, HTMLText, LinkLabel, Destination, Title,
 		FrontMatterText, BOM, LineEnding, BlankLine, Indent, ThematicRun, ATXMarker, ATXClose,
 		Whitespace, CodeIndent, FenceMarker, SetextUnderline, QuoteMarker, ListMarker, ItemIndent,
-		Bracket, Colon, AngleBracket, TitleQuote, FrontMatterFence:
+		Bracket, Colon, AngleBracket, TitleQuote, FrontMatterFence, TrailingSpace, HardBreakMarker:
 	}
 	panic(fmt.Sprintf("markdown: key of node %d of kind %v, which is not a structure kind", ia, a.nodes[ia].kind))
 }
@@ -151,10 +151,7 @@ func (p *projection) next() (event, bool) {
 		}
 		for p.i < parent.link {
 			m := nodes[p.i]
-			// Until the inline phase gives SoftBreak nodes, a line ending
-			// between the lines of a paragraph or a heading ends a run, so a
-			// line break never compares equal to no break.
-			if m.kind.class() == classStructure || m.kind == LineEnding && (parent.kind == Paragraph || parent.kind == Heading) {
+			if m.kind.class() == classStructure {
 				break
 			}
 			if g, ok := p.group(m, parent.kind); m.kind.class() == classContent && (!ok || g != group) {

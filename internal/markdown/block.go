@@ -24,6 +24,8 @@ type blockParser struct {
 
 	breakMemo uint32 // a thematic break scan from a marker of the line before this offset fails
 
+	inline inlineParser
+
 	pending []pendingLine // lines of the open leaf block that are not appended yet (design 5.3)
 	arena   []prefixLeaf  // prefix leaves of the pending lines
 }
@@ -262,7 +264,7 @@ func (p *blockParser) startLeaf(first uint32, indent, matched int) bool {
 		p.b.leafIf(Indent, first)
 		p.b.leaf(ATXMarker, h.markerEnd)
 		p.b.leafIf(Whitespace, h.textStart)
-		p.b.leafIf(Text, h.textEnd)
+		p.inline.inlines([]pendingLine{{rest: line{start: h.textStart, end: h.textEnd, eol: h.textEnd}}})
 		p.b.leafIf(Whitespace, h.closeStart)
 		p.b.leafIf(ATXClose, h.closeEnd)
 		p.b.leafIf(Whitespace, l.end)
@@ -432,19 +434,14 @@ func (p *blockParser) addPending() {
 }
 
 // appendParagraph opens a block of kind k, Paragraph or Heading, appends the
-// pending lines as its lines and clears them. The prefix leaves of its first
-// line come before its node.
+// pending lines as its inline content and clears them. The prefix leaves of
+// its first line come before its node.
 func (p *blockParser) appendParagraph(k Kind) {
-	for n, pl := range p.pending {
-		p.appendPendingPrefix(pl)
-		if n == 0 {
-			p.b.open(k)
-		}
-		p.b.split = splitVirt(int(pl.col), int(pl.used))
-		p.b.leafIf(Indent, p.skipSpace(pl.rest.start, pl.rest.end))
-		p.b.leaf(Text, pl.rest.end)
-		p.b.leafIf(LineEnding, pl.rest.eol)
-	}
+	p.appendPendingPrefix(p.pending[0])
+	p.b.open(k)
+	p.inline.arena = p.arena
+	p.inline.inlines(p.pending)
+	p.b.leafIf(LineEnding, p.pending[len(p.pending)-1].rest.eol)
 	p.clearPending()
 }
 

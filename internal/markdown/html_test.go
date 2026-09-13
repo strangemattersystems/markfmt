@@ -30,6 +30,7 @@ func TestRenderHTML(t *testing.T) {
 		{"writes tight lists", "- a\n- b\n", "<ul>\n<li>a</li>\n<li>b</li>\n</ul>\n"},
 		{"writes loose ordered lists", "3. a\n\n4. b", "<ol start=\"3\">\n<li><p>a</p>\n</li>\n<li><p>b</p>\n</li>\n</ol>\n"},
 		{"writes nothing for link reference definitions", "[a]: /u\n", ""},
+		{"writes line breaks", "a\\\nb  \nc \nd  ", "<p>a<br />\nb<br />\nc\nd</p>\n"},
 		{"writes paragraphs", "\xEF\xBB\xBFa\r\n b\n \nc", "<p>a\nb</p>\n<p>c</p>\n"},
 	}
 	for _, tt := range tests {
@@ -89,8 +90,7 @@ var htmlEscaper = strings.NewReplacer("&", "&amp;", "<", "&lt;", ">", "&gt;", `"
 // renderHTML renders tree as HTML, as cmark does, for conformance tests.
 func renderHTML(tree *Tree) string {
 	var b strings.Builder
-	var textEnd uint32 // end of the last block whose inner line endings are text
-	var open []NodeID  // entered interior nodes, innermost last
+	var open []NodeID // entered interior nodes, innermost last
 	c := tree.Walk()
 	for e, ok := c.Next(); ok; e, ok = c.Next() {
 		n := tree.nodes[e.ID]
@@ -99,7 +99,7 @@ func renderHTML(tree *Tree) string {
 		}
 		//exhaustive:enforce
 		switch n.kind {
-		case Document, BOM, BlankLine, Indent, ThematicRun, ATXMarker, ATXClose, Whitespace,
+		case Document, BOM, BlankLine, Indent, LineEnding, TrailingSpace, HardBreakMarker, ThematicRun, ATXMarker, ATXClose, Whitespace,
 			CodeIndent, CodeText, VerbatimLineEnding, FenceMarker, InfoString, SetextUnderline, HTMLText, QuoteMarker, ListMarker, ItemIndent,
 			LinkReferenceDefinition, LinkLabel, Destination, Title, Bracket, Colon, AngleBracket, TitleQuote,
 			FrontMatter, FrontMatterFence, FrontMatterText:
@@ -146,19 +146,21 @@ func renderHTML(tree *Tree) string {
 			if len(open) < 2 || tree.Kind(open[len(open)-1]) != ListItem || tree.ListLoose(open[len(open)-2]) {
 				b.WriteString(tag("p", e.Exit))
 			}
-			textEnd = n.end
 		case Heading:
 			b.WriteString(tag("h"+strconv.Itoa(tree.HeadingLevel(e.ID)), e.Exit))
-			textEnd = n.end
 		case ThematicBreak:
 			if !e.Exit {
 				b.WriteString("<hr />\n")
 			}
 		case Text:
 			b.WriteString(htmlEscaper.Replace(string(tree.Raw(e.ID))))
-		case LineEnding:
-			if n.end < textEnd {
+		case SoftBreak:
+			if !e.Exit {
 				b.WriteByte('\n')
+			}
+		case HardBreak:
+			if !e.Exit {
+				b.WriteString("<br />\n")
 			}
 		}
 		if !e.Exit && n.kind.class() == classStructure {
