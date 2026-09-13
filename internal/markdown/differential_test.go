@@ -510,6 +510,9 @@ var goldmarkDeviations = []struct {
 	{"goldmark deviates, spec section 6.2: a delimiter run at the start of a line in a block quote follows a line ending", func(t *Tree) bool {
 		return quoteMarkerDelimiter.Match(t.src)
 	}},
+	{"goldmark deviates, spec section 6.6: the `?` of `<?` does not start the `?>` of a processing instruction", func(t *Tree) bool {
+		return emptyInstruction.Match(t.src)
+	}},
 	{"goldmark deviates, spec section 4.7: a definition with its destination on a later line ends at the destination when the next line is not a title", func(t *Tree) bool {
 		for i, n := range t.nodes {
 			if n.kind != LinkReferenceDefinition {
@@ -544,4 +547,5 @@ var (
 	formFeedDestination  = regexp.MustCompile(`\](\(|:)[ \t\r\n]*[^ \t\r\n]*\f`)
 	kind1SlashTag        = regexp.MustCompile(`(?i)<(pre|script|style|textarea)/`)
 	quoteMarkerDelimiter = regexp.MustCompile(`>[*_]`)
+	emptyInstruction     = regexp.MustCompile(`<\?>`)
 )

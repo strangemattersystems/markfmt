@@ -485,3 +485,13 @@ goldmark takes the `>` before the run as the character before it, so the
 *</p>
 </blockquote>
 ````````````````````````````````
+
+## goldmark deviates, spec section 6.6: the `?` of `<?` does not start the `?>` of a processing instruction
+
+goldmark gives `<?>` as raw HTML.
+
+```````````````````````````````` example
+0<?>
+.
+<p>0&lt;?&gt;</p>
+````````````````````````````````
