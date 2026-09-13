@@ -87,6 +87,7 @@ func TestGoldmarkDiffers(t *testing.T) {
 		{"skips a control character in an unquoted value after whitespace", "<A A0000= \x01>0", "goldmark deviates, spec section 6.6: an unquoted attribute value takes ASCII control characters"},
 		{"skips a paragraph after an empty nested list item that follows a paragraph", "0) 0\n\n   0)\n\n   0", "goldmark deviates, spec section 5.2: a blank line after an empty nested list item continues the outer list item"},
 		{"skips a tab and text after a kind 6 tag name", "</td\t0", "goldmark deviates, spec section 4.6: a tab after the tag name starts HTML block kind 6"},
+		{"skips a definition whose label spans lines and whose title fails", "[0\n]:0\n\"\"0", "goldmark deviates, spec section 4.7: a definition over several lines ends at its destination when the next line is not a title"},
 		{"skips a tab in the indentation after a list item prefix", "* 0\n  \t -", "goldmark deviates, spec sections 2.2 and 5.2: a tab after the prefix of a list item line stops at a column counted from the start of the line"},
 	}
 	for _, tt := range tests {
@@ -545,14 +546,14 @@ var goldmarkDeviations = []struct {
 		}
 		return false
 	}},
-	{"goldmark deviates, spec section 4.7: a definition with its destination on a later line ends at the destination when the next line is not a title", func(t *Tree) bool {
+	{"goldmark deviates, spec section 4.7: a definition over several lines ends at its destination when the next line is not a title", func(t *Tree) bool {
 		for i, n := range t.nodes {
 			if n.kind != LinkReferenceDefinition {
 				continue
 			}
 			var lineEnding, destination, title bool
 			for _, m := range t.nodes[i+1 : n.link] {
-				lineEnding = lineEnding || m.kind == LineEnding && !destination
+				lineEnding = lineEnding || (m.kind == LineEnding || m.kind == VerbatimLineEnding) && !destination
 				destination = destination || m.kind == Destination
 				title = title || m.kind == Title
 			}

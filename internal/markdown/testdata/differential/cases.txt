@@ -106,17 +106,23 @@ x
 </code></pre>
 ````````````````````````````````
 
-## goldmark deviates, spec section 4.7: a definition with its destination on a later line ends at the destination when the next line is not a title
+## goldmark deviates, spec section 4.7: a definition over several lines ends at its destination when the next line is not a title
 
-goldmark also writes the destination line as paragraph text. With the
-destination on the label's line, goldmark agrees (CM 210).
+goldmark also writes the lines of the definition after its first line as
+paragraph text. With the whole definition on one line, goldmark agrees (CM
+210).
 
 ```````````````````````````````` example
 [0]:
 0
 ''0
+
+[1
+]:1
+""1
 .
 <p>''0</p>
+<p>&quot;&quot;1</p>
 ````````````````````````````````
 
 ## fixed in markfmt, spec section 2.3: a NUL in a code block or an HTML block is U+FFFD
