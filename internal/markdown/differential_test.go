@@ -114,6 +114,7 @@ func TestGoldmarkDiffers(t *testing.T) {
 		{"skips a setext heading after a definition whose title fails", "[0]:0\n\"\"[0]:0\n-", "goldmark deviates, spec section 4.7: a title that other characters follow on its line is not the title of the definition"},
 		{"skips an escape after a code span after a backslash and a hard break", "\\  \n``0``\\!", "goldmark deviates, spec sections 2.4 and 6.7: a backslash escape after a backslash and a hard line break of spaces decodes"},
 		{"skips a tab in the indentation of an html block after a list item prefix", "*\n  \t<!A", "goldmark deviates, spec sections 2.2 and 5.2: a tab after the prefix of a list item line stops at a column counted from the start of the line"},
+		{"skips a code block that ends blank in a loose list in a tight list", "* * 0\n\n    ```\n\n  0", "goldmark deviates, spec section 5.3: a blank line at the end of a code block in a list item leaves the list tight"},
 		{"skips a tab in the indentation after a list item prefix", "* 0\n  \t -", "goldmark deviates, spec sections 2.2 and 5.2: a tab after the prefix of a list item line stops at a column counted from the start of the line"},
 	}
 	for _, tt := range tests {
@@ -265,7 +266,8 @@ var goldmarkDeviations = []struct {
 				lists = lists[:len(lists)-1]
 			case k == List:
 				lists = append(lists, e.ID)
-			case e.Exit || len(lists) == 0 || t.ListLoose(lists[len(lists)-1]):
+			case e.Exit || !slices.ContainsFunc(lists, func(l NodeID) bool { return !t.ListLoose(l) }):
+				// goldmark can make any enclosing tight list loose.
 			case k == CodeBlock && endsBlank(t.AppendCode(nil, e.ID)), k == HTMLBlock && endsBlank(t.AppendHTML(nil, e.ID)):
 				return true
 			}
