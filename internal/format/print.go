@@ -3,6 +3,7 @@ package format
 import (
 	"bytes"
 	"strconv"
+	"strings"
 
 	"github.com/strangemattersystems/markfmt/internal/markdown"
 )
@@ -29,6 +30,7 @@ type printer struct {
 	matched   int           // the containers that the input line of the output line matched
 	indent    int           // the input column where columns that are not written yet start, or -1
 	inSpan    int           // the open dialect spans
+	inLabel   int           // the open collapsed and shortcut references, whose text is their label
 	written   bool          // the last leaf block that started has written content
 	leafKind  markdown.Kind // the kind of the last leaf block that started
 	pad       int           // spaces to write after the prefix of the next line
@@ -71,6 +73,8 @@ type frame struct {
 	// opening fence line, and lineOpen on a line of code that has not ended.
 	fence             []byte
 	opening, lineOpen bool
+	delim             []byte // the delimiter of emphasis or strikethrough, or nil for the input's
+	label             bool   // a collapsed or shortcut reference, whose text keeps its bytes
 
 	// A link reference definition outside a dialect span prints in the
 	// part def, puts one space before its destination with spaced, has an
@@ -246,6 +250,14 @@ func (p *printer) enter(id markdown.NodeID, k markdown.Kind) {
 			p.endLine()
 		}
 	}
+	if (k == markdown.Link || k == markdown.Image) && (t.LinkForm(id) == markdown.CollapsedReference || t.LinkForm(id) == markdown.ShortcutReference) {
+		// The raw text is the label (design 6.7), which Kept keeps.
+		f.label = true
+		p.inLabel++
+	}
+	if (k == markdown.Emphasis || k == markdown.Strong || k == markdown.Strikethrough) && p.inSpan == 0 && p.inLabel == 0 {
+		f.delim = p.delimiter(id, k)
+	}
 	if k == markdown.LinkReferenceDefinition && p.inSpan == 0 {
 		f.def, f.quotes = defLabel, p.titleQuotes(id)
 	}
@@ -397,6 +409,9 @@ func (p *printer) leaf(id markdown.NodeID, k markdown.Kind, start, end int) {
 		}
 	case top.fence != nil:
 		p.codeLeaf(top, id, k, start)
+	case top.delim != nil && k == markdown.Delimiter:
+		p.replace = top.delim
+		p.content(id, start)
 	case top.def != defNone:
 		p.definitionLeaf(top, id, k, start)
 	case top.kind == markdown.FrontMatter && k == markdown.Whitespace:
@@ -426,8 +441,8 @@ func (p *printer) leaf(id markdown.NodeID, k markdown.Kind, start, end int) {
 		// content writes them.
 	case k == markdown.Whitespace && p.afterBox && p.inSpan == 0:
 		p.write(spaces[:1])
-	case k == markdown.TrailingSpace && p.inSpan == 0:
-	case k == markdown.HardBreakMarker && p.inSpan == 0 && t.Raw(id)[0] != '\\':
+	case k == markdown.TrailingSpace && p.inSpan == 0 && p.inLabel == 0:
+	case k == markdown.HardBreakMarker && p.inSpan == 0 && p.inLabel == 0 && t.Raw(id)[0] != '\\':
 		// A hard break is a backslash, except after a backslash that is not
 		// an escape, which the backslash would escape (appendix B, trap 10),
 		// and in a paragraph that starts with '[', where the backslash could
@@ -733,6 +748,64 @@ func (p *printer) definitionLeaf(f *frame, id markdown.NodeID, k markdown.Kind, 
 	}
 }
 
+// delimiter returns the delimiter of node id of kind k, which is emphasis,
+// strong emphasis or strikethrough: '_', "**" or "~~" (roadmap Decisions),
+// or nil to keep the input's. Emphasis keeps its input delimiters next to a
+// byte where '_' could flank differently from '*' (spec 6.2). A node keeps
+// its input delimiters when its content has a character of its delimiters,
+// so that a second format decides the same after nested nodes change, and
+// when its content starts with an autolink or "www.".
+func (p *printer) delimiter(id markdown.NodeID, k markdown.Kind) []byte {
+	t := p.tree
+	raw, open := t.Raw(id), t.Raw(id+1)
+	var closer []byte
+	end, _ := t.Next(id)
+	for i := end - 1; i > id; i-- {
+		if t.Kind(i) == markdown.Delimiter {
+			closer = t.Raw(i)
+			break
+		}
+	}
+	content := raw[len(open) : len(raw)-len(closer)]
+	if t.Kind(id+2) == markdown.Autolink || len(content) >= 4 && bytes.EqualFold(content[:4], []byte("www.")) {
+		// An extended www autolink depends on the byte before it (design 6.2).
+		return nil
+	}
+	before, after := t.Around(id)
+	switch k {
+	case markdown.Emphasis:
+		if bytes.ContainsAny(content, "*_") || !flanksLikeSpace(before) || !flanksLikeSpace(after) {
+			return nil
+		}
+		return []byte{'_'}
+	case markdown.Strong:
+		if bytes.ContainsAny(content, "*_") {
+			return nil
+		}
+		return []byte("**")
+	default:
+		// No '~' goes next to a "~~" delimiter (appendix B, trap 13).
+		if bytes.IndexByte(content, '~') >= 0 || before == '~' || after == '~' {
+			return nil
+		}
+		return []byte("~~")
+	}
+}
+
+// flanksLikeSpace reports whether c, the byte next to an emphasis
+// delimiter, lets '_' flank as '*' does: 0 for the start or the end of the
+// input, a space, a tab, a line ending, or ASCII punctuation other than '*',
+// '_' and '\\'.
+func flanksLikeSpace(c byte) bool {
+	switch c {
+	case 0, ' ', '\t', '\n', '\r':
+		return true
+	case '*', '_', '\\':
+		return false
+	}
+	return strings.IndexByte("!\"#$%&'()+,-./:;<=>?@[]^`{|}~", c) >= 0
+}
+
 // codeFence returns the fence of code block id: backticks, or tildes when its
 // info string has a backtick, one more than the longest run of that
 // character in the code and at least 3 (roadmap Decisions). It also reports
@@ -870,6 +943,9 @@ func (p *printer) exit() {
 	p.stack = p.stack[:len(p.stack)-1]
 	if g.span {
 		p.inSpan--
+	}
+	if g.label {
+		p.inLabel--
 	}
 	switch {
 	case g.fence != nil:

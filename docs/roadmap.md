@@ -150,6 +150,8 @@ Layout:
 | Task boxes `[ ]` and `[x]`, with one space after them | GitHub reads `x` and `X` as checked, and its docs write `[x]`. |
 | A list item's content starts on its marker line, unless the content starts with columns that padding would take | Padding takes up to 4 columns, so such content keeps a blank first line (spec 5.2). A block quote writes its content on its marker line. |
 | A list's padding grows past the indentation of an HTML block or code block after the list | Otherwise the block would continue the last item. When more than 4 columns of padding would be needed, the list keeps its input layout. |
+| Strikethrough `~~` | GitHub reads `~` and `~~` the same, and its docs write `~~`. No `~` goes next to a `~~` delimiter (design appendix B, trap 13). |
+| Emphasis and strikethrough keep their input delimiters where the canonical delimiter could pair differently | `_` flanks differently from `*` inside words and next to symbols (spec 6.2, trap 19). A node whose content has a character of its delimiters keeps them, so that a second format decides the same. |
 | The printer keeps each NUL and invalid UTF-8 byte | cmark writes an invalid byte in a destination as `%A6`, where markfmt's value is U+FFFD, so `Equal` cannot see the byte. `Kept` checks it (design 12). |
 | One blank line between blocks, one final newline, line breaks as written | Prettier (`proseWrap: "preserve"`), dprint (`TextWrap::Maintain`), mdformat (`wrap: keep`). markdownlint MD012 and MD047 agree. |
 

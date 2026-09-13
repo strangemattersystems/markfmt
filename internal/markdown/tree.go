@@ -43,6 +43,19 @@ func (t *Tree) Next(id NodeID) (NodeID, bool) {
 	return NodeID(next), int(next) < len(t.nodes)
 }
 
+// Around returns the input byte before node id and the input byte after it,
+// with 0 at the start and at the end of the input.
+func (t *Tree) Around(id NodeID) (before, after byte) {
+	n := t.nodes[id]
+	if n.start > 0 {
+		before = t.src[n.start-1]
+	}
+	if int(n.end) < len(t.src) {
+		after = t.src[n.end]
+	}
+	return before, after
+}
+
 // RestOfLine returns the bytes from the start of leaf id to the end of its
 // line, without the line ending.
 func (t *Tree) RestOfLine(id NodeID) []byte {
