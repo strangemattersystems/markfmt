@@ -127,6 +127,7 @@ The goldmark-based formatter is a stopgap. Stage 6 replaces it.
 | Full case folding table from Unicode `CaseFolding.txt` | Label matching needs Unicode full case folding (CM 540: `ẞ` matches `SS`). Go's `unicode` package has only simple folding. Design 15, commit 19. |
 | Differential fuzz budget: 1 CPU-hour at stage 5, 24 CPU-hours at stage 7 | The user wants no long run before the product is near v0.1. The long run must end before stage 7 deletes the differential test. |
 | No goldmark extensions in the differential test | goldmark's GFM extensions are not cmark-gfm: with them on, goldmark disagrees on 81 corpus examples with a GFM construct. The corpora and GitHub fixtures test GFM. Design 11.5. |
+| Control characters in destinations and absolute URIs follow cmark | The spec text excludes them, but no example tests it, and cmark, commonmark.js, cmark-gfm and goldmark all take them. The user chose cmark on 2026-09-13. Design 8.4. |
 | Canonical style by consensus | The style follows modern best practice across the major formatters and style guides, not personal preference. See Open decisions. |
 
 ## Open decisions

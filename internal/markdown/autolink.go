@@ -33,8 +33,9 @@ func autolinkEnd(src []byte, i, end uint32, pipes bool) uint32 {
 }
 
 // uriEnd returns the end of the absolute URI at src[i:end], or 0: a scheme of
-// 2 to 32 characters, ':', and characters that are not ASCII control
-// characters, spaces, '<' or '>'.
+// 2 to 32 characters, ':', and characters that are not U+0001 to U+001F,
+// spaces, '<' or '>'. cmark takes DEL, which the spec text excludes (design
+// 8.4).
 func uriEnd(src []byte, i, end uint32) uint32 {
 	if i == end || !isASCIILetter(src[i]) {
 		return 0
@@ -47,7 +48,7 @@ func uriEnd(src []byte, i, end uint32) uint32 {
 		return 0
 	}
 	// A NUL is U+FFFD, not a control character (spec 2.3).
-	for j++; j < end && (src[j] > ' ' || src[j] == 0) && src[j] != '<' && src[j] != '>' && src[j] != 0x7f; j++ {
+	for j++; j < end && (src[j] > ' ' || src[j] == 0) && src[j] != '<' && src[j] != '>'; j++ {
 	}
 	return j
 }

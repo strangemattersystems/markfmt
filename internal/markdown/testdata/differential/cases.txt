@@ -263,3 +263,23 @@ goldmark ends the empty item and starts a second list.
 </li>
 </ul>
 ````````````````````````````````
+
+## fixed in markfmt, spec sections 4.7, 6.3 and 6.5: a destination takes control characters other than space, tab, VT and FF, and an absolute URI takes DEL
+
+The spec text excludes ASCII control characters, but no example tests it,
+so markfmt follows cmark (design 2, 8.4). The destinations hold U+000E and
+U+0001, and the autolink holds DEL.
+
+```````````````````````````````` example
+[0]:
+
+[0]
+
+[a](bc)
+
+<http://d>
+.
+<p><a href="%0E">0</a></p>
+<p><a href="b%01c">a</a></p>
+<p><a href="http://d%7F">http://d</a></p>
+````````````````````````````````

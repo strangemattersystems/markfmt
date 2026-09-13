@@ -818,6 +818,7 @@ research (section 17).
 | Missing table cells | Equal to empty cells (section 10.3). |
 | NUL, invalid UTF-8 | Raw bytes in leaves. U+FFFD in every character decision and value. |
 | Soft break vs space | Different meaning. |
+| ASCII control characters in a destination or an absolute URI | A destination ends at space, tab, VT and FF, and takes the other control characters. An absolute URI takes DEL. cmark and commonmark.js do this. The spec text excludes control characters, but no example tests it (section 2). |
 
 ## 9. GitHub syntax
 

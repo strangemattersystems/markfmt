@@ -378,8 +378,9 @@ func (s *inlineParser) linkDestination() bool {
 			j++
 			continue
 		}
-		// A NUL is U+FFFD, not a control character (spec 2.3).
-		if c <= ' ' && c != 0 || c == 0x7f || c == ')' && depth == 0 {
+		// cmark ends a destination at these and takes every other control
+		// character, which the spec text excludes (design 8.4).
+		if c == ' ' || c == '\t' || c == '\v' || c == '\f' || c == ')' && depth == 0 {
 			break
 		}
 		switch c {
