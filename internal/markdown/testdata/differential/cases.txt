@@ -82,6 +82,11 @@ goldmark makes the list loose, as commonmark.js does. markfmt follows cmark
   a
 
 - b
+
+* c
+  ```
+
+*
 .
 <ul>
 <li>
@@ -90,6 +95,13 @@ goldmark makes the list loose, as commonmark.js does. markfmt follows cmark
 </code></pre>
 </li>
 <li>b</li>
+</ul>
+<ul>
+<li>c
+<pre><code>
+</code></pre>
+</li>
+<li></li>
 </ul>
 ````````````````````````````````
 

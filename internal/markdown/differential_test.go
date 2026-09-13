@@ -88,6 +88,7 @@ func TestGoldmarkDiffers(t *testing.T) {
 		{"skips a paragraph after an empty nested list item that follows a paragraph", "0) 0\n\n   0)\n\n   0", "goldmark deviates, spec section 5.2: a blank line after an empty nested list item continues the outer list item"},
 		{"skips a tab and text after a kind 6 tag name", "</td\t0", "goldmark deviates, spec section 4.6: a tab after the tag name starts HTML block kind 6"},
 		{"skips a definition whose label spans lines and whose title fails", "[0\n]:0\n\"\"0", "goldmark deviates, spec section 4.7: a definition over several lines ends at its destination when the next line is not a title"},
+		{"skips a code block of one blank line at the end of a list item", "- 00000\n  ```\n\n-", "goldmark deviates, spec section 5.3: a blank line at the end of a code block in a list item leaves the list tight"},
 		{"skips a tab in the indentation after a list item prefix", "* 0\n  \t -", "goldmark deviates, spec sections 2.2 and 5.2: a tab after the prefix of a list item line stops at a column counted from the start of the line"},
 	}
 	for _, tt := range tests {
@@ -226,6 +227,10 @@ var goldmarkDeviations = []struct {
 		return false
 	}},
 	{"goldmark deviates, spec section 5.3: a blank line at the end of a code block in a list item leaves the list tight", func(t *Tree) bool {
+		// endsBlank reports whether the last line of a block value is blank.
+		endsBlank := func(v []byte) bool {
+			return string(v) == "\n" || bytes.HasSuffix(v, []byte("\n\n"))
+		}
 		var lists []NodeID // the open lists, innermost last
 		c := t.Walk()
 		for e, ok := c.Next(); ok; e, ok = c.Next() {
@@ -235,8 +240,7 @@ var goldmarkDeviations = []struct {
 			case k == List:
 				lists = append(lists, e.ID)
 			case e.Exit || len(lists) == 0 || t.ListLoose(lists[len(lists)-1]):
-			case k == CodeBlock && bytes.HasSuffix(t.AppendCode(nil, e.ID), []byte("\n\n")),
-				k == HTMLBlock && bytes.HasSuffix(t.AppendHTML(nil, e.ID), []byte("\n\n")):
+			case k == CodeBlock && endsBlank(t.AppendCode(nil, e.ID)), k == HTMLBlock && endsBlank(t.AppendHTML(nil, e.ID)):
 				return true
 			}
 		}
