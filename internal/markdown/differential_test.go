@@ -256,6 +256,35 @@ var goldmarkDeviations = []struct {
 			return unicode.IsSpace(r) && !isUnicodeSpace(r)
 		})
 	}},
+	{"goldmark deviates, spec sections 4.7 and 6.3: a parenthesis in a destination is escaped or in a balanced pair", func(t *Tree) bool {
+		// A destination after "](" or "]:" whose open parentheses do not all
+		// close before a space or a line ending.
+		src := t.src
+		for i := 0; i+1 < len(src); i++ {
+			if src[i] != ']' || src[i+1] != '(' && src[i+1] != ':' {
+				continue
+			}
+			j := i + 2
+			for j < len(src) && (src[j] == ' ' || src[j] == '\t' || src[j] == '\n' || src[j] == '\r') {
+				j++
+			}
+			depth := 0
+			for ; j < len(src) && src[j] > ' ' && depth >= 0; j++ {
+				switch src[j] {
+				case '\\':
+					j++
+				case '(':
+					depth++
+				case ')':
+					depth--
+				}
+			}
+			if depth > 0 {
+				return true
+			}
+		}
+		return false
+	}},
 	{"goldmark deviates, spec section 4.7: a definition with its destination on a later line ends at the destination when the next line is not a title", func(t *Tree) bool {
 		for i, n := range t.nodes {
 			if n.kind != LinkReferenceDefinition {

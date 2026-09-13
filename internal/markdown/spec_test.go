@@ -34,7 +34,7 @@ var corpora = []corpus{
 	{"commonmark-js-regression", "testdata/commonmark-js-regression/regression.txt", 32, "", false, false},
 	{"markfmt", "testdata/markfmt/grammar.txt", 17, "", false, false},
 	{"github", "testdata/github/github.txt", 71, "", true, true},
-	{"differential", "testdata/differential/cases.txt", 12, "", false, false},
+	{"differential", "testdata/differential/cases.txt", 13, "", false, false},
 }
 
 func TestReadExamples(t *testing.T) {
