@@ -453,6 +453,7 @@ Use this list to triage stage 5 disagreements. The last column says how
 | `<div`, then a form feed | A paragraph: FF is not whitespace in a tag, except after a kind 1 tag name. | An HTML block, as cmark reads FF (spec 6.6, design 8.4). | Predicate, differential case. |
 | `[a b]`, then `[a`, a form feed, `b]: /u` | Text: FF inside a label is a label character. A label of FF alone is a label. | A link, and a blank label, as cmark reads FF (spec 4.7, design 8.4). | Predicate, differential case. |
 | `> `, a tab, `*` | The paragraph `*`: the tab after the marker's space counts from the quote's content. | An empty list item (spec 2.2, 5.2). | Predicate, differential case. |
+| `- x`, then indented code with a line of spaces | The line is empty: goldmark drops the spaces beyond the indentation in a list item. | The spaces stay (spec 4.4, 5.2). | Predicate, differential case. |
 | `[0]:\n0\n''0` | The destination line also appears as paragraph text. | Paragraph `''0` only (compare example 210). | Predicate, differential case. |
 | `x<!x>`, `<!doctype html>` | Text: a declaration needs an uppercase letter after `<!`, as on GitHub. | Raw HTML and an HTML block (spec 4.6, 6.6). | Predicate, differential case. |
 | `a\n<meta>` | `<meta>` interrupts the paragraph: goldmark's HTML block kind 6 tag list has `meta`. | Paragraph with raw HTML (spec 4.6). | Predicate, differential case. |

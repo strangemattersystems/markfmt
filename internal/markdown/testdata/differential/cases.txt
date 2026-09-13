@@ -858,3 +858,39 @@ so the list marker after it is too far in to start a list item.
 </ol>
 </blockquote>
 ````````````````````````````````
+
+## goldmark deviates, spec sections 4.4 and 5.2: a blank line of indented code in a list item keeps the spaces beyond the indentation
+
+goldmark drops them in a list item, with spaces or with tabs. At the top
+level and in a block quote, goldmark keeps them.
+
+```````````````````````````````` example
+- x
+
+      a
+        
+      b
+
+*
+→→0
+→→
+→→0
+.
+<ul>
+<li>
+<p>x</p>
+<pre><code>a
+  
+b
+</code></pre>
+</li>
+</ul>
+<ul>
+<li>
+<pre><code>  0
+  
+  0
+</code></pre>
+</li>
+</ul>
+````````````````````````````````

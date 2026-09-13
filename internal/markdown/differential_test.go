@@ -805,6 +805,28 @@ var goldmarkDeviations = []struct {
 		}
 		return false
 	}},
+	{"goldmark deviates, spec sections 4.4 and 5.2: a blank line of indented code in a list item keeps the spaces beyond the indentation", func(t *Tree) bool {
+		items := 0 // the open list items
+		c := t.Walk()
+		for e, ok := c.Next(); ok; e, ok = c.Next() {
+			switch n := t.nodes[e.ID]; {
+			case n.kind == ListItem && e.Exit:
+				items--
+			case n.kind == ListItem:
+				items++
+			case n.kind == CodeBlock && !e.Exit && items > 0:
+				if slices.ContainsFunc(t.nodes[e.ID+1:n.link], func(m Node) bool { return m.kind == FenceMarker }) {
+					continue
+				}
+				for line := range bytes.Lines(t.AppendCode(nil, e.ID)) {
+					if l := bytes.TrimSuffix(line, []byte("\n")); len(l) > 0 && len(bytes.Trim(l, " \t")) == 0 {
+						return true
+					}
+				}
+			}
+		}
+		return false
+	}},
 }
 
 var (
