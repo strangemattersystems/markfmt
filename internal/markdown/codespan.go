@@ -19,9 +19,9 @@ func (s *inlineParser) codeSpan(i, end uint32) {
 
 // findBackticks returns the line and the offset of the first backtick run of
 // length n that starts at or after from, on the line being scanned or a later
-// one. It records the last run of each length that it passes. After one
-// search reaches the end of the block, a search that the record answers needs
-// no scan, so the searches of a block are linear (design 6.8).
+// one. It records the last run of each length that any search passed. After
+// one search reaches the end of the block, a search that the record answers
+// needs no scan, so the searches of a block are linear (design 6.8).
 func (s *inlineParser) findBackticks(from, n uint32) (int, uint32, bool) {
 	if s.ticksAll && (int(n) >= len(s.ticks) || s.ticks[n] <= from) {
 		return 0, 0, false
@@ -42,7 +42,9 @@ func (s *inlineParser) findBackticks(from, n uint32) (int, uint32, bool) {
 			for count(len(s.ticks)) <= m {
 				s.ticks = append(s.ticks, 0)
 			}
-			s.ticks[m] = j + 1
+			// A later search must not lower the record of a search that
+			// passed more runs, as cmark's does (testdata/dialect.md).
+			s.ticks[m] = max(s.ticks[m], j+1)
 			if m == n {
 				return k, j, true
 			}

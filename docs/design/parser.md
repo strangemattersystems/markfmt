@@ -93,9 +93,11 @@ Known divergences at draft 3:
 | Footnote reference label across a line ending | reference with a line ending in its label | rendered as garbled text |
 | Paragraph split off above a table | `\|` is an escaped pipe | backslash removed |
 | List items that start on one line | every item opens | at most 99 blocks start on a line |
+| Code span after an unmatched backtick run (`a `` b `c` d `e``) | `c` and `e` are code spans (spec text, commonmark.js) | `e` stays text (cmark and cmark-gfm) |
 
 markfmt follows the CommonMark column, and cmark where cmark and commonmark.js
-disagree, with two exceptions. The footnote rows
+disagree, but not where cmark contradicts the spec text (the code span row),
+with two exceptions. The footnote rows
 have no CommonMark rule, so markfmt follows cmark-gfm's tests. The paragraph
 split off above a table follows GitHub: the table that splits it is GFM
 grammar, so section 5.4 gives the paragraph the cell pipe rule.

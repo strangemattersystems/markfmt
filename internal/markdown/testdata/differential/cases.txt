@@ -448,3 +448,16 @@ item, and the content after the blank line leaves the list.
 </li>
 </ul>
 ````````````````````````````````
+
+## fixed in markfmt, spec section 6.1: every later backtick run of the same length can close a code span
+
+cmark 0.31.1 and cmark-gfm leave the second code span as text: their search
+for a closer lowers the record of an earlier search, and markfmt copied it.
+The expected HTML is the output of commonmark.js, which follows the spec
+text (`../dialect.md`).
+
+```````````````````````````````` example
+a `` b `c` d `e`
+.
+<p>a `` b <code>c</code> d <code>e</code></p>
+````````````````````````````````
