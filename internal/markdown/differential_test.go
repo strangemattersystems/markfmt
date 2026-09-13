@@ -174,10 +174,14 @@ var goldmarkDeviations = []struct {
 	{"goldmark deviates, spec section 4.6: a closing tag of `pre`, `script` or `style` starts HTML block kind 7", func(t *Tree) bool {
 		return kind1ClosingTag.Match(t.src)
 	}},
+	{"goldmark deviates, spec sections 4.7 and 6.3: an angle destination contains no unescaped `<`", func(t *Tree) bool {
+		return angleDestinationLT.Match(t.src)
+	}},
 }
 
 var (
 	lowercaseDeclaration = regexp.MustCompile(`<![a-z]`)
 	metaTag              = regexp.MustCompile(`(?i)</?meta([ \t\r\n/>]|$)`)
 	kind1ClosingTag      = regexp.MustCompile(`(?i)</(pre|script|style)`)
+	angleDestinationLT   = regexp.MustCompile(`\](\(|:)[ \t\r\n]*<[^>\r\n]*<`)
 )
