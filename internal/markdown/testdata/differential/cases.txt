@@ -283,3 +283,13 @@ U+0001, and the autolink holds DEL.
 <p><a href="b%01c">a</a></p>
 <p><a href="http://d%7F">http://d</a></p>
 ````````````````````````````````
+
+## goldmark deviates, spec sections 4.7 and 6.3: a form feed ends a destination
+
+goldmark takes the form feed into the destination.
+
+```````````````````````````````` example
+[a](bc)
+.
+<p>[a](bc)</p>
+````````````````````````````````

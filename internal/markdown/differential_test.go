@@ -359,6 +359,9 @@ var goldmarkDeviations = []struct {
 		}
 		return false
 	}},
+	{"goldmark deviates, spec sections 4.7 and 6.3: a form feed ends a destination", func(t *Tree) bool {
+		return formFeedDestination.Match(t.src)
+	}},
 	{"goldmark deviates, spec section 4.7: a definition with its destination on a later line ends at the destination when the next line is not a title", func(t *Tree) bool {
 		for i, n := range t.nodes {
 			if n.kind != LinkReferenceDefinition {
@@ -390,4 +393,5 @@ var (
 	metaTag              = regexp.MustCompile(`(?i)</?meta([ \t\r\n/>]|$)`)
 	kind1ClosingTag      = regexp.MustCompile(`(?i)</(pre|script|style)`)
 	angleDestinationLT   = regexp.MustCompile(`\](\(|:)[ \t\r\n]*<[^>\r\n]*<`)
+	formFeedDestination  = regexp.MustCompile(`\](\(|:)[ \t\r\n]*[^ \t\r\n]*\f`)
 )
