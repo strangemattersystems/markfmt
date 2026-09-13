@@ -32,6 +32,7 @@ func TestParse(t *testing.T) {
 		{"gives a hard break for two spaces before a line ending", "a \t  \r\n b", `Document{Paragraph{Text "a", HardBreak{HardBreakMarker " \t  ", LineEnding "\r\n"}, Indent " ", Text "b"}}`},
 		{"gives a hard break for a backslash before a line ending", "a \\\nb", `Document{Paragraph{Text "a ", HardBreak{HardBreakMarker "\\", LineEnding "\n"}, Text "b"}}`},
 		{"gives escape leaves for ascii punctuation", "\\*a\\b\\\\\nc\\", `Document{Paragraph{Escape "\\*", Text "a\\b", Escape "\\\\", SoftBreak{LineEnding "\n"}, Text "c\\"}}`},
+		{"gives entity references", "&amp; &#35;&#X22;&CounterClockwiseContourIntegral; &nope; &#12345678; &#xabcdefa; &#;", `Document{Paragraph{EntityRef "&amp;", Text " ", EntityRef "&#35;", EntityRef "&#X22;", EntityRef "&CounterClockwiseContourIntegral;", Text " &nope; &#12345678; &#xabcdefa; &#;"}}`},
 		{"gives no break at the end of a block", "a\\\n\n# b\\", `Document{Paragraph{Text "a\\", LineEnding "\n"}, BlankLine "\n", Heading{ATXMarker "#", Whitespace " ", Text "b\\"}}`},
 		{"gives breaks between setext heading lines", "a  \nb \n==", `Document{Heading{Text "a", HardBreak{HardBreakMarker "  ", LineEnding "\n"}, Text "b", TrailingSpace " ", LineEnding "\n", SetextUnderline "=="}}`},
 		{"gives the indentation of a first line", "   a", `Document{Paragraph{Indent "   ", Text "a"}}`},

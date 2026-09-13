@@ -30,6 +30,7 @@ const (
 	Title
 	FrontMatterText
 	Escape
+	EntityRef
 	BOM
 	LineEnding
 	BlankLine
@@ -70,7 +71,7 @@ func (k Kind) class() class {
 	case Document, FrontMatter, BlockQuote, List, ListItem, Paragraph, ThematicBreak, Heading, CodeBlock, HTMLBlock, LinkReferenceDefinition,
 		SoftBreak, HardBreak:
 		return classStructure
-	case Text, CodeText, VerbatimLineEnding, InfoString, HTMLText, LinkLabel, Destination, Title, FrontMatterText, Escape:
+	case Text, CodeText, VerbatimLineEnding, InfoString, HTMLText, LinkLabel, Destination, Title, FrontMatterText, Escape, EntityRef:
 		return classContent
 	case BOM, LineEnding, BlankLine, Indent, ThematicRun, ATXMarker, ATXClose, Whitespace, CodeIndent, FenceMarker, SetextUnderline, QuoteMarker, ListMarker, ItemIndent, Bracket, Colon, AngleBracket, TitleQuote, FrontMatterFence,
 		TrailingSpace, HardBreakMarker:
@@ -185,6 +186,8 @@ func (k Kind) String() string {
 		return "FrontMatterText"
 	case Escape:
 		return "Escape"
+	case EntityRef:
+		return "EntityRef"
 	case SoftBreak:
 		return "SoftBreak"
 	case HardBreak:

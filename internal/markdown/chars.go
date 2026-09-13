@@ -51,10 +51,16 @@ func decodeRune(b []byte) (rune, int) {
 // valueReader reads the value of content bytes one piece at a time: each
 // NUL and each maximal invalid UTF-8 subsequence is U+FFFD (design 6.7).
 type valueReader struct {
-	b []byte
+	b     []byte
+	char  [8]byte // the value of an EntityRef
+	charN int
 }
 
 func (r *valueReader) next() []byte {
+	if n := r.charN; n > 0 {
+		r.charN = 0
+		return r.char[:n:n]
+	}
 	b, i := r.b, 0
 	for i < len(b) && b[i] != 0 {
 		if b[i] < utf8.RuneSelf {
@@ -82,15 +88,20 @@ func (r *valueReader) next() []byte {
 var replacement = []byte("\uFFFD")
 
 // newValueReader returns a reader of the value of content leaf m: an Escape
-// is its character, and a VerbatimLineEnding is a line feed.
+// is its character, an EntityRef its characters, and a VerbatimLineEnding a
+// line feed.
 func (t *Tree) newValueReader(m Node) valueReader {
 	switch m.kind {
 	case Escape:
-		return valueReader{t.src[m.start+1 : m.end]}
+		return valueReader{b: t.src[m.start+1 : m.end]}
+	case EntityRef:
+		var r valueReader
+		r.charN = len(appendEntityValue(r.char[:0], t.src[m.start:m.end]))
+		return r
 	case VerbatimLineEnding:
-		return valueReader{lineFeed}
+		return valueReader{b: lineFeed}
 	}
-	return valueReader{t.src[m.start:m.end]}
+	return valueReader{b: t.src[m.start:m.end]}
 }
 
 // AppendValue appends the value of content leaf id to dst.

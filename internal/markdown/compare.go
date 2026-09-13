@@ -91,7 +91,7 @@ func (c *comparer) equalKeys(ia, ib NodeID) bool {
 	case Text, CodeText, VerbatimLineEnding, InfoString, HTMLText, LinkLabel, Destination, Title,
 		FrontMatterText, BOM, LineEnding, BlankLine, Indent, ThematicRun, ATXMarker, ATXClose,
 		Whitespace, CodeIndent, FenceMarker, SetextUnderline, QuoteMarker, ListMarker, ItemIndent,
-		Bracket, Colon, AngleBracket, TitleQuote, FrontMatterFence, TrailingSpace, HardBreakMarker, Escape:
+		Bracket, Colon, AngleBracket, TitleQuote, FrontMatterFence, TrailingSpace, HardBreakMarker, Escape, EntityRef:
 	}
 	panic(fmt.Sprintf("markdown: key of node %d of kind %v, which is not a structure kind", ia, a.nodes[ia].kind))
 }
@@ -177,7 +177,7 @@ func (p *projection) group(m Node, parent Kind) (Kind, bool) {
 	switch {
 	case m.kind.class() != classContent, parent == LinkReferenceDefinition && p.label:
 		return 0, false
-	case m.kind == Escape:
+	case m.kind == Escape, m.kind == EntityRef:
 		return Text, true
 	case m.kind != VerbatimLineEnding:
 		return m.kind, true

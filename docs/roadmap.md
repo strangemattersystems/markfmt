@@ -73,6 +73,8 @@ Layout:
   (design 10.5).
 - `internal/markdown/testdata/unicode/CaseFolding.txt`: the source of the
   generated full case folding table.
+- `internal/markdown/testdata/entities/entities.json`: the source of the
+  generated entity table.
 - `internal/format`: the goldmark-based formatter. It formats headings (ATX)
   and paragraphs, copies other blocks from source, passes front matter
   through, and compares goldmark HTML of input and output.
@@ -329,7 +331,7 @@ files can stay as data, with their MIT notice.
 | commonmark.js regressions | `commonmark/commonmark.js` `test/regression.txt` | tag `0.31.2` | BSD-2-Clause | Regressions |
 | goldmark cases | `yuin/goldmark` `_test/extra.txt`, `extension/_test/*.txt` | v2.0.2 | MIT | Extra edge cases, already in `internal/format/testdata/spec` |
 | markdown-it fixtures | `markdown-it/markdown-it` `test/fixtures` | optional | MIT | Extra cases |
-| HTML entities | WHATWG `entities.json` | pin at import | CC BY 4.0 | Generate the entity table |
+| HTML entities | WHATWG `entities.json` | fetched 2026-09-13, `Last-Modified` 2025-11-12 | CC BY 4.0 | Generate the entity table |
 | Unicode case folding | Unicode `CaseFolding.txt` | 17.0.0, the version of Go 1.27's `unicode` package | Unicode License v3 | Generate the full case folding table for labels |
 | GitHub docs Markdown examples | `github/docs` `content/get-started/writing-on-github` | pin at import | CC BY 4.0 | Footnote, math and alert cases |
 | GitHub Markdown API output | `POST /markdown` with `mode=gfm` | capture date | GitHub API terms | Expected results for GitHub syntax, captured into fixtures; capture again before each release |

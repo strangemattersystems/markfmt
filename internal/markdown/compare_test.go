@@ -112,6 +112,7 @@ func FuzzEqual(f *testing.F) {
 		">     code\n>\n> - x\n>\n>   y\n",
 		"a  \nb \\\n> c \nd  \n",
 		"\\# a \\* b\\\\\n\\- c\n",
+		"&amp; &ast;a&#42; &#x2d; b\n",
 	} {
 		for op := range byte(mutations) {
 			f.Add([]byte(src), op)
@@ -134,16 +135,16 @@ func FuzzEqual(f *testing.F) {
 	})
 }
 
-const mutations = 8
+const mutations = 9
 
 // mutateSyntax returns the source of tree with one kind of block syntax
 // changed everywhere, chosen by op: bullet characters, line endings, ordered
 // delimiters, fence characters, the number of blank lines, the space after a
-// block quote marker, trailing spaces, or the backslash of escapes (design
-// 10.5). A mutation may change meaning.
+// block quote marker, trailing spaces, the backslash of escapes, or entity
+// references as their characters (design 10.5). A mutation may change meaning.
 func mutateSyntax(tree *Tree, op byte) []byte {
 	var out []byte
-	for _, n := range tree.nodes {
+	for i, n := range tree.nodes {
 		if n.kind.class() == classStructure {
 			continue
 		}
@@ -184,6 +185,10 @@ func mutateSyntax(tree *Tree, op byte) []byte {
 		case 7:
 			if n.kind == Escape {
 				b = b[1:]
+			}
+		case 8:
+			if n.kind == EntityRef {
+				b = tree.AppendValue(nil, NodeID(i))
 			}
 		}
 		out = append(out, b...)

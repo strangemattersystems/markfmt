@@ -25,3 +25,4 @@ hard-break-form equal two spaces and a backslash give the same hard break (CM 63
 trailing-space equal spaces before a soft break or at the end of a paragraph are not content (CM 226, 649)
 escape equal an escaped character is the character (CM 12)
 replacement-character equal NUL and invalid UTF-8 are U+FFFD (design 6.7, 8.4)
+entity-reference equal an entity or numeric character reference is its characters (CM 25, 26, 27)

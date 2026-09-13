@@ -46,6 +46,12 @@ func (s *inlineParser) inlines(lines []pendingLine) {
 				default:
 					s.text(i + 1)
 				}
+			case '&':
+				if j := entityEnd(s.src, i, l.end); j > 0 {
+					s.push(piece{kind: EntityRef, end: j})
+				} else {
+					s.text(i + 1)
+				}
 			default:
 				s.text(s.textEnd(i, l.end))
 			}
@@ -114,7 +120,7 @@ func (s *inlineParser) trailingSpace() {
 // textEnd returns the end of the run of bytes from i that no inline construct
 // starts in, before end.
 func (s *inlineParser) textEnd(i, end uint32) uint32 {
-	for i++; i < end && s.src[i] != '\\'; i++ {
+	for i++; i < end && s.src[i] != '\\' && s.src[i] != '&'; i++ {
 	}
 	return i
 }
