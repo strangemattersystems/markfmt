@@ -1046,6 +1046,11 @@ func (p *printer) tailLeaf(f *frame, id markdown.NodeID, k markdown.Kind, start 
 			p.content(id, start)
 			f.tail = tailInTitle
 		default:
+			// After a backslash that is not an escape, the parenthesis would
+			// be an escape.
+			if k == markdown.Paren && p.backslash {
+				p.write(spaces[:1])
+			}
 			p.indent = -1
 			p.content(id, start)
 			f.tail = tailEnd
