@@ -54,6 +54,7 @@ Last updated: 2026-09-13. Nothing after `ff7de5b` is pushed.
 | `1604b94` onwards | Stage 2: paragraphs, blank lines, thematic breaks, ATX and setext headings, indented and fenced code, HTML blocks, block quotes, tabs, lists, link reference definitions, front matter, label normalization, `Equal` for block kinds, pathological inputs and `task long` |
 | `1cca948` onwards | Stage 3: the inline phase, line breaks, backslash escapes, entity references, code spans, autolinks, raw HTML, emphasis, links and images, pass 1 and reference links, `BenchmarkParse` |
 | `6110977` onwards | Stage 4: the GFM tag filter, GitHub fixtures and the GitHub normalizer, strikethrough, tables, cell pipe escapes, task list items, extended www, URL and email autolinks, footnote definitions and references, the indentation memo |
+| `f51a4c6` onwards | Stage 5: `FuzzDifferential` against goldmark v2.0.2, the differential cases and their predicates, fixes for NUL, control characters, VT and FF, kind 7 tag names and code span closers |
 
 Layout:
 
@@ -307,20 +308,30 @@ openers. `FuzzParse` and `FuzzEqual` ran 90 seconds each with no finding.
 
 ### Stage 5: differential fuzzing
 
-- [ ] `internal/markdown/differential_test.go` fuzzes our parser against
+- [x] `internal/markdown/differential_test.go` fuzzes our parser against
   goldmark v2.0.2 with no extensions and compares test HTML (design 11.5).
   goldmark is a test-only requirement of the root module until stage 7. No
   release happens before stage 7.
-- [ ] The fuzzer skips inputs in markfmt's grammar outside CommonMark: GFM,
+- [x] The fuzzer skips inputs in markfmt's grammar outside CommonMark: GFM,
   GitHub footnotes and front matter.
-- [ ] One predicate per row of Known goldmark deviations that shows in HTML,
+- [x] One predicate per row of Known goldmark deviations that shows in HTML,
   so the fuzzer skips known deviations.
-- [ ] Triage every disagreement against the spec text. Save each one as a
+- [x] Triage every disagreement against the spec text. Save each one as a
   permanent case in `testdata/differential/cases.txt`, marked "fixed in
   markfmt" or "goldmark deviates, spec section X".
 
 Gate: a `FuzzDifferential` run of 1 CPU-hour (workers × wall time) finds no
 disagreement that has not been triaged.
+
+Passed 2026-09-13. After `213833f`, a run of 6 minutes with 10 workers found
+no disagreement in 34.8 million inputs. `cases.txt` has 49 cases: 42 goldmark
+deviations, each with its predicate and its Known goldmark deviations row, and
+7 fixed in markfmt. The markfmt fixes follow cmark where the spec text has no
+example (design 8.4): NUL as U+FFFD in code, HTML blocks, autolinks and
+destinations, control characters in destinations, kind 7 open tags with kind 1
+names, and VT and FF in info strings, HTML tags and link labels. The code span
+fix follows the spec text, not cmark. Six new `dialect.md` rows have no GitHub
+fixture yet.
 
 ### Stage 6: printers on the new tree
 
