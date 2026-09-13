@@ -49,11 +49,24 @@ func TestRenderHTML(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			if got := renderHTML(Parse([]byte(tt.src))); got != tt.want {
+			if got := renderHTML(Parse([]byte(tt.src)), false); got != tt.want {
 				t.Fatalf("renderHTML of %q = %q, want %q", tt.src, got, tt.want)
 			}
 		})
 	}
+
+	t.Run("applies the tag filter to every tag in an html block and to the start of raw html", func(t *testing.T) {
+		t.Parallel()
+
+		for _, tt := range []struct{ src, want string }{
+			{"<div><title>a</title>\n<TEXTAREA x><xmp/><titles><style", "<div>&lt;title>a&lt;/title>\n&lt;TEXTAREA x>&lt;xmp/><titles>&lt;style\n"},
+			{"a <script x='<title>'> </style>", "<p>a &lt;script x='<title>'> &lt;/style></p>\n"},
+		} {
+			if got := renderHTML(Parse([]byte(tt.src)), true); got != tt.want {
+				t.Errorf("renderHTML of %q with the tag filter = %q, want %q", tt.src, got, tt.want)
+			}
+		}
+	})
 }
 
 func TestNormalizeHTML(t *testing.T) {
@@ -99,8 +112,9 @@ func TestNormalizeHTML(t *testing.T) {
 
 var htmlEscaper = strings.NewReplacer("&", "&amp;", "<", "&lt;", ">", "&gt;", `"`, "&quot;")
 
-// renderHTML renders tree as HTML, as cmark does, for conformance tests.
-func renderHTML(tree *Tree) string {
+// renderHTML renders tree as HTML, as cmark does, for conformance tests. With
+// tagFilter, raw HTML passes through the GFM tag filter.
+func renderHTML(tree *Tree, tagFilter bool) string {
 	var b strings.Builder
 	var open []NodeID // entered interior nodes, innermost last
 	var plain NodeID  // the image whose alt text is being written, or 0
@@ -185,7 +199,7 @@ func renderHTML(tree *Tree) string {
 		case HTMLBlock:
 			if !e.Exit {
 				cr()
-				b.Write(tree.AppendHTML(nil, e.ID))
+				b.WriteString(filterTags(tree.AppendHTML(nil, e.ID), tagFilter, true))
 			}
 		case List:
 			if !e.Exit {
@@ -253,7 +267,7 @@ func renderHTML(tree *Tree) string {
 			b.WriteString(inlineTag("strong", e.Exit))
 		case RawHTML:
 			if !e.Exit {
-				b.Write(tree.AppendRawHTML(nil, e.ID))
+				b.WriteString(filterTags(tree.AppendRawHTML(nil, e.ID), tagFilter, false))
 			}
 		case CodeSpan:
 			if !e.Exit {
@@ -273,6 +287,56 @@ func renderHTML(tree *Tree) string {
 		}
 	}
 	return b.String()
+}
+
+// filterTags returns raw HTML, with the GFM tag filter when filter is true.
+// cmark-gfm's filter writes "&lt;" for a "<" that starts a tag of a
+// disallowed element. It checks every "<" of an HTML block, and only the
+// first byte of inline raw HTML.
+func filterTags(raw []byte, filter, block bool) string {
+	if !filter {
+		return string(raw)
+	}
+	var b strings.Builder
+	for i, c := range raw {
+		if c == '<' && (block || i == 0) && isDisallowedTag(raw[i:]) {
+			b.WriteString("&lt;")
+			continue
+		}
+		b.WriteByte(c)
+	}
+	return b.String()
+}
+
+// isDisallowedTag reports whether s starts with a start or end tag of an
+// element that the GFM tag filter disallows: "<", an optional "/", the name in
+// any ASCII case, then whitespace, ">" or "/>".
+func isDisallowedTag(s []byte) bool {
+	i := 1
+	if len(s) > 1 && s[1] == '/' {
+		i = 2
+	}
+	for _, name := range [...]string{"title", "textarea", "style", "xmp", "iframe", "noembed", "noframes", "script", "plaintext"} {
+		j := i + len(name)
+		if j >= len(s) || !equalFoldASCII(s[i:j], name) {
+			continue
+		}
+		if isHTMLSpace(s[j]) || s[j] == '>' || s[j] == '/' && j+1 < len(s) && s[j+1] == '>' {
+			return true
+		}
+	}
+	return false
+}
+
+// equalFoldASCII reports whether b is name, a lowercase ASCII word, in any
+// ASCII case.
+func equalFoldASCII(b []byte, name string) bool {
+	for k, c := range b {
+		if c|0x20 != name[k] {
+			return false
+		}
+	}
+	return true
 }
 
 // tag returns the start tag of an element, or its end tag and a line ending.

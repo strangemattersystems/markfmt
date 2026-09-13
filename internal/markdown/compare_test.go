@@ -28,7 +28,7 @@ func TestEqual(t *testing.T) {
 
 			a, b := readPair(t, name)
 			err := Equal(a, b)
-			htmlA, htmlB := normalizeHTML(renderHTML(a)), normalizeHTML(renderHTML(b))
+			htmlA, htmlB := normalizeHTML(renderHTML(a, false)), normalizeHTML(renderHTML(b, false))
 			switch verdict {
 			case "equal":
 				if err != nil {
@@ -151,7 +151,7 @@ func FuzzEqual(f *testing.F) {
 		if Equal(a, b) != nil {
 			return
 		}
-		if htmlA, htmlB := normalizeHTML(renderHTML(a)), normalizeHTML(renderHTML(b)); htmlA != htmlB {
+		if htmlA, htmlB := normalizeHTML(renderHTML(a, false)), normalizeHTML(renderHTML(b, false)); htmlA != htmlB {
 			t.Fatalf("Equal accepts %q and its mutation %q, whose test HTML differs:\n%q\n%q", src, mutated, htmlA, htmlB)
 		}
 	})

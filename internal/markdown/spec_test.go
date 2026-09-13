@@ -11,24 +11,26 @@ import (
 type example struct {
 	id       int // ordinal in the file
 	section  string
+	info     string // the words after "example" on the opening fence
 	markdown string
 	html     string
 }
 
 type corpus struct {
-	name     string
-	path     string
-	examples int    // in the file
-	sections string // suffix of the names of the sections that run
+	name      string
+	path      string
+	examples  int    // in the file
+	sections  string // suffix of the names of the sections that run
+	tagFilter bool   // upstream renders every example with the GFM tag filter
 }
 
 var corpora = []corpus{
-	{"commonmark", "testdata/commonmark/spec.txt", 652, ""},
-	{"gfm", "testdata/gfm/spec.txt", 670, " (extension)"},
-	{"cmark-gfm-extensions", "testdata/cmark-gfm-extensions/extensions.txt", 30, ""},
-	{"cmark-gfm-regression", "testdata/cmark-gfm-regression/regression.txt", 26, ""},
-	{"commonmark-js-regression", "testdata/commonmark-js-regression/regression.txt", 32, ""},
-	{"markfmt", "testdata/markfmt/grammar.txt", 3, ""},
+	{"commonmark", "testdata/commonmark/spec.txt", 652, "", false},
+	{"gfm", "testdata/gfm/spec.txt", 670, " (extension)", false},
+	{"cmark-gfm-extensions", "testdata/cmark-gfm-extensions/extensions.txt", 30, "", true},
+	{"cmark-gfm-regression", "testdata/cmark-gfm-regression/regression.txt", 26, "", false},
+	{"commonmark-js-regression", "testdata/commonmark-js-regression/regression.txt", 32, "", false},
+	{"markfmt", "testdata/markfmt/grammar.txt", 3, "", false},
 }
 
 func TestReadExamples(t *testing.T) {
@@ -57,6 +59,16 @@ func TestReadExamples(t *testing.T) {
 			t.Fatalf("first example = %+v, want %+v", got, want)
 		}
 	})
+
+	t.Run("reads the words of an example's opening fence", func(t *testing.T) {
+		t.Parallel()
+
+		for _, ex := range readExamples(t, "testdata/gfm/spec.txt") {
+			if ex.id == 198 && ex.info != "table" {
+				t.Fatalf("info of gfm example 198 = %q, want %q", ex.info, "table")
+			}
+		}
+	})
 }
 
 // readExamples reads the examples of a file in the spec.txt format, as
@@ -77,6 +89,7 @@ func readExamples(t testing.TB, path string) []example {
 		examples     []example
 		section      string
 		id           int
+		info         string
 		disabled     bool
 		state        int // 0 text, 1 Markdown, 2 HTML
 		markdown, ht strings.Builder
@@ -85,7 +98,8 @@ func readExamples(t testing.TB, path string) []example {
 		switch l := strings.TrimSpace(line); {
 		case strings.HasPrefix(l, opener):
 			state = 1
-			disabled = slices.Contains(strings.Fields(l[len(opener):]), "disabled")
+			info = strings.TrimSpace(l[len(opener):])
+			disabled = slices.Contains(strings.Fields(info), "disabled")
 		case l == fence:
 			state = 0
 			id++
@@ -93,6 +107,7 @@ func readExamples(t testing.TB, path string) []example {
 				examples = append(examples, example{
 					id:       id,
 					section:  section,
+					info:     info,
 					markdown: strings.ReplaceAll(markdown.String(), "→", "\t"),
 					html:     strings.ReplaceAll(ht.String(), "→", "\t"),
 				})

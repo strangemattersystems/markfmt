@@ -268,7 +268,7 @@ The scope is what GitHub renders, because most users expect it.
 - [ ] Footnote definitions and references (design 6.3, 9.2).
 - [ ] GitHub fixtures for footnotes, tasks, tables, strikethrough and every
   `dialect.md` row, with the GitHub normalizer.
-- [ ] The test renderer applies the GFM tag filter (design 11.3).
+- [x] The test renderer applies the GFM tag filter (design 11.3).
 - [ ] `grammar-differs.txt` entries for regression examples that GFM rules
   change (design 11.2).
 - [ ] Capture math and alert fixtures for stage 6. Math and alerts are GitHub

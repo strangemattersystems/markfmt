@@ -428,7 +428,7 @@ func testConformance(t *testing.T, c corpus) {
 		if err := tree.Verify(); err != nil {
 			t.Errorf("%s example %d: %v", c.name, ex.id, err)
 		}
-		got[i] = normalizeHTML(renderHTML(tree))
+		got[i] = normalizeHTML(renderHTML(tree, c.tagFilter || slices.Contains(strings.Fields(ex.info), "tagfilter")))
 		want[i] = normalizeHTML(ex.html)
 		// cmark-gfm counts an example whose expected HTML is <IGNORE> as passing:
 		// it tests only that parsing does not crash.
