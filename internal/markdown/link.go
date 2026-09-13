@@ -9,7 +9,6 @@ type bracket struct {
 	image   bool
 }
 
-// text returns the index of the first piece of the bracket text.
 func (b bracket) text() int {
 	if b.image {
 		return b.piece + 2
@@ -157,7 +156,6 @@ func (s *inlineParser) footnoteReference(b bracket, i uint32, inner bool) bool {
 	return true
 }
 
-// isCaret reports whether piece j decodes to '^'.
 func (s *inlineParser) isCaret(j int) bool {
 	b := s.src[s.startOf(j):s.pieces[j].end]
 	switch s.pieces[j].kind {

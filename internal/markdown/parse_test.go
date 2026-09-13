@@ -826,7 +826,6 @@ func FuzzParse(f *testing.F) {
 	})
 }
 
-// countKind returns the number of nodes of kind k in tree.
 func countKind(tree *Tree, k Kind) int {
 	n := 0
 	for _, m := range tree.nodes {

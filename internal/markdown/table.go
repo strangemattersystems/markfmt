@@ -217,9 +217,9 @@ func (p *blockParser) tableLine(first uint32, indent int) bool {
 }
 
 // startTable appends the lines of the open paragraph before its last line as a
-// paragraph, with no definition parse and with the cell pipe rule, then opens a table whose header row is
-// the last line and appends the delimiter row that starts at first
-// (design 5.4).
+// paragraph, with no definition parse and with the cell pipe rule, then opens a
+// table whose header row is the last line and appends the delimiter row that
+// starts at first (design 5.4).
 func (p *blockParser) startTable(first uint32) {
 	n := len(p.pending) - 1
 	if n > 0 {
@@ -295,7 +295,6 @@ func (p *blockParser) tablePipe(i, end uint32) uint32 {
 	return j
 }
 
-// delimiterRow appends the delimiter row that starts at first.
 func (p *blockParser) delimiterRow(first uint32) {
 	l := p.l
 	p.b.leafIf(Indent, first)

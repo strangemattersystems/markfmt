@@ -128,8 +128,8 @@ func (c *comparer) equalKeys(ia, ib NodeID) bool {
 		if resolved != b.FootnoteReferenceResolved(ib) {
 			return false
 		}
-		// ponytail: an unresolved label is copied whole, O(label) memory; use
-		// decoding cursors if labels this long matter.
+		// An unresolved label is copied whole: O(label) memory, where design
+		// 10.1 compares values with decoding cursors.
 		c.labelA = a.AppendFootnoteReferenceLabel(c.labelA[:0], ia, resolved)
 		c.labelB = b.AppendFootnoteReferenceLabel(c.labelB[:0], ib, resolved)
 		return bytes.Equal(c.labelA, c.labelB)

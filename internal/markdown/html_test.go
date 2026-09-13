@@ -218,7 +218,6 @@ func renderHTML(tree *Tree, tagFilter bool) string {
 	}
 	var section NodeID // the definition whose list item is being written, or 0
 	var backref bool   // the back references of section are written
-	// backrefs returns the back references to definition def.
 	backrefs := func(def NodeID) string {
 		label := escapeHref(string(tree.FootnoteDefinitionLabel(def)))
 		m := strconv.Itoa(footnoteIx[def])
@@ -635,7 +634,6 @@ func written(n Node) bool {
 	return Kind(n.flags) == Text || Kind(n.flags) == AutolinkText
 }
 
-// alignAttr returns the align attribute of a table cell with alignment a.
 func alignAttr(a Alignment) string {
 	switch a {
 	case AlignLeft:
