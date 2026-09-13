@@ -274,19 +274,28 @@ goldmark counts the columns of the tabs from the content of the list item.
 </ul>
 ````````````````````````````````
 
-## goldmark deviates, spec section 5.2: a list item that starts with a blank line takes a bullet list item indented to its content
+## goldmark deviates, spec section 5.2: a list item that starts with a blank line takes a line indented to its content that starts like a bullet list item
 
-goldmark ends the empty item and starts a second list.
+goldmark ends the empty item at a bullet list item, and at a thematic break
+that starts like one.
 
 ```````````````````````````````` example
 * 
    - b
+
++
+  * * *
 .
 <ul>
 <li>
 <ul>
 <li>b</li>
 </ul>
+</li>
+</ul>
+<ul>
+<li>
+<hr />
 </li>
 </ul>
 ````````````````````````````````

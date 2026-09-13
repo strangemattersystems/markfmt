@@ -81,6 +81,7 @@ func TestGoldmarkDiffers(t *testing.T) {
 		{"skips an extended autolink", "www.a.com <https://b.c>", "markfmt grammar: extended autolink"},
 		{"skips a task list item", "- [ ] a", "markfmt grammar: task list item"},
 		{"skips a tab after a nested list marker that a split tab starts", "* 0\n\t* \t*", "goldmark deviates, spec sections 2.2 and 5.2: a tab after the prefix of a list item line stops at a column counted from the start of the line"},
+		{"skips a thematic break that starts like a list item after an empty list item", "*\n  - --", "goldmark deviates, spec section 5.2: a list item that starts with a blank line takes a line indented to its content that starts like a bullet list item"},
 		{"skips an open parenthesis after a nul in a destination", "[0]:0\x00(", "goldmark deviates, spec sections 4.7 and 6.3: a parenthesis in a destination is escaped or in a balanced pair"},
 		{"skips a tab in the indentation after a list item prefix", "* 0\n  \t -", "goldmark deviates, spec sections 2.2 and 5.2: a tab after the prefix of a list item line stops at a column counted from the start of the line"},
 	}
@@ -367,7 +368,7 @@ var goldmarkDeviations = []struct {
 		}
 		return false
 	}},
-	{"goldmark deviates, spec section 5.2: a list item that starts with a blank line takes a bullet list item indented to its content", func(t *Tree) bool {
+	{"goldmark deviates, spec section 5.2: a list item that starts with a blank line takes a line indented to its content that starts like a bullet list item", func(t *Tree) bool {
 		for i, n := range t.nodes {
 			if n.kind != ListItem {
 				continue
@@ -381,8 +382,17 @@ var goldmarkDeviations = []struct {
 					break
 				}
 			}
-			if blank && j < int(n.link) && t.nodes[j].kind == List {
+			if !blank || j == int(n.link) {
+				continue
+			}
+			switch m := t.nodes[j]; m.kind {
+			case List:
 				return true
+			case ThematicBreak:
+				// goldmark reads "- - -" and "* * *" as a list item first.
+				if run := bytes.TrimLeft(t.src[m.start:m.end], " \t"); len(run) > 1 && (run[0] == '-' || run[0] == '*') && (run[1] == ' ' || run[1] == '\t') {
+					return true
+				}
 			}
 		}
 		return false
