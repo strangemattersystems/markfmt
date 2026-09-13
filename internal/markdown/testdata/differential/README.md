@@ -2,7 +2,7 @@
 
 `cases.txt` holds the disagreements between markfmt and goldmark v2.0.2 that
 `FuzzDifferential` found (design 11.5), in the `spec.txt` example format.
-`TestParse` runs them as conformance. `TestGoldmarkDiffers` checks the verdict
+A `␀` in an input is NUL. `TestParse` runs them as conformance. `TestGoldmarkDiffers` checks the verdict
 in the section of each case: goldmark still disagrees on a "goldmark deviates"
 case, and `goldmarkDiffers` gives the section as its reason; goldmark agrees on
 a "fixed in markfmt" case.

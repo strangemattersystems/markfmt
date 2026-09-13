@@ -2,6 +2,7 @@ package markdown
 
 import (
 	"os"
+	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
@@ -63,6 +64,19 @@ func TestReadExamples(t *testing.T) {
 		}
 	})
 
+	t.Run("reads a ␀ in an example's markdown as nul", func(t *testing.T) {
+		t.Parallel()
+
+		const fence = "````````````````````````````````"
+		path := filepath.Join(t.TempDir(), "spec.txt")
+		if err := os.WriteFile(path, []byte(fence+" example\na␀→b\n.\n<p>␀</p>\n"+fence+"\n"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if got := readExamples(t, path); len(got) != 1 || got[0].markdown != "a\x00\tb\n" || got[0].html != "<p>␀</p>\n" {
+			t.Fatalf("readExamples(%q) = %+v", path, got)
+		}
+	})
+
 	t.Run("reads the words of an example's opening fence", func(t *testing.T) {
 		t.Parallel()
 
@@ -78,7 +92,7 @@ func TestReadExamples(t *testing.T) {
 // cmark-gfm's spec_tests.py does. An example is an opening fence line, the
 // Markdown, a "." line, the HTML, and a closing fence line. An example whose
 // opening fence says "disabled" is skipped, but keeps its ordinal. A "→" in
-// an example is a tab.
+// the Markdown of an example is a tab, and a "␀" is NUL.
 func readExamples(t testing.TB, path string) []example {
 	t.Helper()
 
@@ -111,7 +125,7 @@ func readExamples(t testing.TB, path string) []example {
 					id:       id,
 					section:  section,
 					info:     info,
-					markdown: strings.ReplaceAll(markdown.String(), "→", "\t"),
+					markdown: strings.NewReplacer("→", "\t", "␀", "\x00").Replace(markdown.String()),
 					html:     strings.ReplaceAll(ht.String(), "→", "\t"),
 				})
 			}
