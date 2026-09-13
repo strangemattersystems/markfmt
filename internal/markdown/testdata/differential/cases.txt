@@ -882,6 +882,10 @@ z <a
 z <j k=">">
 
 z <stYle>
+
+z <l
+m
+n>
 .
 <div
 x
@@ -891,6 +895,9 @@ x
 ></p>
 <p>z <j k=">"></p>
 <p>z <stYle></p>
+<p>z <l
+m
+n></p>
 ````````````````````````````````
 
 ## fixed in markfmt, spec section 4.7: VT and FF are whitespace in a link label, as cmark reads them
