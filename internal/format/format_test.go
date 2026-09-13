@@ -34,6 +34,22 @@ func TestSource(t *testing.T) {
 		}
 	})
 
+	t.Run("has a case for each github printer fixture", func(t *testing.T) {
+		t.Parallel()
+
+		cases := readCases(t)
+		for _, name := range readSections(t, "../markdown/testdata/github/printer.txt") {
+			in, err := os.ReadFile("../markdown/testdata/github/input/printer/" + name + ".md")
+			if err != nil {
+				t.Fatal(err)
+			}
+			want := "github-" + strings.ReplaceAll(name, "/", "-")
+			if !slices.ContainsFunc(cases, func(c testCase) bool { return c.name == want && bytes.Equal(c.in, in) }) {
+				t.Errorf("fixture %s has no case %s with its input", name, want)
+			}
+		}
+	})
+
 	t.Run("spec", func(t *testing.T) {
 		t.Parallel()
 
@@ -87,6 +103,26 @@ func checkSource(t testing.TB, in []byte) []byte {
 		t.Fatalf("Source is not idempotent\ninput: %q\n once: %q\ntwice: %q", in, once, twice)
 	}
 	return once
+}
+
+// readSections returns the names of the sections of a GitHub fixture file.
+func readSections(t testing.TB, path string) []string {
+	t.Helper()
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var names []string
+	for line := range strings.Lines(string(data)) {
+		if name, ok := strings.CutPrefix(line, "## "); ok {
+			names = append(names, strings.TrimSpace(name))
+		}
+	}
+	if len(names) == 0 {
+		t.Fatalf("%s: no sections", path)
+	}
+	return names
 }
 
 type testCase struct {
