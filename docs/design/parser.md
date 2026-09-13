@@ -1101,10 +1101,13 @@ adds its set of `Dialect(row)` values to its Enter event. `Equal` requires:
   compares the test HTML of `Parse` with the HTML of goldmark v2.0.2, both
   after `normalizeHTML`. goldmark runs with `html.WithUnsafe` and with no
   extensions.
-- goldmark reads the input with LF line endings and a final line ending.
-  CommonMark gives both forms the same meaning (product rule 7), but goldmark
-  does not: rows 4 to 6 of the roadmap's "Known goldmark deviations". `Parse`
-  reads the input as written, so its line ending rules stay under test.
+- goldmark reads the input with LF line endings, a final line ending, and
+  U+FFFD for each maximal invalid UTF-8 subsequence. CommonMark gives the line
+  ending forms the same meaning (product rule 7), but goldmark does not: rows
+  4 to 6 of the roadmap's "Known goldmark deviations". markfmt reads invalid
+  UTF-8 as U+FFFD (section 8.4), as cmark does in labels, and goldmark reads
+  the bytes. `Parse` reads the input as written, so its line ending and
+  decoding rules stay under test.
 - No goldmark extension is on. goldmark's tables, strikethrough, linkify and
   footnotes are not cmark-gfm. With its table, strikethrough and task list
   extensions on, goldmark disagrees on 81 corpus examples that have a GFM
