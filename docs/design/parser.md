@@ -562,8 +562,11 @@ A ListItem is a task when its first child that is not a
 LinkReferenceDefinition is a Paragraph whose first bytes are `[`, one of space,
 tab, `x` or `X`, `]`, then a space or tab, then at least one non-whitespace
 byte on the same line, and those brackets did not form a link (GitHub: a
-defined `[x]` wins). The paragraph's inline phase emits the TaskBox leaf and
-sets the item's task and checked flags. A heading is never a task.
+defined `[x]` wins). The paragraph's inline phase emits the TaskBox leaf, `[`,
+the character and `]`, then a Whitespace leaf for the spaces and tabs after it,
+and sets the item's task and checked flags. A heading is never a task. The
+test renderer writes the checkbox at the TaskBox leaf, so in a loose list it is
+in the paragraph, as GitHub writes it.
 
 ### 6.6 Emit
 

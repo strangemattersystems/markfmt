@@ -49,3 +49,6 @@ table-short-row equal a missing table cell is an empty cell (GFM 204, design 10.
 table-alignment different the delimiter row gives each column its alignment (GFM 199)
 cell-pipe-escape-backslash equal a backslash before an escaped pipe in a table cell is removed with the pipe's backslash (cmark-gfm extensions 11)
 cell-pipe-split-paragraph different the paragraph split off above a table gets the cell pipe rule (testdata/dialect.md)
+task-box-case equal x and X both check a task box (GitHub fixture tasks/basic)
+task-box-whitespace equal the spaces and tabs after a task box are not content (GitHub fixture tasks/whitespace)
+task-checked different a task is checked or not (cmark-gfm extensions 28)

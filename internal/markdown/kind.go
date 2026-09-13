@@ -70,6 +70,7 @@ const (
 	TablePipe
 	TableDelimiter
 	CellPipeEscape
+	TaskBox
 )
 
 type class uint8
@@ -93,7 +94,7 @@ func (k Kind) class() class {
 	case Text, CodeText, VerbatimLineEnding, InfoString, HTMLText, LinkLabel, Destination, Title, FrontMatterText, Escape, EntityRef, AutolinkText, CellPipeEscape:
 		return classContent
 	case BOM, LineEnding, BlankLine, Indent, ThematicRun, ATXMarker, ATXClose, Whitespace, CodeIndent, FenceMarker, SetextUnderline, QuoteMarker, ListMarker, ItemIndent, Bracket, Colon, AngleBracket, TitleQuote, FrontMatterFence,
-		TrailingSpace, HardBreakMarker, CodeFence, Delimiter, Paren, TablePipe, TableDelimiter:
+		TrailingSpace, HardBreakMarker, CodeFence, Delimiter, Paren, TablePipe, TableDelimiter, TaskBox:
 		return classSyntax
 	}
 	return classInvalid
@@ -118,6 +119,8 @@ func (k Kind) validFlags(f uint8) bool {
 		return 1 <= f && f <= 7
 	case List:
 		return f <= 1
+	case ListItem:
+		return f == 0 || f == taskFlag || f == taskFlag|checkedFlag
 	case Link, Image:
 		return f <= 3
 	case TableCell:
@@ -262,6 +265,8 @@ func (k Kind) String() string {
 		return "TableDelimiter"
 	case CellPipeEscape:
 		return "CellPipeEscape"
+	case TaskBox:
+		return "TaskBox"
 	}
 	return "Kind(" + strconv.Itoa(int(k)) + ")"
 }

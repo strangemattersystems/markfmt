@@ -103,6 +103,7 @@ func (t *Tree) Verify() error {
 
 	var aligns []Alignment // the alignments of the columns of the last table entered
 	row, col := -1, 0      // the index of the last row entered in its table, and of the next cell in that row
+	tasks, boxes := 0, 0   // the task items and the task boxes
 	for i, n := range nodes {
 		if err := exit(i); err != nil {
 			return err
@@ -117,6 +118,12 @@ func (t *Tree) Verify() error {
 				return fmt.Errorf("markdown: invariant 7: table cell %d has flags %#x, which its delimiter row and row do not give", i, n.flags)
 			}
 			col++
+		case ListItem:
+			if n.flags != 0 {
+				tasks++
+			}
+		case TaskBox:
+			boxes++
 		}
 		if i > 0 && len(open) == 0 {
 			return fmt.Errorf("markdown: invariant 4: node %d is after the document", i)
@@ -126,6 +133,8 @@ func (t *Tree) Verify() error {
 			return fmt.Errorf("markdown: invariant 6: node %d has kind %d", i, n.kind)
 		case !n.kind.validFlags(n.flags):
 			return fmt.Errorf("markdown: invariant 7: node %d has flags %#x", i, n.flags)
+		case n.kind == ListItem && n.flags != 0 && !t.taskBoxAgrees(i):
+			return fmt.Errorf("markdown: invariant 7: list item %d has flags %#x, which no task box gives", i, n.flags)
 		case n.kind == HTMLBlock && !t.htmlKindAgrees(i):
 			return fmt.Errorf("markdown: invariant 7: html block %d has kind %d, which its first line does not start", i, n.flags)
 		case c == classStructure:
@@ -157,6 +166,9 @@ func (t *Tree) Verify() error {
 	}
 	if uint64(pos) != uint64(len(t.src)) {
 		return fmt.Errorf("markdown: invariant 1: leaves end at %d, want %d", pos, len(t.src))
+	}
+	if tasks != boxes {
+		return fmt.Errorf("markdown: invariant 7: %d task boxes for %d task items", boxes, tasks)
 	}
 	return nil
 }

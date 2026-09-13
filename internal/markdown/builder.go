@@ -60,6 +60,15 @@ func (b *builder) flagLeaf(f uint8) {
 	n.flags = f
 }
 
+// flagOpen sets the flags of node id, which is open.
+func (b *builder) flagOpen(id uint32, f uint8) {
+	n := &b.tree.nodes[id]
+	if n.link != 0 || !n.kind.validFlags(f) {
+		panic(fmt.Sprintf("markdown: flags %#x for node %d of kind %v, which is not open or not in range", f, id, n.kind))
+	}
+	n.flags = f
+}
+
 // top returns the index of the innermost open node.
 func (b *builder) top() uint32 {
 	return b.stack[len(b.stack)-1]

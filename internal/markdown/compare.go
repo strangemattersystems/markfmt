@@ -80,7 +80,9 @@ func (c *comparer) equalKeys(ia, ib NodeID) bool {
 	a, b := c.a, c.b
 	//exhaustive:enforce
 	switch a.nodes[ia].kind {
-	case Document, BlockQuote, ListItem, Paragraph, ThematicBreak, SoftBreak, HardBreak, RawHTML, Emphasis, Strong, Strikethrough, TableRow:
+	case ListItem:
+		return a.nodes[ia].flags == b.nodes[ib].flags
+	case Document, BlockQuote, Paragraph, ThematicBreak, SoftBreak, HardBreak, RawHTML, Emphasis, Strong, Strikethrough, TableRow:
 		return true
 	case Table:
 		return a.TableColumns(ia) == b.TableColumns(ib)
@@ -123,7 +125,7 @@ func (c *comparer) equalKeys(ia, ib NodeID) bool {
 		FrontMatterText, BOM, LineEnding, BlankLine, Indent, ThematicRun, ATXMarker, ATXClose,
 		Whitespace, CodeIndent, FenceMarker, SetextUnderline, QuoteMarker, ListMarker, ItemIndent,
 		Bracket, Colon, AngleBracket, TitleQuote, FrontMatterFence, TrailingSpace, HardBreakMarker, Escape, EntityRef, CodeFence, AutolinkText, Delimiter, Paren,
-		TablePipe, TableDelimiter, CellPipeEscape:
+		TablePipe, TableDelimiter, CellPipeEscape, TaskBox:
 	}
 	panic(fmt.Sprintf("markdown: key of node %d of kind %v, which is not a structure kind", ia, a.nodes[ia].kind))
 }

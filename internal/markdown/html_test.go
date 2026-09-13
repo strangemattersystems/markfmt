@@ -43,6 +43,7 @@ func TestRenderHTML(t *testing.T) {
 		{"writes emphasis", "*a* __b__", "<p><em>a</em> <strong>b</strong></p>\n"},
 		{"writes strikethrough", "~a~ ~~b~~", "<p><del>a</del> <del>b</del></p>\n"},
 		{"writes cell pipe escapes in text, a code span, a destination and an autolink", "| \\| | `\\\\|` | [a](\\\\|) | <http://a\\|b> |\n|-|-|-|-|", "<table>\n<thead>\n<tr>\n<th>|</th>\n<th><code>\\|</code></th>\n<th><a href=\"%7C\">a</a></th>\n<th><a href=\"http://a%7Cb\">http://a|b</a></th>\n</tr>\n</thead>\n</table>\n"},
+		{"writes task list items", "- [ ] a\n- [x] b\n\n1. [X] c\n\n   d", "<ul>\n<li><input type=\"checkbox\" disabled=\"\" /> a</li>\n<li><input type=\"checkbox\" checked=\"\" disabled=\"\" /> b</li>\n</ul>\n<ol>\n<li>\n<p><input type=\"checkbox\" checked=\"\" disabled=\"\" /> c</p>\n<p>d</p>\n</li>\n</ol>\n"},
 		{"writes tables with missing cells and without cells beyond the header count", "| a | b |\n| :-: | - |\n| c |\n| d | e | f |", "<table>\n<thead>\n<tr>\n<th align=\"center\">a</th>\n<th>b</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td align=\"center\">c</td>\n<td></td>\n</tr>\n<tr>\n<td align=\"center\">d</td>\n<td>e</td>\n</tr>\n</tbody>\n</table>\n"},
 		{"writes links and images", "[a *b*](/u&amp; \"t\\\"\") ![c *d* `e`\n<f>](g 'h')", "<p><a href=\"/u&amp;\" title=\"t&quot;\">a <em>b</em></a> <img src=\"g\" alt=\"c d e &lt;f&gt;\" title=\"h\" /></p>\n"},
 		{"writes reference links", "[a][B] [b][] [b] ![b]\n\n[B]: /u \"t\"\n[b]: /v", "<p><a href=\"/u\" title=\"t\">a</a> <a href=\"/u\" title=\"t\">b</a> <a href=\"/u\" title=\"t\">b</a> <img src=\"/u\" alt=\"b\" title=\"t\" /></p>\n"},
@@ -302,6 +303,13 @@ func renderHTML(tree *Tree, tagFilter bool) string {
 		case CellPipeEscape:
 			if written(n) {
 				b.WriteString("|")
+			}
+		case TaskBox:
+			// GitHub writes the box in the paragraph, also in a loose list.
+			if _, checked := tree.ListItemTask(open[len(open)-2]); checked {
+				b.WriteString(`<input type="checkbox" checked="" disabled="" /> `)
+			} else {
+				b.WriteString(`<input type="checkbox" disabled="" /> `)
 			}
 		case Link:
 			if e.Exit {

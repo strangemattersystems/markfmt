@@ -26,8 +26,11 @@ type inlineParser struct {
 	failed [len(closers)]uint32 // one past the start of the last failed search for each raw HTML closer
 
 	// pipes makes each "\|" pair a CellPipeEscape: in a table cell, and in the
-	// paragraph split off above a table (design 8.2). inlines clears it.
-	pipes bool
+	// paragraph split off above a table (design 8.2). task makes inlines look
+	// for a task box, and box is the character between its brackets, or 0.
+	// inlines clears pipes and task.
+	pipes, task bool
+	box         byte
 }
 
 // pos is a position in the lines of a block: offset i of line k, at most the
@@ -57,6 +60,10 @@ type piece struct {
 // the caller's.
 func (s *inlineParser) inlines(lines []pendingLine) {
 	s.begin(lines)
+	s.box = 0
+	if s.task {
+		s.taskBox()
+	}
 	for {
 		l := s.lines[s.k].rest
 		if i := s.end(); i < l.end {
@@ -77,7 +84,7 @@ func (s *inlineParser) inlines(lines []pendingLine) {
 	}
 	s.processEmphasis(-1)
 	s.emit()
-	s.pipes = false
+	s.pipes, s.task = false, false
 }
 
 // begin starts the pieces of lines at the Indent leaf of the first line.
