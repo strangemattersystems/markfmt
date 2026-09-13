@@ -92,6 +92,7 @@ Known divergences at draft 3:
 | Footnote reference whose `^` is an escape or an entity (`[\^1]`, `[&#94;1]`) | reference (decoded text starts with `^`, as cmark-gfm tests) | reference, rendered as garbled text |
 | Footnote reference label across a line ending | reference with a line ending in its label | rendered as garbled text |
 | Paragraph split off above a table | `\|` is an escaped pipe | backslash removed |
+| List items that start on one line | every item opens | at most 99 blocks start on a line |
 
 markfmt follows the CommonMark column, with two exceptions. The footnote rows
 have no CommonMark rule, so markfmt follows cmark-gfm's tests. The paragraph
@@ -324,12 +325,16 @@ The block phase follows the CommonMark appendix. For each line:
      consume that many columns. Else, if the rest is blank and the item has a
      child, consume the rest of the spaces and tabs and match. Else it does not
      match (CM 280).
-   - FootnoteDefinition: 4 columns, or a blank rest.
+   - FootnoteDefinition: 4 columns, or an empty line: no byte before its line
+     ending. cmark-gfm tests the whole line, so a line of fewer than 4 columns
+     of spaces, or a `>` line of a block quote around the definition, ends it
+     (GitHub API, 2026-09-13).
 
    Blank-line fast path: when the rest of a line is empty (no spaces or tabs
    remain), the open stack gives the index of the first container that such a
-   line may fail to continue: a BlockQuote, or a ListItem with no child. The
-   line matches every container below that index in O(1). From that index,
+   line may fail to continue: a BlockQuote, a ListItem with no child, or,
+   when the line is not empty, a FootnoteDefinition. The line matches every
+   container below that index in O(1). From that index,
    containers are tested one by one. A blank line with spaces or tabs walks
    the containers that consume them, which is work on consumed bytes.
 2. **Start.** On the rest of the line, try block starts. At the first start,
@@ -847,14 +852,19 @@ stage 6 printer cases.
 
 Definition (container):
 
-- Start: up to 3 columns of indentation, `[^`, a label, `]:`. It can interrupt
-  a paragraph. It is allowed in every container, footnote definitions
-  included.
+- Start: up to 3 columns of indentation, `[^`, a label, `]:`, and spaces and
+  tabs, where the content starts. It can interrupt a paragraph. It is allowed
+  in every container, footnote definitions included. It starts only when fewer
+  than 99 blocks started before it on its line, as cmark-gfm's
+  `MAX_LIST_DEPTH` counts them: `[^a]: ` × 100 gives 99 definitions and the
+  text `[^a]: `. cmark-gfm limits list items the same way and cmark 0.31.1
+  does not, so markfmt opens every list item (`dialect.md`).
 - Label: one or more bytes, none of them `]`, space, tab, CR, LF or NUL; `\]`
   also ends it. NBSP is allowed. `[^a b]: x` is a link reference definition
   with label `^a b`.
-- Continuation: 4 columns consumed, or a blank rest (after LF, CRLF or CR). A
-  later line of any paragraph in the definition can be lazy.
+- Continuation: 4 columns consumed, or an empty line (after LF, CRLF or CR),
+  as section 5.1 says. A later line of any paragraph in the definition can be
+  lazy.
 - A definition whose first line is empty continues past blank lines.
 - Key: raw label. GitHub writes the label as written into element ids.
 

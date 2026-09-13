@@ -6,7 +6,6 @@
 #   go test ./internal/markdown -run '^TestParse$/^github$' 2>&1 |
 #     sed -n 's/^ *--- FAIL: TestParse\/github\/github_example_\([0-9]*\) .*/\1/p' |
 #     sort -n
-17
 18
 19
 20
@@ -18,10 +17,9 @@
 26
 27
 28
-29
 30
-32
+31
 33
 34
-35
 36
+37

@@ -11,3 +11,4 @@
 14 dialect row, html block kind 6 tag list with search: github 14
 15 dialect row, html block kind 6 tag list without source: github 15
 16 dialect row, raw html comments: github 16
+17 dialect row, list items that start on one line: github 17

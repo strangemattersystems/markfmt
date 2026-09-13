@@ -10,6 +10,7 @@ type blockParser struct {
 
 	containers []container // open containers, innermost last; containers[0] is the document
 	blocking   []uint32    // indices of the open block quotes and list items with no child
+	footnotes  []uint32    // indices of the open footnote definitions
 	leaf       leafBlock   // the open leaf block of the innermost container
 
 	l      line         // the line being parsed
@@ -98,15 +99,19 @@ type pendingLine struct {
 func (p *blockParser) parseLine(l line) {
 	p.l, p.pos, p.col, p.used, p.interrupt, p.breakMemo = l, l.start, 0, 0, false, 0
 
-	matched, passed := 1, 0
+	matched, passed, notes := 1, 0, 0
 	for matched < len(p.containers) {
 		// Blank-line fast path (design 5.1): on an empty rest, each container
 		// before the next block quote or list item with no child continues
-		// and consumes nothing.
+		// and consumes nothing. A footnote definition continues on an empty
+		// rest only when the whole line is empty.
 		if p.pos == l.end {
 			next := len(p.containers)
 			if passed < len(p.blocking) {
 				next = int(p.blocking[passed])
+			}
+			if l.start < l.end && notes < len(p.footnotes) {
+				next = min(next, int(p.footnotes[notes]))
 			}
 			if matched < next {
 				matched = next
@@ -118,6 +123,9 @@ func (p *blockParser) parseLine(l line) {
 		}
 		if passed < len(p.blocking) && int(p.blocking[passed]) == matched {
 			passed++
+		}
+		if notes < len(p.footnotes) && int(p.footnotes[notes]) == matched {
+			notes++
 		}
 		matched++
 	}
@@ -149,17 +157,25 @@ func (p *blockParser) parseLine(l line) {
 			p.interrupt = true
 		}
 	}
+	// cmark-gfm starts a footnote definition only when fewer than 99 blocks
+	// started before it on the line (its MAX_LIST_DEPTH, design 9.2).
+	opened := 0
 starts:
 	for indent < 4 && first < l.end {
-		switch m, item := p.listItemStart(first, allMatched); {
+		m, item := p.listItemStart(first, allMatched)
+		switch labelEnd, contentStart := footnoteStart(p.src, first, l.end); {
 		case p.src[first] == '>':
 			p.startBlock(matched)
 			p.startQuote(indent)
+		case labelEnd > 0 && opened < 99:
+			p.startBlock(matched)
+			p.startFootnote(first, labelEnd, contentStart)
 		case item:
 			p.startItem(m, indent, matched)
 		default:
 			break starts
 		}
+		opened++
 		matched, allMatched = len(p.containers), true
 		first, indent = p.indentation()
 	}
@@ -198,6 +214,8 @@ func (p *blockParser) continues(c container) bool {
 		return p.continueItem(c)
 	case List:
 		return true
+	case FootnoteDefinition:
+		return p.continueFootnote(c)
 	}
 	return false
 }
@@ -356,6 +374,9 @@ func (p *blockParser) closeUnmatched(n int) {
 		if n := len(p.blocking); n > 0 && int(p.blocking[n-1]) == i {
 			p.blocking = p.blocking[:n-1]
 		}
+		if n := len(p.footnotes); n > 0 && int(p.footnotes[n-1]) == i {
+			p.footnotes = p.footnotes[:n-1]
+		}
 		p.orBlank(c.blank)
 	}
 }
@@ -386,8 +407,11 @@ func (p *blockParser) addChild() {
 // push opens container c. A block quote, and a list item, which has no child
 // yet, go on the blocking stack of the blank-line fast path.
 func (p *blockParser) push(c container) {
-	if c.kind == BlockQuote || c.kind == ListItem {
+	switch c.kind {
+	case BlockQuote, ListItem:
 		p.blocking = append(p.blocking, count(len(p.containers)))
+	case FootnoteDefinition:
+		p.footnotes = append(p.footnotes, count(len(p.containers)))
 	}
 	p.containers = append(p.containers, c)
 }

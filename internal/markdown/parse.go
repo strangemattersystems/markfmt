@@ -43,13 +43,18 @@ func parseBlocks(src []byte, defs *definitions, pass1 bool) *Tree {
 	return p.b.finish()
 }
 
-// definitions is the link label list: the normalized labels of the link
-// reference definitions that pass 1 finds, in document order. Pass 2 finds
-// the same definitions, or panics: a mismatch is a parser bug (design 7.1).
+// definitions is the link label list and the footnote label list: the
+// normalized labels of the link reference definitions and of the footnote
+// definitions that pass 1 finds, in document order. Pass 2 finds the same
+// definitions, or panics: a mismatch is a parser bug (design 7.1).
 type definitions struct {
 	labels  []string
 	defined map[string]bool
 	checked int // definitions that pass 2 found
+
+	footnotes        []string
+	footnoteDefined  map[string]bool
+	footnotesChecked int
 }
 
 // add records the normalized label of a definition that pass 1 finds, or
@@ -70,9 +75,31 @@ func (d *definitions) add(label []byte, pass1 bool) {
 	d.checked++
 }
 
-// finish panics when pass 2 found fewer definitions than pass 1.
+// addFootnote records the normalized label of a footnote definition that pass
+// 1 finds, or checks the label of one that pass 2 finds.
+func (d *definitions) addFootnote(label []byte, pass1 bool) {
+	if pass1 {
+		if d.footnoteDefined == nil {
+			d.footnoteDefined = make(map[string]bool)
+		}
+		l := string(label)
+		d.footnotes = append(d.footnotes, l)
+		d.footnoteDefined[l] = true
+		return
+	}
+	if d.footnotesChecked == len(d.footnotes) || d.footnotes[d.footnotesChecked] != string(label) {
+		panic(fmt.Sprintf("markdown: pass 2 found footnote definition %d with label %q, which pass 1 did not find", d.footnotesChecked, label))
+	}
+	d.footnotesChecked++
+}
+
+// finish panics when pass 2 found fewer definitions or footnote definitions
+// than pass 1.
 func (d *definitions) finish() {
 	if d.checked != len(d.labels) {
 		panic(fmt.Sprintf("markdown: pass 2 found %d definitions, and pass 1 found %d", d.checked, len(d.labels)))
+	}
+	if d.footnotesChecked != len(d.footnotes) {
+		panic(fmt.Sprintf("markdown: pass 2 found %d footnote definitions, and pass 1 found %d", d.footnotesChecked, len(d.footnotes)))
 	}
 }

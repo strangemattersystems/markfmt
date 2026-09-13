@@ -71,6 +71,10 @@ const (
 	TableDelimiter
 	CellPipeEscape
 	TaskBox
+	FootnoteDefinition
+	FootnoteIndent
+	FootnoteLabel
+	Caret
 )
 
 type class uint8
@@ -89,12 +93,12 @@ func (k Kind) class() class {
 	switch k {
 	case Document, FrontMatter, BlockQuote, List, ListItem, Paragraph, ThematicBreak, Heading, CodeBlock, HTMLBlock, LinkReferenceDefinition,
 		SoftBreak, HardBreak, CodeSpan, Autolink, RawHTML, Emphasis, Strong, Link, Image, Strikethrough,
-		Table, TableRow, TableCell:
+		Table, TableRow, TableCell, FootnoteDefinition:
 		return classStructure
-	case Text, CodeText, VerbatimLineEnding, InfoString, HTMLText, LinkLabel, Destination, Title, FrontMatterText, Escape, EntityRef, AutolinkText, CellPipeEscape:
+	case Text, CodeText, VerbatimLineEnding, InfoString, HTMLText, LinkLabel, Destination, Title, FrontMatterText, Escape, EntityRef, AutolinkText, CellPipeEscape, FootnoteLabel:
 		return classContent
 	case BOM, LineEnding, BlankLine, Indent, ThematicRun, ATXMarker, ATXClose, Whitespace, CodeIndent, FenceMarker, SetextUnderline, QuoteMarker, ListMarker, ItemIndent, Bracket, Colon, AngleBracket, TitleQuote, FrontMatterFence,
-		TrailingSpace, HardBreakMarker, CodeFence, Delimiter, Paren, TablePipe, TableDelimiter, TaskBox:
+		TrailingSpace, HardBreakMarker, CodeFence, Delimiter, Paren, TablePipe, TableDelimiter, TaskBox, FootnoteIndent, Caret:
 		return classSyntax
 	}
 	return classInvalid
@@ -108,6 +112,8 @@ func (k Kind) owner() (Kind, bool) {
 		return BlockQuote, true
 	case ListMarker, ItemIndent:
 		return ListItem, true
+	case FootnoteIndent:
+		return FootnoteDefinition, true
 	}
 	return 0, false
 }
@@ -267,6 +273,14 @@ func (k Kind) String() string {
 		return "CellPipeEscape"
 	case TaskBox:
 		return "TaskBox"
+	case FootnoteDefinition:
+		return "FootnoteDefinition"
+	case FootnoteIndent:
+		return "FootnoteIndent"
+	case FootnoteLabel:
+		return "FootnoteLabel"
+	case Caret:
+		return "Caret"
 	}
 	return "Kind(" + strconv.Itoa(int(k)) + ")"
 }

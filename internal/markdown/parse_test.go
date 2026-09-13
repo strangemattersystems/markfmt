@@ -118,6 +118,9 @@ func TestParse(t *testing.T) {
 		{"gives extended email autolinks on decoded text outside links", "a\\_b@c.de, mailto:x@y.zz. [e@f.gg](/u) &#104;@i.jj", `Document{Paragraph{Autolink{Text "a", Escape "\\_", Text "b@c.de"}, Text ", ", Autolink{Text "mailto:x@y.zz"}, Text ". ", Link{Bracket "[", Text "e@f.gg", Bracket "]", Paren "(", Destination "/u", Paren ")"}, Text " ", Autolink{EntityRef "&#104;", Text "@i.jj"}}}`},
 		{"gives extended www and url autolinks", "*www.a.com* (http://b.c/d_(e)). HTTPS://F.G", `Document{Paragraph{Emphasis{Delimiter "*", Autolink{Text "www.a.com"}, Delimiter "*"}, Text " (", Autolink{Text "http://b.c/d_(e)"}, Text "). ", Autolink{Text "HTTPS://F.G"}}}`},
 		{"gives no extended autolink in brackets, after a letter, or with an underscore in the last two domain segments", "[www.a.com] xwww.a.com ahttp://b.c www.a.b_c www.a_b.c.d", `Document{Paragraph{Text "[www.a.com] xwww.a.com ahttp://b.c www.a.b_c ", Autolink{Text "www.a_b.c.d"}}}`},
+		{"gives a footnote definition with its label leaves and a continuation of four columns", "[^a]: b\n\n    c", `Document{FootnoteDefinition{Bracket "[", Caret "^", FootnoteLabel "a", Bracket "]", Colon ":", Whitespace " ", Paragraph{Text "b", LineEnding "\n"}, BlankLine "\n", FootnoteIndent@1 "    ", Paragraph{Text "c"}}}`},
+		{"ends a footnote definition at a line that is not empty and has fewer than four columns", "> [^a]: b\n>\n>     c\n\n[^d]: e\n  \n    f", `Document{BlockQuote{QuoteMarker@1 "> ", FootnoteDefinition{Bracket "[", Caret "^", FootnoteLabel "a", Bracket "]", Colon ":", Whitespace " ", Paragraph{Text "b", LineEnding "\n"}}, QuoteMarker@1 ">", BlankLine "\n", QuoteMarker@1 "> ", CodeBlock{CodeIndent "    ", CodeText "c", VerbatimLineEnding "\n"}}, BlankLine "\n", FootnoteDefinition{Bracket "[", Caret "^", FootnoteLabel "d", Bracket "]", Colon ":", Whitespace " ", Paragraph{Text "e", LineEnding "\n"}}, BlankLine "  \n", CodeBlock{CodeIndent "    ", CodeText "f"}}`},
+		{"interrupts a paragraph with a footnote definition, and reads a label with a space as a link label", "a\n[^b]: c\n\n[^d e]: /u", `Document{Paragraph{Text "a", LineEnding "\n"}, FootnoteDefinition{Bracket "[", Caret "^", FootnoteLabel "b", Bracket "]", Colon ":", Whitespace " ", Paragraph{Text "c", LineEnding "\n"}, BlankLine "\n"}, LinkReferenceDefinition{Bracket "[", LinkLabel "^d e", Bracket "]", Colon ":", Whitespace " ", Destination "/u"}}`},
 		{"gives task list items, unchecked and checked", "- [ ] a\n- [X]\tb", `Document{List{ListItem[1]{ListMarker@2 "- ", Paragraph{TaskBox "[ ]", Whitespace " ", Text "a", LineEnding "\n"}}, ListItem[3]{ListMarker@9 "- ", Paragraph{TaskBox "[X]", Whitespace "\t", Text "b"}}}}`},
 		{"gives a task after link reference definitions in a list item", "- [a]: /u\n  [ ] b", `Document{List{ListItem[1]{ListMarker@2 "- ", LinkReferenceDefinition{Bracket "[", LinkLabel "a", Bracket "]", Colon ":", Whitespace " ", Destination "/u", LineEnding "\n"}, ItemIndent@2 "  ", Paragraph{TaskBox "[ ]", Whitespace " ", Text "b"}}}}`},
 		{"gives a task to the first paragraph of a list item after definitions and a blank line", "- [a]: /u\n\n  [ ] b", `Document{List[1]{ListItem[1]{ListMarker@2 "- ", LinkReferenceDefinition{Bracket "[", LinkLabel "a", Bracket "]", Colon ":", Whitespace " ", Destination "/u", LineEnding "\n"}, BlankLine "\n", ItemIndent@2 "  ", Paragraph{TaskBox "[ ]", Whitespace " ", Text "b"}}}}`},
@@ -175,6 +178,29 @@ func TestParse(t *testing.T) {
 			}
 		})
 	}
+
+	t.Run("starts a footnote definition among the first 99 blocks of a line", func(t *testing.T) {
+		t.Parallel()
+
+		// cmark-gfm's MAX_LIST_DEPTH: the 100th start on a line is text.
+		tree := Parse([]byte(strings.Repeat("[^a]: ", 100) + "b"))
+		if err := tree.Verify(); err != nil {
+			t.Fatal(err)
+		}
+		if n := countKind(tree, FootnoteDefinition); n != 99 {
+			t.Fatalf("Parse gives %d footnote definitions, want 99", n)
+		}
+	})
+
+	t.Run("opens every list item that starts on a line", func(t *testing.T) {
+		t.Parallel()
+
+		// cmark 0.31.1 has no limit, and cmark-gfm opens at most 99
+		// (testdata/dialect.md).
+		if n := countKind(Parse([]byte(strings.Repeat("- ", 100)+"a")), ListItem); n != 100 {
+			t.Fatalf("Parse gives %d list items, want 100", n)
+		}
+	})
 
 	t.Run("ends a table above 524,288 missing cells", func(t *testing.T) {
 		t.Parallel()
@@ -394,6 +420,19 @@ var pathologicalInputs = []struct {
 	}},
 	{"email candidates between escapes", func(n int) []byte {
 		return []byte(strings.Repeat("\\.a@b@", n/6))
+	}},
+	{"footnote definitions on one line", func(n int) []byte {
+		return []byte(strings.Repeat("[^a]: ", n/6) + "b")
+	}},
+	{"nested footnote definitions then blank lines", func(n int) []byte {
+		var b []byte
+		for k := 0; len(b) < n/2; k++ {
+			b = append(append(b, strings.Repeat("    ", k)...), "[^a]:\n"...)
+		}
+		return append(b, strings.Repeat("\n", n/2)...)
+	}},
+	{"footnote definitions on one line then blank lines", func(n int) []byte {
+		return []byte(strings.Repeat("[^a]: ", 98) + "b" + strings.Repeat("\n", n))
 	}},
 	{"tables with many rows", func(n int) []byte {
 		return []byte("| a |\n| - |\n" + strings.Repeat("| b |\n", n/6))
@@ -705,6 +744,23 @@ func TestDefinitions_Add(t *testing.T) {
 	})
 }
 
+func TestDefinitions_AddFootnote(t *testing.T) {
+	t.Parallel()
+
+	t.Run("panics on a footnote label that pass 1 did not find", func(t *testing.T) {
+		t.Parallel()
+
+		var d definitions
+		d.addFootnote([]byte("a"), true)
+		defer func() {
+			if recover() == nil {
+				t.Fatal("addFootnote did not panic")
+			}
+		}()
+		d.addFootnote([]byte("b"), false)
+	})
+}
+
 func TestDefinitions_Finish(t *testing.T) {
 	t.Parallel()
 
@@ -713,6 +769,19 @@ func TestDefinitions_Finish(t *testing.T) {
 
 		var d definitions
 		d.add([]byte("a"), true)
+		defer func() {
+			if recover() == nil {
+				t.Fatal("finish did not panic")
+			}
+		}()
+		d.finish()
+	})
+
+	t.Run("panics when pass 2 finds fewer footnote definitions", func(t *testing.T) {
+		t.Parallel()
+
+		var d definitions
+		d.addFootnote([]byte("a"), true)
 		defer func() {
 			if recover() == nil {
 				t.Fatal("finish did not panic")
@@ -742,6 +811,17 @@ func FuzzParse(f *testing.F) {
 			t.Fatalf("leaves of Parse(%q) = %q", src, leaves)
 		}
 	})
+}
+
+// countKind returns the number of nodes of kind k in tree.
+func countKind(tree *Tree, k Kind) int {
+	n := 0
+	for _, m := range tree.nodes {
+		if m.kind == k {
+			n++
+		}
+	}
+	return n
 }
 
 // firstOf returns the first node of kind k in tree.

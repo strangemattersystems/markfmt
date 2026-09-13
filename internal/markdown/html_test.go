@@ -34,6 +34,7 @@ func TestRenderHTML(t *testing.T) {
 		{"writes tight lists", "- a\n- b\n", "<ul>\n<li>a</li>\n<li>b</li>\n</ul>\n"},
 		{"writes loose ordered lists", "3. a\n\n4. b", "<ol start=\"3\">\n<li>\n<p>a</p>\n</li>\n<li>\n<p>b</p>\n</li>\n</ol>\n"},
 		{"writes nothing for link reference definitions", "[a]: /u\n", ""},
+		{"writes nothing for footnote definitions without references", "[^a]: b\n\nc", "<p>c</p>\n"},
 		{"writes escapes", "\\*\\<\\a", "<p>*&lt;\\a</p>\n"},
 		{"writes u+fffd for nul and invalid utf-8", "a\x00\xffb\xe2\x82", "<p>a\ufffd\ufffdb\ufffd</p>\n"},
 		{"writes entity references", "&ouml;&NotEqualTilde;&#0;&#xD800;&#1114112;&#x10FFFF;&amp;", "<p>ö\u2242\u0338\ufffd\ufffd\ufffd\U0010ffff&amp;</p>\n"},
@@ -223,7 +224,7 @@ func renderHTML(tree *Tree, tagFilter bool) string {
 		case Document, BOM, BlankLine, Indent, LineEnding, TrailingSpace, HardBreakMarker, CodeFence, Delimiter, Paren, ThematicRun, ATXMarker, ATXClose, Whitespace,
 			CodeIndent, CodeText, VerbatimLineEnding, FenceMarker, InfoString, SetextUnderline, HTMLText, QuoteMarker, ListMarker, ItemIndent,
 			LinkReferenceDefinition, LinkLabel, Destination, Title, Bracket, Colon, AngleBracket, TitleQuote,
-			FrontMatter, FrontMatterFence, FrontMatterText, TablePipe, TableDelimiter:
+			FrontMatter, FrontMatterFence, FrontMatterText, TablePipe, TableDelimiter, FootnoteIndent, FootnoteLabel, Caret:
 		case CodeBlock:
 			if e.Exit {
 				break
@@ -305,6 +306,10 @@ func renderHTML(tree *Tree, tagFilter bool) string {
 			b.WriteString(`<a href="` + escapeHref(href) + `">`)
 		case Text, Escape, EntityRef, AutolinkText:
 			b.WriteString(htmlEscaper.Replace(string(tree.AppendValue(nil, e.ID))))
+		case FootnoteDefinition:
+			// cmark-gfm writes a definition only in the footnote section, and only
+			// when a reference resolves to it.
+			skip = e.ID
 		case CellPipeEscape:
 			if written(n) {
 				b.WriteString("|")
