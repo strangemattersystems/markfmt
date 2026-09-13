@@ -428,6 +428,13 @@ var pathologicalInputs = []struct {
 	{"footnote definitions on one line", func(n int) []byte {
 		return []byte(strings.Repeat("[^a]: ", n/6) + "b")
 	}},
+	{"nested list items indented line by line", func(n int) []byte {
+		var b []byte
+		for k := 0; len(b) < n; k++ {
+			b = append(append(b, strings.Repeat("  ", k)...), "- a\n"...)
+		}
+		return b
+	}},
 	{"nested footnote definitions then blank lines", func(n int) []byte {
 		var b []byte
 		for k := 0; len(b) < n/2; k++ {

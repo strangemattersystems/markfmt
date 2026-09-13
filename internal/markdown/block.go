@@ -25,6 +25,11 @@ type blockParser struct {
 
 	breakMemo uint32 // a thematic break scan from a marker of the line before this offset fails
 
+	// The last run of spaces and tabs that indentation scanned: from spaceFrom
+	// to spaceEnd, whose column is spaceCol (design 5.1).
+	spaceFrom, spaceEnd uint32
+	spaceCol            int
+
 	inline inlineParser
 	defs   *definitions
 	pass1  bool   // the block phase of pass 1, which skips the inline phase (design 7.1)
@@ -98,6 +103,7 @@ type pendingLine struct {
 // parseLine adds one line to the tree (design 5.1 and 5.2).
 func (p *blockParser) parseLine(l line) {
 	p.l, p.pos, p.col, p.used, p.interrupt, p.breakMemo = l, l.start, 0, 0, false, 0
+	p.spaceFrom, p.spaceEnd = 1, 0
 
 	matched, passed, notes := 1, 0, 0
 	for matched < len(p.containers) {
@@ -558,11 +564,14 @@ func (p *blockParser) consumeColumns(n int) {
 // indentation returns the offset of the first byte in the rest of the line
 // that is not a space or a tab, and the columns before it.
 func (p *blockParser) indentation() (uint32, int) {
-	i, col := p.pos, p.col
-	for ; i < p.l.end && isSpaceOrTab(p.src[i]); i++ {
-		col = nextColumn(p.src[i], col)
+	if p.pos < p.spaceFrom || p.pos > p.spaceEnd {
+		i, col := p.pos, p.col
+		for ; i < p.l.end && isSpaceOrTab(p.src[i]); i++ {
+			col = nextColumn(p.src[i], col)
+		}
+		p.spaceFrom, p.spaceEnd, p.spaceCol = p.pos, i, col
 	}
-	return i, col - p.col - p.used
+	return p.spaceEnd, p.spaceCol - p.col - p.used
 }
 
 // skipSpace returns the offset of the first byte in src[i:end] that is not a
