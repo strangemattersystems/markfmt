@@ -177,7 +177,7 @@ Passed 2026-09-12.
   rows.
 - [x] Block quotes, lazy lines, prefix leaves and emission order; tabs and
   `virt`; list items and lists with looseness.
-- [ ] Link reference definitions, labels, and the setext re-dispatch rule.
+- [x] Link reference definitions, labels, and the setext re-dispatch rule.
 - [x] Front matter, `grammar-differs.txt` and `markfmt/grammar.txt`.
 - [ ] `Equal` for block kinds, the stage 2 pairs, `FuzzEqual` with block
   mutations.
@@ -320,7 +320,7 @@ files can stay as data, with their MIT notice.
 | goldmark cases | `yuin/goldmark` `_test/extra.txt`, `extension/_test/*.txt` | v2.0.2 | MIT | Extra edge cases, already in `internal/format/testdata/spec` |
 | markdown-it fixtures | `markdown-it/markdown-it` `test/fixtures` | optional | MIT | Extra cases |
 | HTML entities | WHATWG `entities.json` | pin at import | CC BY 4.0 | Generate the entity table |
-| Unicode case folding | Unicode `CaseFolding.txt` | the version of Go's `unicode` package, pin at import | Unicode License v3 | Generate the full case folding table for labels |
+| Unicode case folding | Unicode `CaseFolding.txt` | 17.0.0, the version of Go 1.27's `unicode` package | Unicode License v3 | Generate the full case folding table for labels |
 | GitHub docs Markdown examples | `github/docs` `content/get-started/writing-on-github` | pin at import | CC BY 4.0 | Footnote, math and alert cases |
 | GitHub Markdown API output | `POST /markdown` with `mode=gfm` | capture date | GitHub API terms | Expected results for GitHub syntax, captured into fixtures; capture again before each release |
 

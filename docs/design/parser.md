@@ -1075,7 +1075,7 @@ internal/markdown/
   entities.go     generated
   chars.go        decoding, character classes, labels
   compare.go      Equal, keys, groups
-  testdata/       corpora, failing and grammar-differs lists, pairs, dialect.md, entities.json, CaseFolding.txt
+  testdata/       corpora, failing and grammar-differs lists, pairs, dialect.md, entities.json, unicode/CaseFolding.txt
 ```
 
 - One package for the parser and the tree. The parser internals have no other
@@ -1085,6 +1085,8 @@ internal/markdown/
 - `entities.go` is generated from the pinned `testdata/entities.json` by a
   `//go:build ignore` generator with a `//go:generate` line, as the standard
   library does. `entities_test.go` checks the table against the JSON.
+  `casefold.go` is generated the same way from the C and F rows of
+  `testdata/unicode/CaseFolding.txt`, and `casefold_test.go` checks it.
 
 ## 14. Tooling
 

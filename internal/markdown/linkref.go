@@ -45,6 +45,26 @@ func (p *blockParser) commitDefinitions() bool {
 	return len(p.pending) > 0
 }
 
+// AppendLabel appends the normalized label of link reference definition id
+// to dst (design 6.7).
+func (t *Tree) AppendLabel(dst []byte, id NodeID) []byte {
+	f := labelFolder{dst: dst, start: len(dst)}
+	brackets := 0
+	for _, m := range t.nodes[id+1 : t.nodes[id].link] {
+		switch {
+		case m.kind == Bracket:
+			if brackets++; brackets == 2 {
+				return f.dst
+			}
+		case brackets == 1 && m.kind == LinkLabel:
+			f.write(t.src[m.start:m.end])
+		case brackets == 1 && m.kind == VerbatimLineEnding:
+			f.write([]byte{'\n'})
+		}
+	}
+	return f.dst
+}
+
 // definition reads a link reference definition from the start of pending
 // line k: a label, ':', a destination and an optional title, then the end of
 // a line.
