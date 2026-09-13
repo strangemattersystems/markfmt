@@ -59,9 +59,7 @@ func (p *blockParser) codeLine(rest line, col, used, n int) {
 	p.b.leafIf(VerbatimLineEnding, rest.eol)
 }
 
-// AppendCode appends the content of code block id to dst: its CodeText
-// leaves, and a line feed for each VerbatimLineEnding and after a last
-// content line without one.
+// AppendCode appends the value of code block id to dst (design 8.2).
 func (t *Tree) AppendCode(dst []byte, id NodeID) []byte {
 	return t.appendVerbatim(dst, id, CodeText)
 }

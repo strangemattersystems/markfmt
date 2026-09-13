@@ -1,6 +1,5 @@
 package markdown
 
-// listMarker is a list item marker.
 type listMarker struct {
 	end     uint32 // end of the marker bytes
 	ordered bool

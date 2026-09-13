@@ -167,7 +167,6 @@ func (p *projection) next() (event, bool) {
 	}
 }
 
-// observe updates the walk state at leaf m.
 func (p *projection) observe(m Node) {
 	if m.kind == Bracket {
 		p.label = !p.label

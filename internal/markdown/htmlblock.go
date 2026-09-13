@@ -182,9 +182,7 @@ func (t *Tree) htmlKindAgrees(i int) bool {
 	return j < m.end && htmlBlockStart(t.src, j, m.end) == t.nodes[i].flags
 }
 
-// AppendHTML appends the content of HTML block id to dst: its HTMLText
-// leaves, and a line feed for each VerbatimLineEnding and after a last line
-// without one.
+// AppendHTML appends the value of HTML block id to dst (design 8.2).
 func (t *Tree) AppendHTML(dst []byte, id NodeID) []byte {
 	return t.appendVerbatim(dst, id, HTMLText)
 }

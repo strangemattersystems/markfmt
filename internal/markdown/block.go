@@ -470,7 +470,6 @@ func (p *blockParser) appendPrefix() {
 	p.b.split = splitVirt(p.col, p.used)
 }
 
-// rest returns the rest of the line.
 func (p *blockParser) rest() line {
 	return line{start: p.pos, end: p.l.end, eol: p.l.eol}
 }
