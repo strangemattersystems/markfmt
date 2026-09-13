@@ -25,11 +25,13 @@ func TestRenderHTML(t *testing.T) {
 		{"writes headings", "## a\n", "<h2>a</h2>\n"},
 		{"writes indented code", "    <a>\n\n     b", "<pre><code>&lt;a&gt;\n\n b\n</code></pre>\n"},
 		{"writes fenced code", "```a b\n<\n```", "<pre><code class=\"language-a\">&lt;\n</code></pre>\n"},
+		{"writes an info word that starts with language- as its class", "```language-r\nx\n```", "<pre><code class=\"language-r\">x\n</code></pre>\n"},
 		{"writes decoded info strings", "~~~a\\+b&ouml;\x00 c\nx\n~~~", "<pre><code class=\"language-a+bö\ufffd\">x\n</code></pre>\n"},
+		{"writes a line ending before a block after a start tag, as cmark does", "- <div>\n\n  a\n> # b", "<ul>\n<li>\n<div>\n<p>a</p>\n</li>\n</ul>\n<blockquote>\n<h1>b</h1>\n</blockquote>\n"},
 		{"writes html blocks", "<div>\n  <a>\n", "<div>\n  <a>\n"},
 		{"writes block quotes", "> a\n", "<blockquote>\n<p>a</p>\n</blockquote>\n"},
 		{"writes tight lists", "- a\n- b\n", "<ul>\n<li>a</li>\n<li>b</li>\n</ul>\n"},
-		{"writes loose ordered lists", "3. a\n\n4. b", "<ol start=\"3\">\n<li><p>a</p>\n</li>\n<li><p>b</p>\n</li>\n</ol>\n"},
+		{"writes loose ordered lists", "3. a\n\n4. b", "<ol start=\"3\">\n<li>\n<p>a</p>\n</li>\n<li>\n<p>b</p>\n</li>\n</ol>\n"},
 		{"writes nothing for link reference definitions", "[a]: /u\n", ""},
 		{"writes escapes", "\\*\\<\\a", "<p>*&lt;\\a</p>\n"},
 		{"writes u+fffd for nul and invalid utf-8", "a\x00\xffb\xe2\x82", "<p>a\ufffd\ufffdb\ufffd</p>\n"},
@@ -100,8 +102,14 @@ var htmlEscaper = strings.NewReplacer("&", "&amp;", "<", "&lt;", ">", "&gt;", `"
 // renderHTML renders tree as HTML, as cmark does, for conformance tests.
 func renderHTML(tree *Tree) string {
 	var b strings.Builder
-	var open []NodeID               // entered interior nodes, innermost last
-	var plain NodeID                // the image whose alt text is being written, or 0
+	var open []NodeID // entered interior nodes, innermost last
+	var plain NodeID  // the image whose alt text is being written, or 0
+	// cr starts a line unless one is started, as cmark does before a block.
+	cr := func() {
+		if out := b.String(); out != "" && out[len(out)-1] != '\n' {
+			b.WriteByte('\n')
+		}
+	}
 	defs := make(map[string]NodeID) // the first definition of each label
 	for i, n := range tree.nodes {
 		if n.kind != LinkReferenceDefinition {
@@ -156,26 +164,33 @@ func renderHTML(tree *Tree) string {
 			if e.Exit {
 				break
 			}
+			cr()
 			b.WriteString("<pre><code")
 			if info := string(tree.AppendInfo(nil, e.ID)); info != "" {
 				word := info
 				if i := strings.IndexAny(info, " \t\n\v\f\r"); i >= 0 {
 					word = info[:i]
 				}
-				b.WriteString(` class="language-` + htmlEscaper.Replace(word) + `"`)
+				// cmark and commonmark.js write no second language- prefix.
+				b.WriteString(` class="` + htmlEscaper.Replace("language-"+strings.TrimPrefix(word, "language-")) + `"`)
 			}
 			b.WriteString(">" + htmlEscaper.Replace(string(tree.AppendCode(nil, e.ID))) + "</code></pre>\n")
 		case BlockQuote:
 			if e.Exit {
 				b.WriteString("</blockquote>\n")
 			} else {
+				cr()
 				b.WriteString("<blockquote>\n")
 			}
 		case HTMLBlock:
 			if !e.Exit {
+				cr()
 				b.Write(tree.AppendHTML(nil, e.ID))
 			}
 		case List:
+			if !e.Exit {
+				cr()
+			}
 			switch start, ordered := tree.ListStart(e.ID); {
 			case !ordered && e.Exit:
 				b.WriteString("</ul>\n")
@@ -189,16 +204,26 @@ func renderHTML(tree *Tree) string {
 				b.WriteString("<ol>\n")
 			}
 		case ListItem:
+			if !e.Exit {
+				cr()
+			}
 			b.WriteString(tag("li", e.Exit))
 		case Paragraph:
 			// A paragraph in an item of a tight list has no tags.
 			if len(open) < 2 || tree.Kind(open[len(open)-1]) != ListItem || tree.ListLoose(open[len(open)-2]) {
+				if !e.Exit {
+					cr()
+				}
 				b.WriteString(tag("p", e.Exit))
 			}
 		case Heading:
+			if !e.Exit {
+				cr()
+			}
 			b.WriteString(tag("h"+strconv.Itoa(tree.HeadingLevel(e.ID)), e.Exit))
 		case ThematicBreak:
 			if !e.Exit {
+				cr()
 				b.WriteString("<hr />\n")
 			}
 		case Autolink:

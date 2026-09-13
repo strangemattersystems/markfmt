@@ -970,7 +970,9 @@ adds its set of `Dialect(row)` values to its Enter event. `Equal` requires:
 - One grammar, in production and in tests. `testdata/<corpus>/grammar-differs.txt`
   lists examples that markfmt's GFM or front matter rules change: CommonMark
   examples, and regression examples that upstream runs without GFM
-  extensions. Each entry gives the rule and names a case in
+  extensions. It also lists commonmark.js regression examples where cmark and
+  commonmark.js disagree: markfmt follows cmark (section 2), and the named
+  case holds the output of `cmark --unsafe`. Each entry gives the rule and names a case in
   `testdata/markfmt/grammar.txt` (`spec.txt` format) with the same input and
   the expected HTML under markfmt's grammar: hand-written for front matter, the
   normalized GitHub fixture for GFM. The named case runs as ordinary
