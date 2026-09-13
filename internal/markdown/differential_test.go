@@ -96,6 +96,7 @@ func TestGoldmarkDiffers(t *testing.T) {
 		{"skips a nested list item after an empty one and a blank line", "* -\n \n  -", "goldmark deviates, spec section 5.2: a blank line after an empty nested list item continues the outer list item"},
 		{"skips an escape after punctuation on the line after a backslash and a hard break", "\\  \n*\\!", "goldmark deviates, spec sections 2.4 and 6.7: a backslash escape after a backslash, a hard line break of spaces and punctuation decodes"},
 		{"skips a setext heading of a dash after definitions alone", "[0]:0\n-\n-", "goldmark deviates, spec sections 4.3 and 4.7: a setext underline after link reference definitions alone is paragraph text"},
+		{"skips raw html in an image description", "![<A>]()", "goldmark deviates, spec section 6.4: the alt text of an image is the plain text of its description, as cmark writes it"},
 		{"skips a tab in the indentation after a list item prefix", "* 0\n  \t -", "goldmark deviates, spec sections 2.2 and 5.2: a tab after the prefix of a list item line stops at a column counted from the start of the line"},
 	}
 	for _, tt := range tests {
@@ -574,13 +575,14 @@ var goldmarkDeviations = []struct {
 	{"goldmark deviates, spec section 4.6: a tab after the tag name starts HTML block kind 6", func(t *Tree) bool {
 		return tabAfterTagName.Match(t.src)
 	}},
-	{"goldmark deviates, spec section 6.4: a line break in an image description is a space in the alt text, as cmark writes it", func(t *Tree) bool {
+	{"goldmark deviates, spec section 6.4: the alt text of an image is the plain text of its description, as cmark writes it", func(t *Tree) bool {
 		for i, n := range t.nodes {
 			if n.kind != Image {
 				continue
 			}
 			for _, m := range t.nodes[i+1 : n.link] {
-				if m.kind == SoftBreak || m.kind == HardBreak {
+				switch m.kind {
+				case SoftBreak, HardBreak, CodeSpan, Autolink, RawHTML:
 					return true
 				}
 			}

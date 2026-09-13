@@ -626,16 +626,19 @@ when the line is a complete tag, which starts kind 7.
 <div	0>
 ````````````````````````````````
 
-## goldmark deviates, spec section 6.4: a line break in an image description is a space in the alt text, as cmark writes it
+## goldmark deviates, spec section 6.4: the alt text of an image is the plain text of its description, as cmark writes it
 
-goldmark writes the line ending into the alt attribute. The alt text is
-rendering, not grammar.
+goldmark writes a line break as a line ending or `<br>`, and leaves out raw
+HTML, code spans and autolinks. The alt text is rendering, not grammar.
 
 ```````````````````````````````` example
 ![a
 b](/u)
+
+![c <d> `e` <http://f.g>](/v)
 .
 <p><img src="/u" alt="a b" /></p>
+<p><img src="/v" alt="c &lt;d&gt; e http://f.g" /></p>
 ````````````````````````````````
 
 ## goldmark deviates, spec section 4.7: a title that other characters follow on its line is not the title of the definition
