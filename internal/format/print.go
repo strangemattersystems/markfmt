@@ -420,6 +420,11 @@ func (p *printer) leaf(id markdown.NodeID, k markdown.Kind, start, end int) {
 	switch {
 	case k == markdown.ListMarker:
 		p.listMarker(top, id, start)
+		if p.indent >= 0 {
+			// The marker writes the columns of the input's marker and
+			// padding, also after a footnote definition starts on the line.
+			p.indent = max(p.indent, end)
+		}
 	case k == markdown.BlankLine:
 		// A blank line before the first block of a container is the rest of
 		// its marker line, or a blank line at its start.
