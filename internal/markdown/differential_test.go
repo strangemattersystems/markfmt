@@ -107,6 +107,7 @@ func TestGoldmarkDiffers(t *testing.T) {
 		{"skips a tab before the end of a tag after a quoted >", "<A A=\">\"\t>", "goldmark deviates, spec section 6.6: a tab before the `>` of the tag that starts an HTML block is whitespace"},
 		{"skips a tab after a kind 7 tag with a quoted >", "<A A=\">\">\t", "goldmark deviates, spec section 4.6: a tab or FF after the tag that starts HTML block kind 7 is whitespace"},
 		{"skips a form feed in a tag after a quoted >", "z <j k=\">\"\f>", "goldmark deviates, spec section 6.6: FF is whitespace in an HTML tag, as cmark reads it"},
+		{"skips a blank line of an html block in a list item", "*\n\t<!A\n\t", "goldmark deviates, spec sections 4.4, 4.6 and 5.2: a blank line of indented code or of an HTML block in a list item keeps the spaces beyond the indentation"},
 		{"skips a tab in the indentation after a list item prefix", "* 0\n  \t -", "goldmark deviates, spec sections 2.2 and 5.2: a tab after the prefix of a list item line stops at a column counted from the start of the line"},
 	}
 	for _, tt := range tests {
@@ -830,7 +831,7 @@ var goldmarkDeviations = []struct {
 		}
 		return false
 	}},
-	{"goldmark deviates, spec sections 4.4 and 5.2: a blank line of indented code in a list item keeps the spaces beyond the indentation", func(t *Tree) bool {
+	{"goldmark deviates, spec sections 4.4, 4.6 and 5.2: a blank line of indented code or of an HTML block in a list item keeps the spaces beyond the indentation", func(t *Tree) bool {
 		items := 0 // the open list items
 		c := t.Walk()
 		for e, ok := c.Next(); ok; e, ok = c.Next() {
@@ -839,11 +840,15 @@ var goldmarkDeviations = []struct {
 				items--
 			case n.kind == ListItem:
 				items++
-			case n.kind == CodeBlock && !e.Exit && items > 0:
-				if slices.ContainsFunc(t.nodes[e.ID+1:n.link], func(m Node) bool { return m.kind == FenceMarker }) {
-					continue
+			case (n.kind == CodeBlock || n.kind == HTMLBlock) && !e.Exit && items > 0:
+				value := t.AppendHTML(nil, e.ID)
+				if n.kind == CodeBlock {
+					if slices.ContainsFunc(t.nodes[e.ID+1:n.link], func(m Node) bool { return m.kind == FenceMarker }) {
+						continue
+					}
+					value = t.AppendCode(nil, e.ID)
 				}
-				for line := range bytes.Lines(t.AppendCode(nil, e.ID)) {
+				for line := range bytes.Lines(value) {
 					if l := bytes.TrimSuffix(line, []byte("\n")); len(l) > 0 && len(bytes.Trim(l, " \t")) == 0 {
 						return true
 					}
