@@ -1163,6 +1163,9 @@ func (p *printer) thematicRun() []byte {
 // block (trap 1).
 func (p *printer) continuation(id markdown.NodeID) {
 	line := bytes.TrimRight(p.tree.RestOfLine(id), " \t")
+	// A hard break of spaces can print as a backslash, so the width leaves
+	// out a last backslash, and a second format decides the same.
+	width := len(bytes.TrimSuffix(line, []byte{'\\'}))
 	open, full := 0, 0
 	for i := range p.stack {
 		if p.stack[i].container {
@@ -1171,7 +1174,7 @@ func (p *printer) continuation(id markdown.NodeID) {
 		}
 	}
 	p.indent = -1
-	if p.matched < open && full > len(line) && !markdown.InterruptsParagraph(line, true) {
+	if p.matched < open && full > width && !markdown.InterruptsParagraph(line, true) {
 		return
 	}
 	p.matched = open
