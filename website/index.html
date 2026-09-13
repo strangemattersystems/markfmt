@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>markfmt</title>
-<meta name="description" content="A fast, zero-config formatter that rewrites Markdown into one canonical style.">
+<meta name="description" content="Every Markdown file in one canonical style. Zero config.">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text x='2' y='13' font-family='monospace' font-size='15' font-weight='bold' fill='%23777'>%23</text></svg>">
 <style>
 :root {
@@ -23,8 +23,9 @@ body {
   color: var(--fg);
   font: 1rem/1.6 ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
 }
-h1, h2, h3 { line-height: 1.3; margin: 2.5rem 0 1rem; }
-h1 { font-size: clamp(2.5rem, 12vw, 4rem); margin-top: 0; }
+h1, h2 { line-height: 1.3; margin: 3.5rem 0 1rem; }
+h1 { font-size: clamp(2.5rem, 12vw, 4rem); margin: 0 0 0.5rem; }
+h2 { font-size: 1.35rem; }
 h1.cursor::after {
   content: "";
   display: inline-block;
@@ -37,34 +38,60 @@ h1.cursor::after {
 /* A finite count: WCAG 2.2.2 wants blinking to stop within 5 seconds. */
 h1.cursor.done::after { animation: blink 1s steps(1) 4 forwards; }
 @keyframes blink { 50%, to { opacity: 0; } }
-h2 { font-size: 1.35rem; }
-h3 { font-size: 1rem; }
 
 /* The Markdown marks are decoration: the "/ ''" form hides them from screen
    readers, and the plain declaration before it covers browsers without it. */
 h1::before { content: "# "; content: "# " / ""; color: var(--mark); }
 h2::before { content: "## "; content: "## " / ""; color: var(--mark); }
-h3::before { content: "### "; content: "### " / ""; color: var(--mark); }
-blockquote { margin: 0; }
+blockquote { margin: 0; font-size: 1.15rem; }
 blockquote p::before { content: "> "; content: "> " / ""; color: var(--mark); }
 ul { list-style: none; padding: 0; }
 li { padding-left: 2ch; text-indent: -2ch; }
+li + li { margin-top: 0.4rem; }
 li::before { content: "- "; content: "- " / ""; color: var(--mark); }
 strong::before, strong::after { content: "**"; content: "**" / ""; color: var(--mark); }
-a { color: inherit;text-decoration-color: var(--mark); text-underline-offset: 0.2em; }
+a { color: inherit; text-decoration-color: var(--mark); text-underline-offset: 0.2em; }
 a:hover { text-decoration-color: currentColor; }
-a::before { content: "["; content: "[" / ""; color: var(--mark); }
-a::after { content: "]"; content: "]" / ""; color: var(--mark); }
-code::before, code::after { content: "`"; content: "`" / ""; color: var(--mark); }
+a::before, .copy::before { content: "["; content: "[" / ""; color: var(--mark); }
+a::after, .copy::after { content: "]"; content: "]" / ""; color: var(--mark); }
 pre {
+  position: relative;
   overflow-x: auto;
+  margin: 0;
   padding: 0.75rem 2ch;
   background: var(--code-bg);
 }
 pre::before { content: "```" attr(data-lang); content: "```" attr(data-lang) / ""; display: block; color: var(--mark); }
 pre::after { content: "```"; content: "```" / ""; display: block; color: var(--mark); }
-pre code::before, pre code::after { content: none; }
-footer { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0 2ch; margin-top: 3rem; color: var(--mark); }
+.copy {
+  position: absolute;
+  top: 0.75rem;
+  right: 2ch;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--fg);
+  font: inherit;
+  cursor: pointer;
+}
+
+/* Radio inputs switch the install tabs, so they work without JavaScript. */
+.tabs { margin-top: 2rem; }
+.tabs input { position: absolute; opacity: 0; }
+.tabs label { display: inline-block; padding: 0 1ch; color: var(--mark); cursor: pointer; }
+.tabs label:hover { color: var(--fg); }
+.tabs input:checked + label { background: var(--fg); color: var(--bg); }
+.tabs input:focus-visible + label { outline: 2px solid var(--fg); outline-offset: 2px; }
+.panel { display: none; margin-top: 0.5rem; }
+#brew:checked ~ .brew, #download:checked ~ .download,
+#docker:checked ~ .docker, #go:checked ~ .go { display: block; }
+.download p { margin: 0; padding: 0.75rem 2ch; background: var(--code-bg); }
+.links { margin-top: 1rem; }
+
+.compare { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 36ch), 1fr)); gap: 1rem 2ch; }
+.file { margin: 0 0 0.25rem; color: var(--mark); }
+
+footer { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0 2ch; margin-top: 4rem; color: var(--mark); }
 footer::before { content: "---"; content: "---" / ""; flex-basis: 100%; margin-bottom: 1rem; }
 footer > a { margin-left: auto; }
 </style>
@@ -88,59 +115,95 @@ if (!matchMedia("(prefers-reduced-motion: reduce)").matches) {
   }, 120);
 }
 </script>
-<blockquote><p>A fast, zero-config formatter that rewrites Markdown into one canonical style.</p></blockquote>
+<blockquote><p>Every Markdown file in one canonical style. Zero config.</p></blockquote>
 
-<h2 id="install">Install</h2>
+<div class="tabs">
+  <input type="radio" name="install" id="brew" checked><label for="brew">brew</label>
+  <input type="radio" name="install" id="download"><label for="download">download</label>
+  <input type="radio" name="install" id="docker"><label for="docker">docker</label>
+  <input type="radio" name="install" id="go"><label for="go">go</label>
 
-<h3 id="binaries">Binaries</h3>
-<!-- These links need GoReleaser asset names without the version. -->
-<ul>
-  <li>macOS: <a href="https://github.com/strangemattersystems/markfmt/releases/latest/download/markfmt_darwin_arm64.tar.gz">arm64</a> <a href="https://github.com/strangemattersystems/markfmt/releases/latest/download/markfmt_darwin_amd64.tar.gz">amd64</a></li>
-  <li>Linux: <a href="https://github.com/strangemattersystems/markfmt/releases/latest/download/markfmt_linux_amd64.tar.gz">amd64</a> <a href="https://github.com/strangemattersystems/markfmt/releases/latest/download/markfmt_linux_arm64.tar.gz">arm64</a></li>
-  <li>Windows: <a href="https://github.com/strangemattersystems/markfmt/releases/latest/download/markfmt_windows_amd64.zip">amd64</a> <a href="https://github.com/strangemattersystems/markfmt/releases/latest/download/markfmt_windows_arm64.zip">arm64</a></li>
-  <li><a href="https://github.com/strangemattersystems/markfmt/releases/latest/download/checksums.txt">checksums.txt</a></li>
-  <li><a href="https://github.com/strangemattersystems/markfmt/releases">All releases</a></li>
-</ul>
-
-<h3 id="go">Go</h3>
-<p>Needs Go 1.27 or later.</p>
-<pre data-lang="sh"><code>go install github.com/strangemattersystems/markfmt/cmd/markfmt@latest</code></pre>
-
-<h2 id="usage">Usage</h2>
-<pre data-lang="sh"><code>markfmt [-check] [path ...]</code></pre>
-<p>markfmt rewrites each file in place. With no path, or the path <code>-</code>, it reads standard input and writes standard output.</p>
-<pre data-lang="sh"><code># Format files in place
-markfmt README.md docs/guide.md
-
-# Read stdin, write stdout
-markfmt &lt; draft.md &gt; clean.md
-
-# Fail CI when a file is not formatted
-markfmt -check $(git ls-files '*.md')</code></pre>
-<p>With <code>-check</code>, markfmt rewrites nothing. It prints each input that is not formatted.</p>
-<ul>
-  <li><strong>0</strong> All inputs are formatted.</li>
-  <li><strong>1</strong> With <code>-check</code>, one or more inputs are not formatted.</li>
-  <li><strong>2</strong> markfmt cannot read, format or write an input.</li>
-</ul>
-
-<h2 id="container">Container</h2>
-<p>Mount your files and run the image from <code>ghcr.io</code>. The <code>--user</code> flag keeps your file ownership.</p>
-<pre data-lang="sh"><code>docker run --rm \
-  -v "$PWD:/work" -w /work \
-  --user "$(id -u):$(id -g)" \
+  <div class="panel brew">
+    <pre data-lang="sh"><code>brew install strangemattersystems/tap/markfmt</code></pre>
+  </div>
+  <!-- These links need GoReleaser asset names without the version. -->
+  <div class="panel download">
+    <p>
+      macOS <a href="https://github.com/strangemattersystems/markfmt/releases/latest/download/markfmt_darwin_arm64.tar.gz">arm64</a> <a href="https://github.com/strangemattersystems/markfmt/releases/latest/download/markfmt_darwin_amd64.tar.gz">amd64</a><br>
+      Linux <a href="https://github.com/strangemattersystems/markfmt/releases/latest/download/markfmt_linux_amd64.tar.gz">amd64</a> <a href="https://github.com/strangemattersystems/markfmt/releases/latest/download/markfmt_linux_arm64.tar.gz">arm64</a><br>
+      Windows <a href="https://github.com/strangemattersystems/markfmt/releases/latest/download/markfmt_windows_amd64.zip">amd64</a> <a href="https://github.com/strangemattersystems/markfmt/releases/latest/download/markfmt_windows_arm64.zip">arm64</a><br>
+      <a href="https://github.com/strangemattersystems/markfmt/releases/latest/download/checksums.txt">checksums.txt</a> <a href="https://github.com/strangemattersystems/markfmt/releases">all releases</a>
+    </p>
+  </div>
+  <div class="panel docker">
+    <pre data-lang="sh"><code>docker run --rm -v "$PWD:/work" -w /work \
   ghcr.io/strangemattersystems/markfmt README.md</code></pre>
-<p>Check files in CI. Pin a release tag in place of <code>latest</code>.</p>
-<pre data-lang="sh"><code>docker run --rm \
-  -v "$PWD:/work" -w /work \
-  ghcr.io/strangemattersystems/markfmt:latest -check README.md</code></pre>
-<p>Format standard input:</p>
-<pre data-lang="sh"><code>docker run --rm -i ghcr.io/strangemattersystems/markfmt &lt; draft.md</code></pre>
+  </div>
+  <div class="panel go">
+    <pre data-lang="sh"><code>go install github.com/strangemattersystems/markfmt/cmd/markfmt@latest</code></pre>
+  </div>
+</div>
+
+<p class="links"><a href="https://github.com/strangemattersystems/markfmt#readme">Docs</a> <a href="https://github.com/strangemattersystems/markfmt">GitHub</a></p>
+
+<h2 id="example">Before and after</h2>
+<div class="compare">
+  <div>
+    <p class="file">notes.md</p>
+    <pre data-lang="md"><code>Getting started
+===============
+
+
+
+Install it, then run it.
+## Usage ##
+markfmt -check docs/
+***</code></pre>
+  </div>
+  <div>
+    <p class="file">markfmt notes.md</p>
+    <pre data-lang="md"><code># Getting started
+
+Install it, then run it.
+
+## Usage
+
+markfmt -check docs/
+
+***</code></pre>
+  </div>
+</div>
+
+<h2 id="why">Why markfmt</h2>
+<ul>
+  <li><strong>Zero config.</strong> Nothing to set up, nothing to argue about.</li>
+  <li><strong>Idempotent.</strong> Format twice, get the same file.</li>
+  <li><strong>Safe.</strong> It never changes what your document means.</li>
+  <li><strong>One binary.</strong> No Node, no Python, no plugins.</li>
+</ul>
+
+<h2 id="use">Use it</h2>
+<pre data-lang="sh"><code>markfmt README.md docs/*.md              # format in place
+markfmt -check $(git ls-files '*.md')    # fail CI on unformatted files</code></pre>
 </main>
 
 <footer>
 <span>© 2026 Josh GM Walker · <a href="https://github.com/strangemattersystems/markfmt/blob/main/LICENSE">MIT License</a></span>
 <a href="https://github.com/strangemattersystems/markfmt">GitHub</a>
 </footer>
+
+<script>
+for (const pre of document.querySelectorAll('pre[data-lang="sh"]')) {
+  const button = document.createElement("button");
+  button.className = "copy";
+  button.textContent = "copy";
+  button.onclick = async () => {
+    await navigator.clipboard.writeText(pre.querySelector("code").textContent);
+    button.textContent = "copied";
+    setTimeout(() => (button.textContent = "copy"), 1500);
+  };
+  pre.append(button);
+}
+</script>
 </body>
 </html>
