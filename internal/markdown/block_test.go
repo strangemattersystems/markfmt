@@ -120,3 +120,42 @@ func matchedLines(src []byte) (parser, walk, parserEnds, walkEnds []int) {
 	}
 	return parser, walk, parserEnds, walkEnds
 }
+
+func TestInterruptsParagraph(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		line string
+		lazy bool
+		want bool
+	}{
+		{"starts a block quote", "> a", false, true},
+		{"starts a thematic break", "* * *", false, true},
+		{"starts an atx heading", "# a", false, true},
+		{"starts a fenced code block", "~~~", false, true},
+		{"starts an html block of kind 6", "<div>", false, true},
+		{"starts no html block of kind 7", "<del>", false, false},
+		{"starts a footnote definition", "[^a]: b", false, true},
+		{"starts a bullet list item with content", "- a", false, true},
+		{"starts no empty list item", "*", false, false},
+		{"starts no ordered list item that does not start at 1", "2. a", false, false},
+		{"starts an ordered list item at 1", "1) a", false, true},
+		{"is a setext underline", "===", false, true},
+		{"is a table delimiter row", "| - | :-: |", false, true},
+		{"continues a paragraph with text", "a # b", false, false},
+		{"starts an empty list item on a lazy line", "-", true, true},
+		{"starts an ordered list item that does not start at 1 on a lazy line", "2. a", true, true},
+		{"is no setext underline on a lazy line", "===", true, false},
+		{"is no table delimiter row on a lazy line", "| - |", true, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			if got := InterruptsParagraph([]byte(tt.line), tt.lazy); got != tt.want {
+				t.Fatalf("InterruptsParagraph(%q, %t) = %t, want %t", tt.line, tt.lazy, got, tt.want)
+			}
+		})
+	}
+}

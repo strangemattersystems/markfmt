@@ -11,15 +11,11 @@ closes-a-list-item-fence-after-its-blank-lines
 closes-an-empty-list-item-fence
 fences-an-indented-code-block-of-a-form-feed
 formats-a-list-and-a-fence
-indents-a-line-that-would-be-an-underline-after-a-hard-break
-indents-a-paragraph-line-that-would-be-an-underline
 keeps-an-indented-line-of-a-multi-line-setext-heading
 keeps-front-matter
-removes-paragraph-indentation
 rewrites-a-setext-heading
 rewrites-an-atx-heading
 rewrites-crlf-line-endings
 separates-a-paragraph-from-a-definition
 separates-a-table-from-the-paragraph-above-it
 writes-a-closing-sequence-after-a-number-sign
-writes-a-hard-line-break-as-a-backslash

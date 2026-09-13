@@ -1401,7 +1401,9 @@ and removes the cases it makes pass from `testdata/cases/failing.txt`.
 `FuzzFormat` runs its seeds in every `task ci`. A fuzz finding lands as a
 failing case in the component that owns it (the printer, `Equal` or a dialect
 predicate), then the fix. A printer commit that picks a form the survey does
-not cover adds a Decisions row with the reason.
+not cover adds a Decisions row with the reason. Commit 74 lands before 73:
+canonical list markers change the columns of item content, which needs trap
+1 on continuation lines.
 
 62. This plan, and trap 21 of appendix B.
 63. The canonical style (roadmap Open decisions 1). The survey reads the source

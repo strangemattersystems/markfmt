@@ -33,6 +33,13 @@ func (t *Tree) Kind(id NodeID) Kind {
 	return t.nodes[id].kind
 }
 
+// RestOfLine returns the bytes from the start of leaf id to the end of its
+// line, without the line ending.
+func (t *Tree) RestOfLine(id NodeID) []byte {
+	start := t.nodes[id].start
+	return t.src[start:lineEnd(t.src, start)]
+}
+
 // SplitTab returns the columns left for leaf id of a tab at its start that
 // structures consumed in part, or 0 (design 4.3).
 func (t *Tree) SplitTab(id NodeID) int {

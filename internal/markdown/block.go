@@ -646,6 +646,41 @@ func nextColumn(c byte, col int) int {
 	return col + 1
 }
 
+// InterruptsParagraph reports whether line, the content of a paragraph line
+// after its container prefixes and without indentation, would start a block,
+// a setext underline or a table delimiter row there. On a lazy line a list
+// item of any start or content starts a list, and no underline or delimiter
+// row is read (design 5.1, 5.4).
+func InterruptsParagraph(line []byte, lazy bool) bool {
+	end := count(len(line))
+	if end == 0 {
+		return false
+	}
+	if ok, _ := scanThematicBreak(line, 0, end); ok || line[0] == '>' || openingFence(line, 0, end) > 0 {
+		return true
+	}
+	if _, ok := parseATXHeading(line, 0, end); ok {
+		return true
+	}
+	if k := htmlBlockStart(line, 0, end); 1 <= k && k <= 6 {
+		return true
+	}
+	if labelEnd, _ := footnoteStart(line, 0, end); labelEnd > 0 {
+		return true
+	}
+	if m, ok := parseListMarker(line, 0, end); ok {
+		empty := trimSpaceRight(line, m.end, end) == m.end
+		if lazy || !empty && (!m.ordered || m.start == 1) {
+			return true
+		}
+	}
+	if lazy {
+		return false
+	}
+	_, row := appendDelimiterRow(nil, line, 0, end)
+	return row || setextUnderline(line, 0, end) > 0
+}
+
 // A Layout follows a walk over the nodes of a tree in order. It gives the
 // columns of each leaf, and the containers that each line matched (design
 // 4.3, 12).

@@ -22,12 +22,15 @@ type printer struct {
 	spans  []markdown.NodeID // the dialect spans that the walk has not passed
 	stack  []frame           // the open structure nodes, the document first
 
-	lineStart bool // the output is at the start of a line
-	inputLine bool // the next leaf starts a line of the input
-	matched   int  // the containers that the input line of the output line matched
-	indent    int  // the input column where columns that are not written yet start, or -1
-	inSpan    int  // the open dialect spans
-	written   bool // the last leaf block that started has written content
+	lineStart bool          // the output is at the start of a line
+	inputLine bool          // the next leaf starts a line of the input
+	matched   int           // the containers that the input line of the output line matched
+	indent    int           // the input column where columns that are not written yet start, or -1
+	inSpan    int           // the open dialect spans
+	written   bool          // the last leaf block that started has written content
+	leafKind  markdown.Kind // the kind of the last leaf block that started
+	pad       int           // spaces to write after the prefix of the next line
+	backslash bool          // the last byte written is a backslash that is not an escape
 
 	// The blocks that ended last, for the blank lines before the next block.
 	blanks      int           // the input's blank lines after the last leaf block
@@ -172,7 +175,7 @@ func (p *printer) enter(id markdown.NodeID, k markdown.Kind) {
 		f.tight = !t.ListLoose(id)
 	}
 	if isLeafBlock(k) {
-		p.written = false
+		p.written, p.leafKind = false, k
 	}
 	if f.span {
 		p.inSpan++
@@ -205,6 +208,11 @@ func (p *printer) separate(parent int, id markdown.NodeID, k markdown.Kind, span
 			// The table split the paragraph off, which after a blank line
 			// would start with a link reference definition.
 			n = 0
+		case k == markdown.Paragraph && f.lastChild == markdown.LinkReferenceDefinition && p.blanks == 0 &&
+			markdown.InterruptsParagraph(p.firstLine(id), false):
+			// The paragraph continues the definition's lines: after a blank
+			// line its first line would start a block.
+			n, p.pad = 0, 4
 		case (f.kind == markdown.List || f.kind == markdown.ListItem) && f.tight:
 			// A blank line would make the list loose.
 			n = 0
@@ -308,6 +316,15 @@ func (p *printer) leaf(id markdown.NodeID, k markdown.Kind, start, end int) {
 	case (k == markdown.Indent || k == markdown.CodeIndent) && p.inSpan == 0:
 		// Indentation is its columns, whatever tabs it holds (design 4.3):
 		// content writes them.
+	case k == markdown.TrailingSpace && p.inSpan == 0:
+	case k == markdown.HardBreakMarker && p.inSpan == 0 && t.Raw(id)[0] != '\\':
+		// A hard break is a backslash, except after a backslash that is not
+		// an escape, which the backslash would escape (appendix B, trap 10).
+		if p.backslash {
+			p.write(spaces[:2])
+		} else {
+			p.write([]byte{'\\'})
+		}
 	case len(p.out) == 0 && k == markdown.ThematicRun && string(t.Raw(id)) == "---":
 		// The first block never looks like front matter (appendix B, trap 7).
 		p.lineStart = false
@@ -350,8 +367,14 @@ func (p *printer) listMarker(f *frame, id markdown.NodeID, start int) {
 func (p *printer) content(id markdown.NodeID, start int) {
 	t := p.tree
 	if p.lineStart {
+		if p.written && p.inSpan == 0 && (p.leafKind == markdown.Paragraph || p.leafKind == markdown.Heading) &&
+			t.Kind(id) != markdown.SetextUnderline {
+			p.continuation(id)
+		}
 		p.writePrefix(false)
 		p.lineStart = false
+		p.writeSpaces(p.pad)
+		p.pad = 0
 	}
 	if p.indent >= 0 {
 		p.writeSpaces(start - p.indent)
@@ -364,6 +387,51 @@ func (p *printer) content(id markdown.NodeID, start int) {
 	}
 	p.writeLF(b)
 	p.written = true
+	p.backslash = len(b) > 0 && b[len(b)-1] == '\\' && t.Kind(id) != markdown.Escape
+}
+
+// continuation sets the prefix and the indentation of a paragraph line whose
+// first written leaf is id. The line gets the prefixes of every open
+// container, unless it is lazy in the input and those prefixes are longer
+// than the line (appendix B, trap 2). It gets 4 columns of indentation when
+// its content would otherwise start a block (trap 1).
+func (p *printer) continuation(id markdown.NodeID) {
+	line := bytes.TrimRight(p.tree.RestOfLine(id), " \t")
+	open, full := 0, 0
+	for i := range p.stack {
+		if p.stack[i].container {
+			open++
+			full += len(p.stack[i].rest)
+		}
+	}
+	lazy := p.matched < open && full > len(line)
+	if !lazy {
+		p.matched = open
+	}
+	p.indent = -1
+	if !markdown.InterruptsParagraph(line, lazy) {
+		return
+	}
+	p.pad = 4
+	if !lazy {
+		return
+	}
+	// On a lazy line, spaces also match the list items and footnote
+	// definitions after the matched containers, up to a block quote.
+	n := 0
+	for i := range p.stack {
+		f := &p.stack[i]
+		if !f.container {
+			continue
+		}
+		if n >= p.matched {
+			if f.kind == markdown.BlockQuote {
+				break
+			}
+			p.pad += len(f.rest)
+		}
+		n++
+	}
 }
 
 func (p *printer) endLine() {
