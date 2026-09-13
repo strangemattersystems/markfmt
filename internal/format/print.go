@@ -252,7 +252,9 @@ func (p *printer) enter(id markdown.NodeID, k markdown.Kind) {
 	if f.span {
 		p.inSpan++
 	}
-	if k == markdown.Table && p.inSpan == 0 {
+	if k == markdown.Table && p.inSpan == 0 && !p.spanInside(id) {
+		// Padding and pipes would change the bytes of a dialect span in a
+		// cell, so such a table prints as written.
 		p.table = &table{start: len(p.out)}
 	}
 	if k == markdown.TableCell && p.table != nil {
@@ -728,6 +730,14 @@ func (p *printer) lazyItems() map[markdown.NodeID]bool {
 func (p *printer) isSpan(id markdown.NodeID) bool {
 	_, ok := slices.BinarySearch(p.spans, id)
 	return ok
+}
+
+// spanInside reports whether a dialect span is inside node id, which the walk
+// has not passed.
+func (p *printer) spanInside(id markdown.NodeID) bool {
+	end, _ := p.tree.Next(id)
+	i, _ := slices.BinarySearch(p.spans, id)
+	return i < len(p.spans) && p.spans[i] < end
 }
 
 // indentAfter returns the columns of indentation of the first line of the
