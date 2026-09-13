@@ -48,6 +48,7 @@ func TestGoldmarkHTML(t *testing.T) {
 		{"reads cr and crlf as lf", "*\r\n\r- a", "<ul>\n<li></li>\n</ul>\n<ul>\n<li>a</li>\n</ul>\n"},
 		{"reads a final line ending", "<div>\nx", "<div>\nx\n"},
 		{"reads invalid utf-8 as u+fffd", "[\xa6]: /u\n\n[\ufffd]", "<p><a href=\"/u\">\ufffd</a></p>\n"},
+		{"reads nul as u+fffd", "[a](/\x00)", "<p><a href=\"/%EF%BF%BD\">a</a></p>\n"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -115,10 +116,10 @@ func TestGoldmarkDiffers(t *testing.T) {
 }
 
 // goldmarkHTML returns goldmark's HTML for src. goldmark reads src with LF
-// line endings, a final line ending, and U+FFFD for each maximal invalid
-// UTF-8 subsequence. CommonMark gives the line ending forms the same meaning,
-// and markfmt reads invalid UTF-8 as U+FFFD (design 8.4). goldmark does
-// neither.
+// line endings, a final line ending, and U+FFFD for NUL and for each maximal
+// invalid UTF-8 subsequence. CommonMark gives the line ending forms the same
+// meaning and replaces NUL, and markfmt reads invalid UTF-8 as U+FFFD (design
+// 8.4). goldmark does not.
 func goldmarkHTML(t testing.TB, src []byte) string {
 	t.Helper()
 
@@ -126,7 +127,7 @@ func goldmarkHTML(t testing.TB, src []byte) string {
 	if len(src) > 0 && src[len(src)-1] != '\n' {
 		src = append(src, '\n')
 	}
-	if !utf8.Valid(src) {
+	if !utf8.Valid(src) || bytes.IndexByte(src, 0) >= 0 {
 		var valid []byte
 		for b := src; len(b) > 0; {
 			r, n := decodeRune(b)
