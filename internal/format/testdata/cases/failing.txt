@@ -1,8 +1,0 @@
-# Cases that Source does not pass yet, one name per line. The list only gets
-# shorter: remove a name when its case passes (design 11.2).
-#
-# The first list was generated once, from an empty list, with:
-#
-#   go test ./internal/format 2>&1 |
-#     sed -n 's/^ *--- FAIL: TestSource\/cases\/\(.*\) (.*/\1/p' |
-#     tr '_' '-' | sort

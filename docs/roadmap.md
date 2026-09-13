@@ -69,8 +69,9 @@ Layout:
   CommonMark 0.31.2 differ, one row each (design 2.1).
 - `internal/markdown/testdata/github`: GitHub Markdown API fixtures, their
   inputs and the capture loop (design 11.4). `github.txt` runs as conformance
-  after the GitHub normalizer; `printer.txt` holds math, alert and plain text
-  fixtures for stage 6.
+  after the GitHub normalizer. `printer.txt` holds math, alert and plain text
+  fixtures, each with a printer case, and `printer-output.txt` the HTML of
+  each case output.
 - `internal/markdown/testdata/markfmt/grammar.txt`: markfmt's own cases, with
   the expected HTML of each example that a `grammar-differs.txt` lists
   (design 11.2). `testdata/commonmark/grammar-differs.txt` lists CM 96 and 98
@@ -90,8 +91,8 @@ Layout:
 - `internal/format`: the formatter on the new parser. `Source` parses the
   input, prints it, parses the output and calls `Equal`. The printer is
   stage 6 work.
-- `internal/format/testdata/cases`: 26 `NAME.in.md` and `NAME.out.md` pairs,
-  and `failing.txt`, the cases that the printer does not pass yet.
+- `internal/format/testdata/cases`: 136 `NAME.in.md` and `NAME.out.md` pairs.
+  Each GitHub printer fixture has a pair named `github-` and its section.
 - `internal/format/testdata/spec`: CommonMark 0.31.2 examples (goldmark's
   `spec.json`) and goldmark's extra and GFM case files, as idempotence data.
 - `internal/markdown/format_test.go`: `FuzzFormat`, an external test of

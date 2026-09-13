@@ -18,17 +18,11 @@ func TestSource(t *testing.T) {
 	t.Run("cases", func(t *testing.T) {
 		t.Parallel()
 
-		cases := readCases(t)
-		failing := readFailing(t, cases)
-		for _, c := range cases {
+		for _, c := range readCases(t) {
 			t.Run(strings.ReplaceAll(c.name, "-", " "), func(t *testing.T) {
 				t.Parallel()
 
-				got := checkSource(t, c.in)
-				switch pass := bytes.Equal(got, c.out); {
-				case pass && failing[c.name]:
-					t.Error("passes: remove it from testdata/cases/failing.txt")
-				case !pass && !failing[c.name]:
+				if got := checkSource(t, c.in); !bytes.Equal(got, c.out) {
 					t.Errorf("Source(%q)\n got: %q\nwant: %q", c.in, got, c.out)
 				}
 			})
@@ -200,30 +194,6 @@ func readCases(t testing.TB) []testCase {
 		cases = append(cases, c)
 	}
 	return cases
-}
-
-// readFailing reads the names in testdata/cases/failing.txt, the cases that
-// Source does not pass yet. The list only gets shorter: an entry that names
-// no case is an error.
-func readFailing(t *testing.T, cases []testCase) map[string]bool {
-	t.Helper()
-
-	data, err := os.ReadFile("testdata/cases/failing.txt")
-	if err != nil {
-		t.Fatal(err)
-	}
-	failing := make(map[string]bool)
-	for line := range strings.Lines(string(data)) {
-		name, _, _ := strings.Cut(line, "#")
-		if name = strings.TrimSpace(name); name == "" {
-			continue
-		}
-		if !slices.ContainsFunc(cases, func(c testCase) bool { return c.name == name }) {
-			t.Errorf("failing.txt: %q names no case", name)
-		}
-		failing[name] = true
-	}
-	return failing
 }
 
 type specExample struct {
