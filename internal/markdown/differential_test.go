@@ -395,6 +395,18 @@ var goldmarkDeviations = []struct {
 		}
 		return false
 	}},
+	{"goldmark deviates, spec section 4.5: an info string loses whitespace at its ends after its entity references decode, as cmark trims it", func(t *Tree) bool {
+		for _, n := range t.nodes {
+			if n.kind != InfoString {
+				continue
+			}
+			r := t.newValueReader(n)
+			if v := appendPieces(nil, &r); len(bytes.Trim(v, " \t\n\v\f\r")) != len(v) {
+				return true
+			}
+		}
+		return false
+	}},
 	{"goldmark deviates, spec section 4.7: a definition with its destination on a later line ends at the destination when the next line is not a title", func(t *Tree) bool {
 		for i, n := range t.nodes {
 			if n.kind != LinkReferenceDefinition {

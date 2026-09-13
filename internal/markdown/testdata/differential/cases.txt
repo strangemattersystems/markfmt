@@ -353,3 +353,22 @@ x
 <pre><code class="language-0">x
 </code></pre>
 ````````````````````````````````
+
+## goldmark deviates, spec section 4.5: an info string loses whitespace at its ends after its entity references decode, as cmark trims it
+
+goldmark keeps the decoded whitespace (design 8.4).
+
+```````````````````````````````` example
+~~~ &#32;a&#32;
+x
+~~~
+
+~~~&#9;&#9;
+y
+~~~
+.
+<pre><code class="language-a">x
+</code></pre>
+<pre><code>y
+</code></pre>
+````````````````````````````````
