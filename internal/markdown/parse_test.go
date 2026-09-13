@@ -13,6 +13,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/yuin/goldmark/v2/parser"
 )
 
 func TestParse(t *testing.T) {
@@ -649,6 +651,43 @@ func hasInlineHTML(html string) bool {
 		}
 	}
 	return false
+}
+
+// BenchmarkParse parses each benchmark input with markfmt, both passes
+// included, and with goldmark v2.0.2 with no extensions (design 11.6).
+func BenchmarkParse(b *testing.B) {
+	spec, err := os.ReadFile("testdata/commonmark/spec.txt")
+	if err != nil {
+		b.Fatal(err)
+	}
+	design, err := os.ReadFile("../../docs/design/parser.md")
+	if err != nil {
+		b.Fatal(err)
+	}
+	var corpus []byte
+	for _, c := range corpora {
+		for _, ex := range readExamples(b, c.path) {
+			corpus = append(append(corpus, ex.markdown...), '\n')
+		}
+	}
+	goldmark := parser.New()
+	for _, in := range []struct {
+		name string
+		src  []byte
+	}{{"spec", spec}, {"corpora", corpus}, {"design", design}} {
+		b.Run("input="+in.name+"/parser=markfmt", func(b *testing.B) {
+			b.SetBytes(int64(len(in.src)))
+			for b.Loop() {
+				Parse(in.src)
+			}
+		})
+		b.Run("input="+in.name+"/parser=goldmark", func(b *testing.B) {
+			b.SetBytes(int64(len(in.src)))
+			for b.Loop() {
+				goldmark.Parse(in.src)
+			}
+		})
+	}
 }
 
 func TestDefinitions_Add(t *testing.T) {
