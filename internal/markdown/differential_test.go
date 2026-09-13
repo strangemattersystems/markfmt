@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"unicode"
 	"unicode/utf8"
 
 	"github.com/yuin/goldmark/v2/parser"
@@ -249,6 +250,11 @@ var goldmarkDeviations = []struct {
 			}
 		}
 		return false
+	}},
+	{"goldmark deviates, spec sections 2.1 and 6.2: a vertical tab, U+0085, U+2028 and U+2029 are not Unicode whitespace", func(t *Tree) bool {
+		return bytes.ContainsFunc(t.src, func(r rune) bool {
+			return unicode.IsSpace(r) && !isUnicodeSpace(r)
+		})
 	}},
 	{"goldmark deviates, spec section 4.7: a definition with its destination on a later line ends at the destination when the next line is not a title", func(t *Tree) bool {
 		for i, n := range t.nodes {

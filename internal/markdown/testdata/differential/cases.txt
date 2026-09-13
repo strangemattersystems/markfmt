@@ -161,3 +161,14 @@ a <b c="�"> <d e='�'> <f g=�>
 .
 <p>a <b c="�"> <d e='�'> <f g=�></p>
 ````````````````````````````````
+
+## goldmark deviates, spec sections 2.1 and 6.2: a vertical tab, U+0085, U+2028 and U+2029 are not Unicode whitespace
+
+goldmark reads them as whitespace for flanking, as Go's `unicode.IsSpace`
+does, and gives text.
+
+```````````````````````````````` example
+a *a* *a* * a* *a *
+.
+<p>a <em>a</em> <em>a</em> <em> a</em> <em>a </em></p>
+````````````````````````````````
