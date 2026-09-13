@@ -980,11 +980,12 @@ adds its set of `Dialect(row)` values to its Enter event. `Equal` requires:
   every `<pre>` element, contains an inline element (`em`, `strong`, `a`,
   `img`, `code` or `br`) or a character reference other than `&quot;`,
   `&amp;`, `&lt;` and `&gt;`, or its Markdown contains `\` or `&`. CM 148
-  also needs inlines: its expected HTML has `<em>` inside the raw `<pre>` of
-  an HTML block. The block sections are Tabs, Precedence, and the sections of
+  and CM 201 also need inlines: the expected HTML of CM 148 has `<em>` inside
+  the raw `<pre>` of an HTML block, and that of CM 201 has the raw inline HTML
+  `<bar>`. The block sections are Tabs, Precedence, and the sections of
   Leaf blocks and Container blocks. Every block-section example that does not
   need inlines passes, or is in `grammar-differs.txt` and its named case
-  passes: 251 of 296. CM 96
+  passes: 250 of 296. CM 96
   and 98 are front matter (section 8.1). Link reference definitions get unit tests on the tree. The
   classification is deleted in the commit that passes the stage 3 gate.
 - `internal/format/testdata/spec` (goldmark's `spec.json`) stays until stage 6
@@ -1074,7 +1075,7 @@ internal/markdown/
   entities.go     generated
   chars.go        decoding, character classes, labels
   compare.go      Equal, keys, groups
-  testdata/       corpora, failing and grammar-differs lists, pairs, dialect.md, entities.json
+  testdata/       corpora, failing and grammar-differs lists, pairs, dialect.md, entities.json, CaseFolding.txt
 ```
 
 - One package for the parser and the tree. The parser internals have no other
@@ -1129,7 +1130,9 @@ Stage 2, blocks:
 18. Front matter, `commonmark/grammar-differs.txt` and
     `markfmt/grammar.txt`.
 19. `Equal` for block kinds, the stage 2 pairs, `FuzzEqual` with the block
-    mutations only.
+    mutations only. Label normalization with the full case folding table,
+    generated from the pinned Unicode `CaseFolding.txt`: Go's `unicode` package
+    has only simple folding, and CM 540 needs `ẞ` to match `SS`.
 20. The pathological block inputs, the long test and `task long`.
 
 Stage 3 adds inlines kind by kind (with the comment row and the flanking
@@ -1159,7 +1162,7 @@ Apply these in the commit that marks stage 0 done.
   limit" with "the pathological and long subtests of `TestParse`, and `task
   long`" (11.1).
 - Stage 2 gate: every block-section example that does not need inlines passes
-  (251 of 296); pathological block inputs, including `- `×n `a` and deep
+  (250 of 296); pathological block inputs, including `- `×n `a` and deep
   lists with blank lines; the long test; `Equal` for block kinds with the stage
   2 pairs and `FuzzEqual`.
 - Stage 3: pass 1 with reference links; the pass label check; the `benchstat`

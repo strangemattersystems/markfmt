@@ -229,7 +229,7 @@ func readFailing(t *testing.T, path string, examples []example) map[int]bool {
 func TestNeedsInlines(t *testing.T) {
 	t.Parallel()
 
-	t.Run("leaves 251 of 296 block-section commonmark examples to stage 2", func(t *testing.T) {
+	t.Run("leaves 250 of 296 block-section commonmark examples to stage 2", func(t *testing.T) {
 		t.Parallel()
 
 		var block, blockOnly int
@@ -241,8 +241,8 @@ func TestNeedsInlines(t *testing.T) {
 				}
 			}
 		}
-		if block != 296 || blockOnly != 251 {
-			t.Fatalf("%d of %d block-section examples do not need inlines, want 251 of 296", blockOnly, block)
+		if block != 296 || blockOnly != 250 {
+			t.Fatalf("%d of %d block-section examples do not need inlines, want 250 of 296", blockOnly, block)
 		}
 	})
 }
@@ -262,8 +262,8 @@ var blockSections = []string{
 // example that does not. Delete it in the commit that passes the stage 3 gate.
 func needsInlines(ex example) bool {
 	// CM 148 has <em> inside the raw <pre> of an HTML block, which the <pre>
-	// rule skips.
-	if strings.ContainsAny(ex.markdown, `\&`) || ex.id == 148 {
+	// rule skips. CM 201 has raw inline HTML, which the element list misses.
+	if strings.ContainsAny(ex.markdown, `\&`) || ex.id == 148 || ex.id == 201 {
 		return true
 	}
 	for html := ex.html; ; {

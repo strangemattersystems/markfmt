@@ -51,7 +51,7 @@ Last updated: 2026-09-13. Nothing after `ff7de5b` is pushed.
 | `1f63d60`, `f32fd7e` | Parser design, after five review rounds |
 | `104566e` | `.scratch/` is gitignored |
 | `59e930f` onwards | Stage 1: tree, builder, `Verify`, line iterator, test HTML renderer, conformance runner, five corpora |
-| `1604b94` onwards | Stage 2: paragraphs, blank lines, thematic breaks, ATX and setext headings, indented and fenced code, HTML blocks |
+| `1604b94` onwards | Stage 2: paragraphs, blank lines, thematic breaks, ATX and setext headings, indented and fenced code, HTML blocks, block quotes, tabs, lists, link reference definitions |
 
 Layout:
 
@@ -105,6 +105,7 @@ CommonMark example 210. Our own parser makes this finding obsolete.
 | One grammar in production and tests | No test-only grammar switch. Core examples that markfmt's GFM or front matter rules change are listed in `grammar-differs.txt`, each with a case of markfmt's expected result. Design 11.2. |
 | Streaming not planned | The documents that would need it are one top-level block, so per-block streaming would not help. Design 7.4. |
 | Design document at `docs/design/parser.md` | It is reviewed and versioned with the code. |
+| Full case folding table from Unicode `CaseFolding.txt` | Label matching needs Unicode full case folding (CM 540: `ẞ` matches `SS`). Go's `unicode` package has only simple folding. Design 15, commit 19. |
 | Canonical style by consensus | The style follows modern best practice across the major formatters and style guides, not personal preference. See Open decisions. |
 
 ## Open decisions
@@ -170,7 +171,7 @@ Passed 2026-09-12.
 - [x] Paragraphs, blank lines, thematic breaks, ATX and setext headings,
   indented and fenced code, HTML blocks (all 7 kinds), with their `dialect.md`
   rows.
-- [ ] Block quotes, lazy lines, prefix leaves and emission order; tabs and
+- [x] Block quotes, lazy lines, prefix leaves and emission order; tabs and
   `virt`; list items and lists with looseness.
 - [ ] Link reference definitions, labels, and the setext re-dispatch rule.
 - [ ] Front matter, `grammar-differs.txt` and `markfmt/grammar.txt`.
@@ -183,7 +184,7 @@ Gates:
 
 - The lossless fuzz test holds.
 - Every block-section example that does not need inlines passes, or is in
-  `grammar-differs.txt` and its named case passes (251 of 296, by the
+  `grammar-differs.txt` and its named case passes (250 of 296, by the
   mechanical classification in design 11.2).
 - The pathological subtest of `TestParse` passes, including `- `×n `a` and
   deep lists with blank lines. `task long` passes.
@@ -315,6 +316,7 @@ files can stay as data, with their MIT notice.
 | goldmark cases | `yuin/goldmark` `_test/extra.txt`, `extension/_test/*.txt` | v2.0.2 | MIT | Extra edge cases, already in `internal/format/testdata/spec` |
 | markdown-it fixtures | `markdown-it/markdown-it` `test/fixtures` | optional | MIT | Extra cases |
 | HTML entities | WHATWG `entities.json` | pin at import | CC BY 4.0 | Generate the entity table |
+| Unicode case folding | Unicode `CaseFolding.txt` | the version of Go's `unicode` package, pin at import | Unicode License v3 | Generate the full case folding table for labels |
 | GitHub docs Markdown examples | `github/docs` `content/get-started/writing-on-github` | pin at import | CC BY 4.0 | Footnote, math and alert cases |
 | GitHub Markdown API output | `POST /markdown` with `mode=gfm` | capture date | GitHub API terms | Expected results for GitHub syntax, captured into fixtures; capture again before each release |
 
@@ -328,8 +330,8 @@ This is our reading of the licenses, not legal advice.
   covered by copyright; the spec text is CC BY-SA 4.0.
 - Give every copied corpus a README or NOTICE with its source, version and
   license, as `internal/format/testdata/spec/README.md` does.
-- Generate tables from primary sources: WHATWG `entities.json`, and Go's
-  `unicode` package for punctuation.
+- Generate tables from primary sources: WHATWG `entities.json`, Unicode
+  `CaseFolding.txt`, and Go's `unicode` package for punctuation.
 - Send only test inputs written for the purpose to the GitHub Markdown API,
   never user documents.
 
