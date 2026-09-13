@@ -95,7 +95,7 @@ func TestGoldmarkDiffers(t *testing.T) {
 		{"skips a control character in an unquoted value after a quoted value with >", "<A A='>' A=\x15>", "goldmark deviates, spec section 6.6: an unquoted attribute value takes ASCII control characters"},
 		{"skips a single dash after definitions alone", "[0]:0\n-", "goldmark deviates, spec sections 4.3 and 4.7: a setext underline after link reference definitions alone is paragraph text"},
 		{"skips a nested list item after an empty one and a blank line", "* -\n \n  -", "goldmark deviates, spec section 5.2: a blank line after an empty nested list item continues the outer list item"},
-		{"skips an escape after punctuation on the line after a backslash and a hard break", "\\  \n*\\!", "goldmark deviates, spec sections 2.4 and 6.7: a backslash escape after a backslash, a hard line break of spaces and punctuation decodes"},
+		{"skips an escape after punctuation on the line after a backslash and a hard break", "\\  \n*\\!", "goldmark deviates, spec sections 2.4 and 6.7: a backslash escape after a backslash and a hard line break of spaces decodes"},
 		{"skips a setext heading of a dash after definitions alone", "[0]:0\n-\n-", "goldmark deviates, spec sections 4.3 and 4.7: a setext underline after link reference definitions alone is paragraph text"},
 		{"skips raw html in an image description", "![<A>]()", "goldmark deviates, spec section 6.4: the alt text of an image is the plain text of its description, as cmark writes it"},
 		{"skips a form feed after a line ending in an html tag", "<A\n\f>", "goldmark deviates, spec section 6.6: FF is whitespace in an HTML tag, as cmark reads it"},
@@ -103,15 +103,16 @@ func TestGoldmarkDiffers(t *testing.T) {
 		{"skips a link after open brackets split by text", strings.Repeat("[", 500) + "dddd" + strings.Repeat("[", 496) + "a](b)", "goldmark deviates, spec section 6.3: a link forms after any number of open brackets"},
 		{"skips a setext heading after a definition over several lines", "[0]:\n0\n''0\n-", "goldmark deviates, spec section 4.7: a definition over several lines ends at its destination when the next line is not a title"},
 		{"skips a link after open brackets that span 1000 bytes with nul as u+fffd", strings.Repeat("[", 497) + "\x00\x00\x00" + strings.Repeat("[", 496) + "a](b)", "goldmark deviates, spec section 6.3: a link forms after any number of open brackets"},
-		{"skips an escape after a line of punctuation after a backslash and a hard break", "\\  \n*\n\\!", "goldmark deviates, spec sections 2.4 and 6.7: a backslash escape after a backslash, a hard line break of spaces and punctuation decodes"},
+		{"skips an escape after a line of punctuation after a backslash and a hard break", "\\  \n*\n\\!", "goldmark deviates, spec sections 2.4 and 6.7: a backslash escape after a backslash and a hard line break of spaces decodes"},
 		{"skips a tab before the end of a tag after a quoted >", "<A A=\">\"\t>", "goldmark deviates, spec section 6.6: a tab before the `>` of the tag that starts an HTML block is whitespace"},
 		{"skips a tab after a kind 7 tag with a quoted >", "<A A=\">\">\t", "goldmark deviates, spec section 4.6: a tab or FF after the tag that starts HTML block kind 7 is whitespace"},
 		{"skips a form feed in a tag after a quoted >", "z <j k=\">\"\f>", "goldmark deviates, spec section 6.6: FF is whitespace in an HTML tag, as cmark reads it"},
 		{"skips a blank line of an html block in a list item", "*\n\t<!A\n\t", "goldmark deviates, spec sections 4.4, 4.6 and 5.2: a blank line of indented code or of an HTML block in a list item keeps the spaces beyond the indentation"},
-		{"skips an escape after a backslash hard break after a backslash and a hard break", "\\  \n\\\n\\!", "goldmark deviates, spec sections 2.4 and 6.7: a backslash escape after a backslash, a hard line break of spaces and punctuation decodes"},
+		{"skips an escape after a backslash hard break after a backslash and a hard break", "\\  \n\\\n\\!", "goldmark deviates, spec sections 2.4 and 6.7: a backslash escape after a backslash and a hard line break of spaces decodes"},
 		{"skips a paragraph after a block quote that ends with an empty list item", "* >+\n  >\n  0", "goldmark deviates, spec section 5.2: a blank line after an empty nested list item continues the outer list item"},
 		{"skips a setext underline after a block quote marker space and a tab", ">00\n> \t=", "goldmark deviates, spec sections 2.2 and 5.2: a tab after the space of a block quote marker stops at a column counted from the start of the line"},
 		{"skips a setext heading after a definition whose title fails", "[0]:0\n\"\"[0]:0\n-", "goldmark deviates, spec section 4.7: a title that other characters follow on its line is not the title of the definition"},
+		{"skips an escape after a code span after a backslash and a hard break", "\\  \n``0``\\!", "goldmark deviates, spec sections 2.4 and 6.7: a backslash escape after a backslash and a hard line break of spaces decodes"},
 		{"skips a tab in the indentation after a list item prefix", "* 0\n  \t -", "goldmark deviates, spec sections 2.2 and 5.2: a tab after the prefix of a list item line stops at a column counted from the start of the line"},
 	}
 	for _, tt := range tests {
@@ -693,29 +694,20 @@ var goldmarkDeviations = []struct {
 		}
 		return false
 	}},
-	{"goldmark deviates, spec sections 2.4 and 6.7: a backslash escape after a backslash, a hard line break of spaces and punctuation decodes", func(t *Tree) bool {
+	{"goldmark deviates, spec sections 2.4 and 6.7: a backslash escape after a backslash and a hard line break of spaces decodes", func(t *Tree) bool {
+		// goldmark writes an escape after such a break as it is in some
+		// positions only, so every escape later in the block is skipped.
 		for i := 1; i+1 < len(t.nodes); i++ {
 			if t.nodes[i].kind != HardBreak || t.nodes[i-1].kind != Text || t.nodes[i+1].kind != HardBreakMarker ||
 				!bytes.HasSuffix(t.Raw(NodeID(i-1)), []byte("\\")) || bytes.Contains(t.Raw(NodeID(i+1)), []byte("\\")) {
 				continue
 			}
-		next:
-			for j := int(t.nodes[i].link); j < len(t.nodes); j++ {
-				switch m := t.nodes[j]; {
-				case m.kind == Escape:
-					return true
-				case m.kind == HardBreak && string(t.Raw(NodeID(j+1))) != "\\":
-					// goldmark passes a backslash hard line break.
-					break next
-				case m.kind == Text || m.kind == Delimiter:
-					for _, c := range t.src[m.start:m.end] {
-						if !isASCIIPunct(c) {
-							break next
-						}
-					}
-				case m.kind.class() == classContent:
-					break next
-				}
+			block := i - 1
+			for block > 0 && (t.nodes[block].kind.class() != classStructure || int(t.nodes[block].link) <= i) {
+				block--
+			}
+			if slices.ContainsFunc(t.nodes[t.nodes[i].link:t.nodes[block].link], func(m Node) bool { return m.kind == Escape }) {
+				return true
 			}
 		}
 		return false
