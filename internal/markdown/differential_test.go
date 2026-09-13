@@ -98,6 +98,7 @@ func TestGoldmarkDiffers(t *testing.T) {
 		{"skips an escape after punctuation on the line after a backslash and a hard break", "\\  \n*\\!", "goldmark deviates, spec sections 2.4 and 6.7: a backslash escape after a backslash, a hard line break of spaces and punctuation decodes"},
 		{"skips a setext heading of a dash after definitions alone", "[0]:0\n-\n-", "goldmark deviates, spec sections 4.3 and 4.7: a setext underline after link reference definitions alone is paragraph text"},
 		{"skips raw html in an image description", "![<A>]()", "goldmark deviates, spec section 6.4: the alt text of an image is the plain text of its description, as cmark writes it"},
+		{"skips a form feed after a line ending in an html tag", "<A\n\f>", "goldmark deviates, spec section 6.6: FF is whitespace in an HTML tag, as cmark reads it"},
 		{"skips a tab in the indentation after a list item prefix", "* 0\n  \t -", "goldmark deviates, spec sections 2.2 and 5.2: a tab after the prefix of a list item line stops at a column counted from the start of the line"},
 	}
 	for _, tt := range tests {
@@ -729,9 +730,20 @@ var goldmarkDeviations = []struct {
 			if k < len(src) && src[k] == '\f' && slices.Contains(kind1Names, strings.ToLower(string(src[j:k]))) {
 				continue
 			}
-			for ; k < len(src) && strings.IndexByte("<>\r\n", src[k]) < 0; k++ {
-				if src[k] == '\f' {
+			// Whitespace in a tag holds at most one line ending.
+			lines := 0
+		scan:
+			for ; k < len(src) && src[k] != '<' && src[k] != '>'; k++ {
+				switch src[k] {
+				case '\f':
 					return true
+				case '\r', '\n':
+					if src[k] == '\r' && k+1 < len(src) && src[k+1] == '\n' {
+						k++
+					}
+					if lines++; lines > 1 {
+						break scan
+					}
 				}
 			}
 		}

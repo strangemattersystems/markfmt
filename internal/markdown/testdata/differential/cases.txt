@@ -788,11 +788,16 @@ x
 <ab>
 
 z <ab>
+
+z <a
+>
 .
 <div
 x
 <ab>
 <p>z <ab></p>
+<p>z <a
+></p>
 ````````````````````````````````
 
 ## fixed in markfmt, spec section 4.7: VT and FF are whitespace in a link label, as cmark reads them
