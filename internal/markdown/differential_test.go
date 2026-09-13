@@ -99,6 +99,7 @@ func TestGoldmarkDiffers(t *testing.T) {
 		{"skips a setext heading of a dash after definitions alone", "[0]:0\n-\n-", "goldmark deviates, spec sections 4.3 and 4.7: a setext underline after link reference definitions alone is paragraph text"},
 		{"skips raw html in an image description", "![<A>]()", "goldmark deviates, spec section 6.4: the alt text of an image is the plain text of its description, as cmark writes it"},
 		{"skips a form feed after a line ending in an html tag", "<A\n\f>", "goldmark deviates, spec section 6.6: FF is whitespace in an HTML tag, as cmark reads it"},
+		{"skips a form feed after the tag of an html block of kind 7", "<A>\f", "goldmark deviates, spec section 4.6: a tab or FF after the tag that starts HTML block kind 7 is whitespace"},
 		{"skips a tab in the indentation after a list item prefix", "* 0\n  \t -", "goldmark deviates, spec sections 2.2 and 5.2: a tab after the prefix of a list item line stops at a column counted from the start of the line"},
 	}
 	for _, tt := range tests {
@@ -697,7 +698,7 @@ var goldmarkDeviations = []struct {
 		}
 		return false
 	}},
-	{"goldmark deviates, spec section 4.6: a tab after the tag that starts HTML block kind 7 is whitespace", func(t *Tree) bool {
+	{"goldmark deviates, spec section 4.6: a tab or FF after the tag that starts HTML block kind 7 is whitespace", func(t *Tree) bool {
 		return tabAfterTag.Match(t.src)
 	}},
 	{"goldmark deviates, spec section 6.3: a link forms after any number of open brackets", func(t *Tree) bool {
@@ -806,7 +807,7 @@ var (
 	unquotedControl      = regexp.MustCompile(`<[A-Za-z](?:[^<>"']|"[^"]*"|'[^']*')*=[ \t\r\n]*[^ \t\r\n"'=<>\x60]*[\x01-\x08\x0b\x0c\x0e-\x1f\x7f]`)
 	spacedClosingTag     = regexp.MustCompile(`</[ \t\r\n]+[A-Za-z]`)
 	tabAfterTagName      = regexp.MustCompile(`</?[A-Za-z][A-Za-z0-9]*\t`)
-	tabAfterTag          = regexp.MustCompile(`<[A-Za-z/][^<>\r\n]*>[ \t]*\t[ \t]*(?:\r|\n|$)`)
+	tabAfterTag          = regexp.MustCompile(`<[A-Za-z/][^<>\r\n]*>[ \t\f]*[\t\f][ \t\f]*(?:\r|\n|$)`)
 	angleTitle           = regexp.MustCompile(`\]\([ \t\r\n]*<[^<>\r\n]*>["'(]`)
 	slashClosingTag      = regexp.MustCompile(`</[A-Za-z][A-Za-z0-9-]*[ \t\r\n]*/`)
 )

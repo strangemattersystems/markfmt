@@ -714,17 +714,21 @@ b\
 *!</p>
 ````````````````````````````````
 
-## goldmark deviates, spec section 4.6: a tab after the tag that starts HTML block kind 7 is whitespace
+## goldmark deviates, spec section 4.6: a tab or FF after the tag that starts HTML block kind 7 is whitespace
 
-goldmark gives a paragraph when a tab is in the whitespace after the tag.
+goldmark gives a paragraph when a tab or a form feed is in the whitespace
+after the tag.
 
 ```````````````````````````````` example
 <A>→
 
 </a> →
+
+<b>
 .
 <A>	
 </a> 	
+<b>
 ````````````````````````````````
 
 ## goldmark deviates, spec section 6.3: a link forms after any number of open brackets
