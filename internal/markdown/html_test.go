@@ -38,6 +38,7 @@ func TestRenderHTML(t *testing.T) {
 		{"writes autolinks", "<https://a.b/\\[&amp;\u00e9'> <A@b.c>", "<p><a href=\"https://a.b/%5C%5B&amp;%C3%A9&#x27;\">https://a.b/\\[&amp;\u00e9'</a> <a href=\"mailto:A@b.c\">A@b.c</a></p>\n"},
 		{"writes raw html", "a <b\n c='d'>e<!---->", "<p>a <b\nc='d'>e<!----></p>\n"},
 		{"writes emphasis", "*a* __b__", "<p><em>a</em> <strong>b</strong></p>\n"},
+		{"writes links and images", "[a *b*](/u&amp; \"t\\\"\") ![c *d* `e`\n<f>](g 'h')", "<p><a href=\"/u&amp;\" title=\"t&quot;\">a <em>b</em></a> <img src=\"g\" alt=\"c d e &lt;f&gt;\" title=\"h\" /></p>\n"},
 		{"writes line breaks", "a\\\nb  \nc \nd  ", "<p>a<br />\nb<br />\nc\nd</p>\n"},
 		{"writes paragraphs", "\xEF\xBB\xBFa\r\n b\n \nc", "<p>a\nb</p>\n<p>c</p>\n"},
 	}
@@ -99,15 +100,37 @@ var htmlEscaper = strings.NewReplacer("&", "&amp;", "<", "&lt;", ">", "&gt;", `"
 func renderHTML(tree *Tree) string {
 	var b strings.Builder
 	var open []NodeID // entered interior nodes, innermost last
+	var plain NodeID  // the image whose alt text is being written, or 0
 	c := tree.Walk()
 	for e, ok := c.Next(); ok; e, ok = c.Next() {
 		n := tree.nodes[e.ID]
 		if e.Exit {
 			open = open[:len(open)-1]
 		}
+		if plain != 0 {
+			// Alt text is plain text, as cmark writes it.
+			switch {
+			case e.Exit && e.ID == plain:
+				b.WriteString(`"` + titleAttr(tree, e.ID) + " />")
+				plain = 0
+			case e.Exit:
+			case n.kind == Text, n.kind == Escape, n.kind == EntityRef, n.kind == AutolinkText:
+				b.WriteString(htmlEscaper.Replace(string(tree.AppendValue(nil, e.ID))))
+			case n.kind == CodeSpan:
+				b.WriteString(htmlEscaper.Replace(string(tree.AppendCodeSpan(nil, e.ID))))
+			case n.kind == RawHTML:
+				b.WriteString(htmlEscaper.Replace(string(tree.AppendRawHTML(nil, e.ID))))
+			case n.kind == SoftBreak, n.kind == HardBreak:
+				b.WriteByte(' ')
+			}
+			if !e.Exit && n.kind.class() == classStructure {
+				open = append(open, e.ID)
+			}
+			continue
+		}
 		//exhaustive:enforce
 		switch n.kind {
-		case Document, BOM, BlankLine, Indent, LineEnding, TrailingSpace, HardBreakMarker, CodeFence, Delimiter, ThematicRun, ATXMarker, ATXClose, Whitespace,
+		case Document, BOM, BlankLine, Indent, LineEnding, TrailingSpace, HardBreakMarker, CodeFence, Delimiter, Paren, ThematicRun, ATXMarker, ATXClose, Whitespace,
 			CodeIndent, CodeText, VerbatimLineEnding, FenceMarker, InfoString, SetextUnderline, HTMLText, QuoteMarker, ListMarker, ItemIndent,
 			LinkReferenceDefinition, LinkLabel, Destination, Title, Bracket, Colon, AngleBracket, TitleQuote,
 			FrontMatter, FrontMatterFence, FrontMatterText:
@@ -172,6 +195,15 @@ func renderHTML(tree *Tree) string {
 			b.WriteString(`<a href="` + escapeHref(href) + `">`)
 		case Text, Escape, EntityRef, AutolinkText:
 			b.WriteString(htmlEscaper.Replace(string(tree.AppendValue(nil, e.ID))))
+		case Link:
+			if e.Exit {
+				b.WriteString("</a>")
+				break
+			}
+			b.WriteString(`<a href="` + escapeHref(string(tree.AppendDestination(nil, e.ID))) + `"` + titleAttr(tree, e.ID) + ">")
+		case Image:
+			b.WriteString(`<img src="` + escapeHref(string(tree.AppendDestination(nil, e.ID))) + `" alt="`)
+			plain = e.ID
 		case Emphasis:
 			b.WriteString(inlineTag("em", e.Exit))
 		case Strong:
@@ -220,6 +252,16 @@ func escapeHref(s string) string {
 		}
 	}
 	return b.String()
+}
+
+// titleAttr returns the title attribute of link or image id, or nothing when
+// its title is empty.
+func titleAttr(tree *Tree, id NodeID) string {
+	title := tree.AppendTitle(nil, id)
+	if len(title) == 0 {
+		return ""
+	}
+	return ` title="` + htmlEscaper.Replace(string(title)) + `"`
 }
 
 // inlineTag returns the start or end tag of an inline element.

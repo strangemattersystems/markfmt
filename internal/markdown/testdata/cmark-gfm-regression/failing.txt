@@ -9,10 +9,8 @@
 8
 10
 11
-12
 13
 20
 21
 22
 23 # footnotes: passed only while emphasis did not exist; footnote references are stage 4
-26

@@ -43,6 +43,10 @@ func TestParse(t *testing.T) {
 		{"gives emphasis and strong emphasis", "***a*** *b** __c__", "Document{Paragraph{Emphasis{Delimiter \"*\", Strong{Delimiter \"**\", Text \"a\", Delimiter \"**\"}, Delimiter \"*\"}, Text \" \", Emphasis{Delimiter \"*\", Text \"b\", Delimiter \"*\"}, Text \"* \", Strong{Delimiter \"__\", Text \"c\", Delimiter \"__\"}}}"},
 		{"gives text for delimiter runs that are not flanking", "a * b _c_d*\n*e", "Document{Paragraph{Text \"a * b _c_d*\", SoftBreak{LineEnding \"\\n\"}, Text \"*e\"}}"},
 		{"treats unicode symbols and u+fffd as punctuation for flanking", "a \u00a3_b_\u00a3 \xff_c_\xff", "Document{Paragraph{Text \"a \u00a3\", Emphasis{Delimiter \"_\", Text \"b\", Delimiter \"_\"}, Text \"\u00a3 \\xff\", Emphasis{Delimiter \"_\", Text \"c\", Delimiter \"_\"}, Text \"\\xff\"}}"},
+		{"gives an inline link", "[a *b*](/u \"t\")", "Document{Paragraph{Link{Bracket \"[\", Text \"a \", Emphasis{Delimiter \"*\", Text \"b\", Delimiter \"*\"}, Bracket \"]\", Paren \"(\", Destination \"/u\", Whitespace \" \", TitleQuote \"\\\"\", Title \"t\", TitleQuote \"\\\"\", Paren \")\"}}}"},
+		{"gives an image with a link tail over lines", "![a](\n<b c>\n'd\ne')", "Document{Paragraph{Image{Bracket \"![\", Text \"a\", Bracket \"]\", Paren \"(\", LineEnding \"\\n\", AngleBracket \"<\", Destination \"b c\", AngleBracket \">\", LineEnding \"\\n\", TitleQuote \"'\", Title \"d\", VerbatimLineEnding \"\\n\", Title \"e\", TitleQuote \"'\", Paren \")\"}}}"},
+		{"makes the link openers before a link inactive", "[a [b](c) d](e)", "Document{Paragraph{Text \"[a \", Link{Bracket \"[\", Text \"b\", Bracket \"]\", Paren \"(\", Destination \"c\", Paren \")\"}, Text \" d](e)\"}}"},
+		{"gives text for a link tail that does not close", "[a](b c d) ![e]", "Document{Paragraph{Text \"[a](b c d) ![e]\"}}"},
 		{"gives no break at the end of a block", "a\\\n\n# b\\", `Document{Paragraph{Text "a\\", LineEnding "\n"}, BlankLine "\n", Heading{ATXMarker "#", Whitespace " ", Text "b\\"}}`},
 		{"gives breaks between setext heading lines", "a  \nb \n==", `Document{Heading{Text "a", HardBreak{HardBreakMarker "  ", LineEnding "\n"}, Text "b", TrailingSpace " ", LineEnding "\n", SetextUnderline "=="}}`},
 		{"gives the indentation of a first line", "   a", `Document{Paragraph{Indent "   ", Text "a"}}`},
@@ -334,6 +338,24 @@ var pathologicalInputs = []struct {
 	}},
 	{"nested strong emphasis", func(n int) []byte {
 		return []byte(strings.Repeat("*a **a ", n/14) + "b" + strings.Repeat(" a** a*", n/14))
+	}},
+	{"unmatched link openers", func(n int) []byte {
+		return []byte(strings.Repeat("[", n))
+	}},
+	{"unmatched link closers", func(n int) []byte {
+		return []byte(strings.Repeat("]", n))
+	}},
+	{"images with empty links in them", func(n int) []byte {
+		return []byte(strings.Repeat("![[]()", n/6))
+	}},
+	{"angle destinations that do not close", func(n int) []byte {
+		return []byte(strings.Repeat("[a](<b", n/6))
+	}},
+	{"destinations that do not close", func(n int) []byte {
+		return []byte(strings.Repeat("[a](b", n/5))
+	}},
+	{"parenthesized titles that do not close", func(n int) []byte {
+		return []byte(strings.Repeat("[ (](", n/5))
 	}},
 	{"backtick runs of every length", func(n int) []byte {
 		var b []byte

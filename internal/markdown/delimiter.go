@@ -55,7 +55,7 @@ func (s *inlineParser) delimiterRun(i, end uint32) {
 		canOpen: canOpen, canClose: canClose, prev: n - 1, next: -1,
 	})
 	for ; i < j; i++ {
-		s.push(piece{kind: Text, delim: true, end: i + 1})
+		s.push(piece{kind: Text, held: true, end: i + 1})
 	}
 }
 

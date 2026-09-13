@@ -25,6 +25,8 @@ const (
 	RawHTML
 	Emphasis
 	Strong
+	Link
+	Image
 	Text
 	CodeText
 	VerbatimLineEnding
@@ -60,6 +62,7 @@ const (
 	HardBreakMarker
 	CodeFence
 	Delimiter
+	Paren
 )
 
 type class uint8
@@ -77,12 +80,12 @@ func (k Kind) class() class {
 	//exhaustive:enforce
 	switch k {
 	case Document, FrontMatter, BlockQuote, List, ListItem, Paragraph, ThematicBreak, Heading, CodeBlock, HTMLBlock, LinkReferenceDefinition,
-		SoftBreak, HardBreak, CodeSpan, Autolink, RawHTML, Emphasis, Strong:
+		SoftBreak, HardBreak, CodeSpan, Autolink, RawHTML, Emphasis, Strong, Link, Image:
 		return classStructure
 	case Text, CodeText, VerbatimLineEnding, InfoString, HTMLText, LinkLabel, Destination, Title, FrontMatterText, Escape, EntityRef, AutolinkText:
 		return classContent
 	case BOM, LineEnding, BlankLine, Indent, ThematicRun, ATXMarker, ATXClose, Whitespace, CodeIndent, FenceMarker, SetextUnderline, QuoteMarker, ListMarker, ItemIndent, Bracket, Colon, AngleBracket, TitleQuote, FrontMatterFence,
-		TrailingSpace, HardBreakMarker, CodeFence, Delimiter:
+		TrailingSpace, HardBreakMarker, CodeFence, Delimiter, Paren:
 		return classSyntax
 	}
 	return classInvalid
@@ -220,6 +223,12 @@ func (k Kind) String() string {
 		return "Strong"
 	case Delimiter:
 		return "Delimiter"
+	case Link:
+		return "Link"
+	case Image:
+		return "Image"
+	case Paren:
+		return "Paren"
 	}
 	return "Kind(" + strconv.Itoa(int(k)) + ")"
 }

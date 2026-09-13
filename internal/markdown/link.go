@@ -1,5 +1,80 @@
 package markdown
 
+// bracket is a link or image opener on the bracket stack (design 6.3).
+type bracket struct {
+	piece  int // the opener piece
+	bottom int // the top of the delimiter stack when the opener was pushed
+	seq    int // the opener's push sequence number
+	image  bool
+}
+
+// openBracket pushes the '[' at i, or the '![' when image is true, as a piece
+// and a bracket.
+func (s *inlineParser) openBracket(i uint32, image bool) {
+	end := i + 1
+	if image {
+		end++
+	}
+	s.seq++
+	s.brackets = append(s.brackets, bracket{piece: len(s.pieces), bottom: len(s.delims) - 1, seq: s.seq, image: image})
+	s.push(piece{kind: Text, held: true, end: end})
+}
+
+// closeBracket pushes the ']' at i, on a line that ends at end, with the
+// inline link or image that it closes, or as text (CM 482 to 526). A link
+// makes every link opener before it inactive in O(1): an opener pushed before
+// the last link's opener is inactive (design 6.3).
+func (s *inlineParser) closeBracket(i, end uint32) {
+	n := len(s.brackets)
+	if n == 0 {
+		s.text(i + 1)
+		return
+	}
+	b := s.brackets[n-1]
+	s.brackets = s.brackets[:n-1]
+	if b.image || b.seq > s.linkFormed {
+		m := s.mark()
+		s.push(piece{kind: Bracket, end: i + 1})
+		if i+1 < end && s.src[i+1] == '(' && s.linkTail() {
+			kind := Image
+			if !b.image {
+				kind, s.linkFormed = Link, b.seq
+			}
+			s.pieces[b.piece].kind, s.pieces[b.piece].open = Bracket, kind
+			s.pieces[len(s.pieces)-1].close = true
+			s.processEmphasis(b.bottom)
+			return
+		}
+		s.reset(m)
+	}
+	s.text(i + 1)
+}
+
+// linkTail pushes the inline link tail at the position: '(', optional
+// whitespace, an optional destination, a title after whitespace, optional
+// whitespace, and ')'. It reports whether there is one.
+func (s *inlineParser) linkTail() bool {
+	s.push(piece{kind: Paren, end: s.end() + 1})
+	s.spaceLine()
+	if _, ok := s.expect(pos{s.k, s.end()}, ')'); !ok {
+		if !s.linkDestination() {
+			return false
+		}
+		spaced := s.spaceLine()
+		m := s.mark()
+		if spaced && s.linkTitle() {
+			s.spaceLine()
+		} else {
+			s.reset(m)
+		}
+		if _, ok := s.expect(pos{s.k, s.end()}, ')'); !ok {
+			return false
+		}
+	}
+	s.push(piece{kind: Paren, end: s.end() + 1})
+	return true
+}
+
 // linkLabel pushes the link label at the position: '[', up to 999 characters
 // with no unescaped bracket and at least one that is not a space, tab or line
 // ending, and ']' (design 6.7). It reports whether there is one.
@@ -153,4 +228,35 @@ func (s *inlineParser) lineEnd() bool {
 	}
 	s.pushIf(Whitespace, j)
 	return j == end
+}
+
+// AppendDestination appends the value of the destination of link, image or
+// link reference definition id to dst.
+func (t *Tree) AppendDestination(dst []byte, id NodeID) []byte {
+	for i := uint32(id) + 1; i < t.nodes[id].link; i++ {
+		switch m := t.nodes[i]; {
+		case m.kind.class() == classStructure:
+			i = m.link - 1
+		case m.kind == Destination:
+			dst = t.AppendValue(dst, NodeID(i))
+		}
+	}
+	return dst
+}
+
+// AppendTitle appends the value of the title of link, image or link
+// reference definition id to dst.
+func (t *Tree) AppendTitle(dst []byte, id NodeID) []byte {
+	quotes := 0
+	for i := uint32(id) + 1; i < t.nodes[id].link; i++ {
+		switch m := t.nodes[i]; {
+		case m.kind.class() == classStructure:
+			i = m.link - 1
+		case m.kind == TitleQuote:
+			quotes++
+		case quotes == 1 && (m.kind == Title || m.kind == VerbatimLineEnding):
+			dst = t.AppendValue(dst, NodeID(i))
+		}
+	}
+	return dst
 }

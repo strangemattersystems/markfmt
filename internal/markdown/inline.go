@@ -9,11 +9,14 @@ type inlineParser struct {
 	lines []pendingLine
 	arena []prefixLeaf
 
-	pieces    []piece
-	k         int    // the line being scanned
-	start     uint32 // start of the first piece
-	lineStart uint32 // start of the content of the line being scanned, after its Indent leaf
-	delims    []delimiter
+	pieces     []piece
+	k          int    // the line being scanned
+	start      uint32 // start of the first piece
+	lineStart  uint32 // start of the content of the line being scanned, after its Indent leaf
+	delims     []delimiter
+	brackets   []bracket
+	seq        int // push sequence number of the last bracket
+	linkFormed int // sequence number of the opener of the last link
 
 	ticks    []uint32 // one past the start of the last backtick run of each length that a search passed
 	ticksAll bool     // a backtick search reached the end of the block
@@ -36,7 +39,7 @@ type piece struct {
 	open  Kind // the span that opens before the leaf, or Document for none
 	close bool // the innermost span closes after the leaf
 	join  bool // the leaf of the piece before extends over this piece
-	delim bool // a character of a delimiter run, which no text joins while scanning
+	held  bool // a later decision can change the piece, so no text joins it while scanning
 	end   uint32
 	owner uint32 // the owner of a prefix leaf
 }
@@ -71,7 +74,8 @@ func (s *inlineParser) inlines(lines []pendingLine) {
 
 // begin starts the pieces of lines at the Indent leaf of the first line.
 func (s *inlineParser) begin(lines []pendingLine) {
-	s.lines, s.pieces, s.delims, s.k = lines, s.pieces[:0], s.delims[:0], 0
+	s.lines, s.pieces, s.delims, s.brackets, s.k = lines, s.pieces[:0], s.delims[:0], s.brackets[:0], 0
+	s.seq, s.linkFormed = 0, 0
 	s.start = lines[0].rest.start
 	s.ticks, s.ticksAll, s.failed = s.ticks[:0], false, [len(closers)]uint32{}
 	s.startLine()
@@ -127,6 +131,16 @@ func (s *inlineParser) scan(i, end uint32) {
 		s.codeSpan(i, end)
 	case '*', '_':
 		s.delimiterRun(i, end)
+	case '[':
+		s.openBracket(i, false)
+	case '!':
+		if i+1 < end && s.src[i+1] == '[' {
+			s.openBracket(i, true)
+		} else {
+			s.text(i + 1)
+		}
+	case ']':
+		s.closeBracket(i, end)
 	case '<':
 		if !s.autolink(i, end) && !s.rawHTML(i, end) {
 			s.text(i + 1)
@@ -184,7 +198,7 @@ func (s *inlineParser) trailingSpace() {
 }
 
 // inlineTriggers holds the bytes that can start an inline construct.
-var inlineTriggers = [256]bool{'\\': true, '&': true, '`': true, '<': true, '*': true, '_': true}
+var inlineTriggers = [256]bool{'\\': true, '&': true, '`': true, '<': true, '*': true, '_': true, '[': true, ']': true, '!': true}
 
 // verbatim pushes pieces of kind text up to p, with a VerbatimLineEnding,
 // the prefix leaves and the Indent leaf at each line boundary.
@@ -238,7 +252,7 @@ func (s *inlineParser) textEnd(i, end uint32) uint32 {
 
 // text pushes a Text piece to end, joined with a Text piece before it.
 func (s *inlineParser) text(end uint32) {
-	if n := len(s.pieces); n > 0 && s.pieces[n-1].kind == Text && !s.pieces[n-1].close && !s.pieces[n-1].delim {
+	if n := len(s.pieces); n > 0 && s.pieces[n-1].kind == Text && !s.pieces[n-1].close && !s.pieces[n-1].held {
 		s.pieces[n-1].end = end
 		return
 	}

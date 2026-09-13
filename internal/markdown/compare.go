@@ -69,7 +69,7 @@ func (c *comparer) equalKeys(ia, ib NodeID) bool {
 	a, b := c.a, c.b
 	//exhaustive:enforce
 	switch a.nodes[ia].kind {
-	case Document, BlockQuote, ListItem, Paragraph, ThematicBreak, SoftBreak, HardBreak, RawHTML, Emphasis, Strong:
+	case Document, BlockQuote, ListItem, Paragraph, ThematicBreak, SoftBreak, HardBreak, RawHTML, Emphasis, Strong, Link, Image:
 		return true
 	case FrontMatter:
 		return a.FrontMatterTOML(ia) == b.FrontMatterTOML(ib)
@@ -97,7 +97,7 @@ func (c *comparer) equalKeys(ia, ib NodeID) bool {
 	case Text, CodeText, VerbatimLineEnding, InfoString, HTMLText, LinkLabel, Destination, Title,
 		FrontMatterText, BOM, LineEnding, BlankLine, Indent, ThematicRun, ATXMarker, ATXClose,
 		Whitespace, CodeIndent, FenceMarker, SetextUnderline, QuoteMarker, ListMarker, ItemIndent,
-		Bracket, Colon, AngleBracket, TitleQuote, FrontMatterFence, TrailingSpace, HardBreakMarker, Escape, EntityRef, CodeFence, AutolinkText, Delimiter:
+		Bracket, Colon, AngleBracket, TitleQuote, FrontMatterFence, TrailingSpace, HardBreakMarker, Escape, EntityRef, CodeFence, AutolinkText, Delimiter, Paren:
 	}
 	panic(fmt.Sprintf("markdown: key of node %d of kind %v, which is not a structure kind", ia, a.nodes[ia].kind))
 }
@@ -191,7 +191,7 @@ func (p *projection) group(m Node, parent Kind) (Kind, bool) {
 		return FrontMatterText, true
 	case parent == RawHTML:
 		return HTMLText, true
-	case parent == LinkReferenceDefinition:
+	case parent == LinkReferenceDefinition, parent == Link, parent == Image:
 		return Title, true
 	}
 	return m.kind, true

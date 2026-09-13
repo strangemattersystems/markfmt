@@ -117,6 +117,7 @@ func FuzzEqual(f *testing.F) {
 		"<https://a.b> <a@b.c>\n",
 		"a <b\n  c='d'> <!-- e -->\n",
 		"*a* __b__ ***c*** _d*\n",
+		"[a *b*](<c> \"d\") ![e](f\n'g')\n",
 	} {
 		for op := range byte(mutations) {
 			f.Add([]byte(src), op)
@@ -139,14 +140,14 @@ func FuzzEqual(f *testing.F) {
 	})
 }
 
-const mutations = 11
+const mutations = 12
 
 // mutateSyntax returns the source of tree with one kind of block syntax
 // changed everywhere, chosen by op: bullet characters, line endings, ordered
 // delimiters, fence characters, the number of blank lines, the space after a
 // block quote marker, trailing spaces, the backslash of escapes, entity
-// references as their characters, the length of code span fences, or the
-// emphasis character (design 10.5). A mutation may change meaning.
+// references as their characters, the length of code span fences, the
+// emphasis character, or the quotes of titles (design 10.5). A mutation may change meaning.
 func mutateSyntax(tree *Tree, op byte) []byte {
 	var out []byte
 	for i, n := range tree.nodes {
@@ -202,6 +203,10 @@ func mutateSyntax(tree *Tree, op byte) []byte {
 		case 10:
 			if n.kind == Delimiter {
 				b = swapBytes(b, "*_", "_*")
+			}
+		case 11:
+			if n.kind == TitleQuote {
+				b = swapBytes(b, "\"'", "'\"")
 			}
 		}
 		out = append(out, b...)
