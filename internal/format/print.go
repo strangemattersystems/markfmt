@@ -279,7 +279,8 @@ func (p *printer) enter(id markdown.NodeID, k markdown.Kind) {
 		f.label = true
 		p.inLabel++
 	}
-	if k == markdown.CodeSpan && p.inSpan == 0 && p.inLabel == 0 {
+	if before, after := t.Around(id); k == markdown.CodeSpan && p.inSpan == 0 && p.inLabel == 0 && before != '$' && after != '$' {
+		// A code span next to '$' is GitHub math (appendix B, trap 16).
 		f.code = p.codeSpan(id)
 	}
 	if (k == markdown.Link || k == markdown.Image) && t.LinkForm(id) == markdown.InlineLink && p.inSpan == 0 && p.inLabel == 0 {
@@ -510,13 +511,14 @@ func (p *printer) leaf(id markdown.NodeID, k markdown.Kind, start, end int) {
 		// be the destination of a link reference definition. After a
 		// character of a delimiter run, the break keeps its input form: a
 		// backslash is punctuation and a line ending is whitespace, so the
-		// form decides whether the run flanks.
+		// form decides whether the run flanks. After '$', it keeps its form
+		// too (appendix B, trap 16).
 		last := byte(0)
 		if len(p.out) > 0 {
 			last = p.out[len(p.out)-1]
 		}
 		switch {
-		case last == '*' || last == '_' || last == '~':
+		case last == '*' || last == '_' || last == '~' || last == '$':
 			if t.Raw(id)[0] == '\\' {
 				p.write([]byte{'\\'})
 			} else {
@@ -909,6 +911,10 @@ func (p *printer) delimiter(id markdown.NodeID, k markdown.Kind) []byte {
 		return nil
 	}
 	before, after := t.Around(id)
+	if before == '$' || after == '$' || len(content) > 0 && (content[0] == '$' || content[len(content)-1] == '$') {
+		// No character next to '$' changes (appendix B, trap 16).
+		return nil
+	}
 	switch k {
 	case markdown.Emphasis:
 		if bytes.ContainsAny(content, "*_") || !flanksLikeSpace(before) || !flanksLikeSpace(after) || p.inText('_') {
