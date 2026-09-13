@@ -671,9 +671,17 @@ output of commonmark.js, which follows the spec text (`../dialect.md`).
 "title"ok
 
 [foo]
+
+[bar]: /v
+"t"ok
+-
+
+[bar]
 .
 <p>&quot;title&quot;ok</p>
 <p><a href="/url">foo</a></p>
+<h2>&quot;t&quot;ok</h2>
+<p><a href="/v">bar</a></p>
 ````````````````````````````````
 
 ## goldmark deviates, spec sections 4.7 and 6.3: a link label has at most 999 characters

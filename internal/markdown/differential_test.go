@@ -111,6 +111,7 @@ func TestGoldmarkDiffers(t *testing.T) {
 		{"skips an escape after a backslash hard break after a backslash and a hard break", "\\  \n\\\n\\!", "goldmark deviates, spec sections 2.4 and 6.7: a backslash escape after a backslash, a hard line break of spaces and punctuation decodes"},
 		{"skips a paragraph after a block quote that ends with an empty list item", "* >+\n  >\n  0", "goldmark deviates, spec section 5.2: a blank line after an empty nested list item continues the outer list item"},
 		{"skips a setext underline after a block quote marker space and a tab", ">00\n> \t=", "goldmark deviates, spec sections 2.2 and 5.2: a tab after the space of a block quote marker stops at a column counted from the start of the line"},
+		{"skips a setext heading after a definition whose title fails", "[0]:0\n\"\"[0]:0\n-", "goldmark deviates, spec section 4.7: a title that other characters follow on its line is not the title of the definition"},
 		{"skips a tab in the indentation after a list item prefix", "* 0\n  \t -", "goldmark deviates, spec sections 2.2 and 5.2: a tab after the prefix of a list item line stops at a column counted from the start of the line"},
 	}
 	for _, tt := range tests {
@@ -645,7 +646,7 @@ var goldmarkDeviations = []struct {
 			for next < len(t.nodes) && (t.nodes[next].kind == QuoteMarker || t.nodes[next].kind == ListMarker || t.nodes[next].kind == ItemIndent || t.nodes[next].kind == FootnoteIndent) {
 				next++
 			}
-			if next == len(t.nodes) || t.nodes[next].kind != Paragraph {
+			if next == len(t.nodes) || t.nodes[next].kind != Paragraph && t.nodes[next].kind != Heading {
 				continue
 			}
 			if rest := bytes.TrimLeft(t.src[t.nodes[next].start:], " \t"); len(rest) > 0 && strings.IndexByte(`"'(`, rest[0]) >= 0 {
