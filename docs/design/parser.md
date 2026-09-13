@@ -1222,10 +1222,11 @@ internal/markdown/
   link.go         links, images, references, footnote references
   codespan.go  autolink.go  rawhtml.go  entity.go  escape.go  task.go
   entities.go     generated
+  width.go        generated: wide characters
   chars.go        decoding, character classes, labels
   compare.go      Equal, keys, groups, dialect spans
   dialect.go      dialect predicates (section 2.1)
-  testdata/       corpora, failing and grammar-differs lists, pairs, dialect.md, entities/entities.json, unicode/CaseFolding.txt
+  testdata/       corpora, failing and grammar-differs lists, pairs, dialect.md, entities/entities.json, unicode/CaseFolding.txt, unicode/EastAsianWidth.txt
 ```
 
 - One package for the parser and the tree. The parser internals have no other
@@ -1237,6 +1238,8 @@ internal/markdown/
   library does. `entities_test.go` checks the table against the JSON.
   `casefold.go` is generated the same way from the C and F rows of
   `testdata/unicode/CaseFolding.txt`, and `casefold_test.go` checks it.
+  `width.go` is generated the same way from the W and F rows of
+  `testdata/unicode/EastAsianWidth.txt`, and `width_test.go` checks it.
 
 ## 14. Tooling
 

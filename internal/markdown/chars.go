@@ -3,10 +3,12 @@ package markdown
 import (
 	"cmp"
 	"slices"
+	"unicode"
 	"unicode/utf8"
 )
 
 //go:generate go run gen_casefold.go
+//go:generate go run gen_width.go
 
 // decodeRune decodes the first character of b, which is not empty, as the
 // WHATWG UTF-8 decoder does: an invalid sequence gives U+FFFD for its longest
@@ -131,6 +133,51 @@ func (t *Tree) newValueReader(m Node) valueReader {
 func (t *Tree) AppendValue(dst []byte, id NodeID) []byte {
 	r := t.newValueReader(t.nodes[id])
 	return appendPieces(dst, &r)
+}
+
+// runeRange is the characters from lo to hi, both included.
+type runeRange struct {
+	lo, hi rune
+}
+
+// DisplayWidth returns the columns that b takes in a monospace font: 2 for a
+// character whose East Asian Width is W or F, 0 for a control character or a
+// nonspacing or enclosing mark, and 1 for another character or an invalid
+// byte (roadmap Decisions).
+func DisplayWidth(b []byte) int {
+	n := 0
+	for len(b) > 0 {
+		r, size := utf8.DecodeRune(b)
+		b = b[size:]
+		switch {
+		case r < utf8.RuneSelf:
+			if r >= 0x20 && r != 0x7f {
+				n++
+			}
+		case size == 1:
+			n++
+		case unicode.In(r, unicode.Cc, unicode.Mn, unicode.Me):
+		case isWide(r):
+			n += 2
+		default:
+			n++
+		}
+	}
+	return n
+}
+
+// isWide reports whether the East Asian Width of r is W or F.
+func isWide(r rune) bool {
+	_, ok := slices.BinarySearchFunc(wideRanges[:], r, func(g runeRange, r rune) int {
+		switch {
+		case g.hi < r:
+			return -1
+		case g.lo > r:
+			return 1
+		}
+		return 0
+	})
+	return ok
 }
 
 type caseFold struct {
