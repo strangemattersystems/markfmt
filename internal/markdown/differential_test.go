@@ -108,6 +108,7 @@ func TestGoldmarkDiffers(t *testing.T) {
 		{"skips a tab after a kind 7 tag with a quoted >", "<A A=\">\">\t", "goldmark deviates, spec section 4.6: a tab or FF after the tag that starts HTML block kind 7 is whitespace"},
 		{"skips a form feed in a tag after a quoted >", "z <j k=\">\"\f>", "goldmark deviates, spec section 6.6: FF is whitespace in an HTML tag, as cmark reads it"},
 		{"skips a blank line of an html block in a list item", "*\n\t<!A\n\t", "goldmark deviates, spec sections 4.4, 4.6 and 5.2: a blank line of indented code or of an HTML block in a list item keeps the spaces beyond the indentation"},
+		{"skips an escape after a backslash hard break after a backslash and a hard break", "\\  \n\\\n\\!", "goldmark deviates, spec sections 2.4 and 6.7: a backslash escape after a backslash, a hard line break of spaces and punctuation decodes"},
 		{"skips a tab in the indentation after a list item prefix", "* 0\n  \t -", "goldmark deviates, spec sections 2.2 and 5.2: a tab after the prefix of a list item line stops at a column counted from the start of the line"},
 	}
 	for _, tt := range tests {
@@ -691,7 +692,8 @@ var goldmarkDeviations = []struct {
 				switch m := t.nodes[j]; {
 				case m.kind == Escape:
 					return true
-				case m.kind == HardBreak:
+				case m.kind == HardBreak && string(t.Raw(NodeID(j+1))) != "\\":
+					// goldmark passes a backslash hard line break.
 					break next
 				case m.kind == Text || m.kind == Delimiter:
 					for _, c := range t.src[m.start:m.end] {

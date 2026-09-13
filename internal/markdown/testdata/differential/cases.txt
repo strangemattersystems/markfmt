@@ -705,7 +705,8 @@ item.
 ## goldmark deviates, spec sections 2.4 and 6.7: a backslash escape after a backslash, a hard line break of spaces and punctuation decodes
 
 goldmark writes the first escape after the hard line break as it is, when
-only punctuation and soft line breaks come before it.
+only punctuation, soft line breaks and backslash hard line breaks come
+before it.
 
 ```````````````````````````````` example
 a\  
@@ -717,6 +718,10 @@ b\
 c\  
 *
 \!
+
+d\  
+\
+\!
 .
 <p>a\<br />
 !</p>
@@ -724,6 +729,9 @@ c\
 *!</p>
 <p>c\<br />
 *
+!</p>
+<p>d\<br />
+<br />
 !</p>
 ````````````````````````````````
 
