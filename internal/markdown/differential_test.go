@@ -115,6 +115,7 @@ func TestGoldmarkDiffers(t *testing.T) {
 		{"skips an escape after a code span after a backslash and a hard break", "\\  \n``0``\\!", "goldmark deviates, spec sections 2.4 and 6.7: a backslash escape after a backslash and a hard line break of spaces decodes"},
 		{"skips a tab in the indentation of an html block after a list item prefix", "*\n  \t<!A", "goldmark deviates, spec sections 2.2 and 5.2: a tab after the prefix of a list item line stops at a column counted from the start of the line"},
 		{"skips a code block that ends blank in a loose list in a tight list", "* * 0\n\n    ```\n\n  0", "goldmark deviates, spec section 5.3: a blank line at the end of a code block in a list item leaves the list tight"},
+		{"skips a label of a line ending and ff in a block quote", ">[\n>\f]:0", "goldmark deviates, spec section 4.7: FF inside a link label is whitespace, and a label of FF alone is blank, as cmark reads them"},
 		{"skips a tab in the indentation after a list item prefix", "* 0\n  \t -", "goldmark deviates, spec sections 2.2 and 5.2: a tab after the prefix of a list item line stops at a column counted from the start of the line"},
 	}
 	for _, tt := range tests {
@@ -810,7 +811,15 @@ var goldmarkDeviations = []struct {
 				start = i
 			case ']':
 				if start >= 0 {
-					text := t.src[start+1 : i]
+					// Without the block quote markers and indentation that
+					// start a continuation line.
+					var text []byte
+					for k, line := range bytes.SplitAfter(t.src[start+1:i], []byte("\n")) {
+						if k > 0 {
+							line = bytes.TrimLeft(line, " \t>")
+						}
+						text = append(text, line...)
+					}
 					trimmed := bytes.Trim(text, " \t\r\n\v\f")
 					if bytes.IndexByte(trimmed, '\f') >= 0 || len(trimmed) == 0 && bytes.IndexByte(text, '\f') >= 0 {
 						return true
