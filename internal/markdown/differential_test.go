@@ -194,6 +194,23 @@ var goldmarkDeviations = []struct {
 		}
 		return false
 	}},
+	{"goldmark deviates, spec section 5.3: a blank line at the end of a code block in a list item leaves the list tight", func(t *Tree) bool {
+		var lists []NodeID // the open lists, innermost last
+		c := t.Walk()
+		for e, ok := c.Next(); ok; e, ok = c.Next() {
+			switch k := t.Kind(e.ID); {
+			case k == List && e.Exit:
+				lists = lists[:len(lists)-1]
+			case k == List:
+				lists = append(lists, e.ID)
+			case e.Exit || len(lists) == 0 || t.ListLoose(lists[len(lists)-1]):
+			case k == CodeBlock && bytes.HasSuffix(t.AppendCode(nil, e.ID), []byte("\n\n")),
+				k == HTMLBlock && bytes.HasSuffix(t.AppendHTML(nil, e.ID), []byte("\n\n")):
+				return true
+			}
+		}
+		return false
+	}},
 }
 
 var (

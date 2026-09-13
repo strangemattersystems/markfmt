@@ -428,6 +428,7 @@ Use this list to triage stage 5 disagreements. The last column says how
 | `</script>` | A paragraph with raw HTML: no HTML block of kind 7 starts at a closing tag of `pre`, `script` or `style`. | An HTML block (spec 4.6). | Predicate, differential case. |
 | `[a](<b<c>)` | A link: an angle destination can contain `<`. | Text (spec 4.7, 6.3). | Predicate, differential case. |
 | `[foo]: /url\n---` | A thematic break, as commonmark.js gives. | Paragraph `---`, as cmark gives (`dialect.md`). | Predicate, differential case. |
+| ``- ```\n  a\n\n- b`` | A loose list, as commonmark.js gives. | A tight list, as cmark gives (spec 5.3, design 2). | Predicate, differential case. |
 
 ## How to resume
 

@@ -71,3 +71,24 @@ goldmark gives a thematic break, as commonmark.js does. markfmt follows cmark
 .
 <p>---</p>
 ````````````````````````````````
+
+## goldmark deviates, spec section 5.3: a blank line at the end of a code block in a list item leaves the list tight
+
+goldmark makes the list loose, as commonmark.js does. markfmt follows cmark
+(design 2, commonmark.js regression 25).
+
+```````````````````````````````` example
+- ```
+  a
+
+- b
+.
+<ul>
+<li>
+<pre><code>a
+
+</code></pre>
+</li>
+<li>b</li>
+</ul>
+````````````````````````````````
