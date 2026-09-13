@@ -80,6 +80,8 @@ func TestGoldmarkDiffers(t *testing.T) {
 		{"skips front matter", "---\na: b\n---\n", "markfmt grammar: FrontMatter"},
 		{"skips an extended autolink", "www.a.com <https://b.c>", "markfmt grammar: extended autolink"},
 		{"skips a task list item", "- [ ] a", "markfmt grammar: task list item"},
+		{"skips a tab after a nested list marker that a split tab starts", "* 0\n\t* \t*", "goldmark deviates, spec sections 2.2 and 5.2: a tab after the prefix of a list item line stops at a column counted from the start of the line"},
+		{"skips a tab in the indentation after a list item prefix", "* 0\n  \t -", "goldmark deviates, spec sections 2.2 and 5.2: a tab after the prefix of a list item line stops at a column counted from the start of the line"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -318,19 +320,25 @@ var goldmarkDeviations = []struct {
 		}
 		return false
 	}},
-	{"goldmark deviates, spec sections 2.2 and 5.2: a tab after a nested list marker stops at a column counted from the start of the line", func(t *Tree) bool {
+	{"goldmark deviates, spec sections 2.2 and 5.2: a tab after the prefix of a list item line stops at a column counted from the start of the line", func(t *Tree) bool {
 		src := t.src
-		containers := 0 // the open list items and block quotes
+		containers := 0             // the open list items and block quotes
+		prefix, lead := false, true // the line has a list item prefix leaf, and only indentation after it
 		c := t.Walk()
 		for e, ok := c.Next(); ok; e, ok = c.Next() {
-			switch n := t.nodes[e.ID]; {
-			case n.kind == ListItem || n.kind == BlockQuote:
+			n := t.nodes[e.ID]
+			switch n.kind {
+			case ListItem, BlockQuote:
 				if e.Exit {
 					containers--
 				} else {
 					containers++
 				}
-			case n.kind == ListMarker && containers >= 2:
+				continue
+			case LineEnding, VerbatimLineEnding, BlankLine:
+				prefix, lead = false, true
+			case ListMarker:
+				// A tab after a nested marker is in the marker leaf.
 				j := n.start
 				for j < n.end && (src[j] == ' ' || src[j] == '\t') {
 					j++
@@ -338,10 +346,21 @@ var goldmarkDeviations = []struct {
 				for j < n.end && '0' <= src[j] && src[j] <= '9' {
 					j++
 				}
-				for j++; int(j) < len(src) && (src[j] == ' ' || src[j] == '\t'); j++ {
+				for j++; containers >= 2 && int(j) < len(src) && (src[j] == ' ' || src[j] == '\t'); j++ {
 					if src[j] == '\t' {
 						return true
 					}
+				}
+				prefix = true
+			case ItemIndent:
+				prefix = true
+			case Indent, CodeIndent, Whitespace:
+				if prefix && lead && bytes.IndexByte(src[n.start:n.end], '\t') >= 0 {
+					return true
+				}
+			default:
+				if n.kind.class() != classStructure {
+					lead = false
 				}
 			}
 		}

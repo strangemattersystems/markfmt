@@ -213,10 +213,9 @@ removes the spaces beyond the indentation of a list item.
 </ul>
 ````````````````````````````````
 
-## goldmark deviates, spec sections 2.2 and 5.2: a tab after a nested list marker stops at a column counted from the start of the line
+## goldmark deviates, spec sections 2.2 and 5.2: a tab after the prefix of a list item line stops at a column counted from the start of the line
 
-goldmark counts the columns of the tabs from the content of the outer list
-item.
+goldmark counts the columns of the tabs from the content of the list item.
 
 ```````````````````````````````` example
 * a
@@ -227,6 +226,9 @@ item.
 
 + 0
 →+ →+
+
+* 0
+  → -
 .
 <ul>
 <li>a
@@ -257,6 +259,11 @@ item.
 </ul>
 </li>
 </ul>
+</li>
+</ul>
+<ul>
+<li>
+<h2>0</h2>
 </li>
 </ul>
 ````````````````````````````````
