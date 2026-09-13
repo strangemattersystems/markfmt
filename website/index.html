@@ -88,9 +88,6 @@ pre::after { content: "```"; content: "```" / ""; display: block; color: var(--m
 .download p { margin: 0; padding: 0.75rem 2ch; background: var(--code-bg); }
 .links { margin-top: 1rem; }
 
-.compare { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 36ch), 1fr)); gap: 1rem 2ch; }
-.file { margin: 0 0 0.25rem; color: var(--mark); }
-
 footer { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0 2ch; margin-top: 4rem; color: var(--mark); }
 footer::before { content: "---"; content: "---" / ""; flex-basis: 100%; margin-bottom: 1rem; }
 footer > a { margin-left: auto; }
@@ -144,38 +141,11 @@ if (!matchMedia("(prefers-reduced-motion: reduce)").matches) {
   </div>
 </div>
 
-<p class="links"><a href="https://github.com/strangemattersystems/markfmt#readme">Docs</a> <a href="https://github.com/strangemattersystems/markfmt">GitHub</a></p>
-
-<h2 id="example">Before and after</h2>
-<div class="compare">
-  <div>
-    <p class="file">notes.md</p>
-    <pre data-lang="md"><code>Getting started
-===============
-
-
-
-Install it, then run it.
-## Usage ##
-markfmt -check docs/
-***</code></pre>
-  </div>
-  <div>
-    <p class="file">markfmt notes.md</p>
-    <pre data-lang="md"><code># Getting started
-
-Install it, then run it.
-
-## Usage
-
-markfmt -check docs/
-
-***</code></pre>
-  </div>
-</div>
+<p class="links"><a href="https://github.com/strangemattersystems/markfmt">GitHub</a></p>
 
 <h2 id="why">Why markfmt</h2>
 <ul>
+  <li><strong>Fast.</strong> It will never be the bottleneck.</li>
   <li><strong>Zero config.</strong> Nothing to set up, nothing to argue about.</li>
   <li><strong>Idempotent.</strong> Format twice, get the same file.</li>
   <li><strong>Safe.</strong> It never changes what your document means.</li>
