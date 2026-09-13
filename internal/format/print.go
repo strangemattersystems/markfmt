@@ -32,6 +32,7 @@ type printer struct {
 	leafKind  markdown.Kind // the kind of the last leaf block that started
 	pad       int           // spaces to write after the prefix of the next line
 	backslash bool          // the last byte written is a backslash that is not an escape
+	bracket0  bool          // the open paragraph starts with '[', so it could start with a link reference definition
 	lead      bool          // the next leaf starts with columns that list item padding would take
 	afterBox  bool          // the last leaf written is a task box
 	replace   []byte        // bytes that content writes in place of the next leaf's bytes
@@ -206,6 +207,7 @@ func (p *printer) enter(id markdown.NodeID, k markdown.Kind) {
 	}
 	if isLeafBlock(k) {
 		p.written, p.leafKind = false, k
+		p.bracket0 = k == markdown.Paragraph && bytes.HasPrefix(p.firstLine(id), []byte("["))
 	}
 	if f.span {
 		p.inSpan++
@@ -378,8 +380,10 @@ func (p *printer) leaf(id markdown.NodeID, k markdown.Kind, start, end int) {
 	case k == markdown.TrailingSpace && p.inSpan == 0:
 	case k == markdown.HardBreakMarker && p.inSpan == 0 && t.Raw(id)[0] != '\\':
 		// A hard break is a backslash, except after a backslash that is not
-		// an escape, which the backslash would escape (appendix B, trap 10).
-		if p.backslash {
+		// an escape, which the backslash would escape (appendix B, trap 10),
+		// and in a paragraph that starts with '[', where the backslash could
+		// be the destination of a link reference definition.
+		if p.backslash || p.bracket0 {
 			p.write(spaces[:2])
 		} else {
 			p.write([]byte{'\\'})
