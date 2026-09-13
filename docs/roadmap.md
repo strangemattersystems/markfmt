@@ -53,6 +53,7 @@ Last updated: 2026-09-13. Nothing after `ff7de5b` is pushed.
 | `59e930f` onwards | Stage 1: tree, builder, `Verify`, line iterator, test HTML renderer, conformance runner, five corpora |
 | `1604b94` onwards | Stage 2: paragraphs, blank lines, thematic breaks, ATX and setext headings, indented and fenced code, HTML blocks, block quotes, tabs, lists, link reference definitions, front matter, label normalization, `Equal` for block kinds, pathological inputs and `task long` |
 | `1cca948` onwards | Stage 3: the inline phase, line breaks, backslash escapes, entity references, code spans, autolinks, raw HTML, emphasis, links and images, pass 1 and reference links, `BenchmarkParse` |
+| `6110977` onwards | Stage 4: the GFM tag filter, GitHub fixtures and the GitHub normalizer, strikethrough, tables, cell pipe escapes, task list items, extended www, URL and email autolinks, footnote definitions and references, the indentation memo |
 
 Layout:
 
@@ -289,6 +290,17 @@ Gates:
   copies of core examples are older than CommonMark 0.31.2.
 - The cmark-gfm regression examples tagged with GFM extensions at 100%.
 - Footnote, task, table and strikethrough fixtures at 100%.
+
+Passed 2026-09-13. The GFM, cmark-gfm extensions, cmark-gfm regression and
+GitHub `failing.txt` lists are empty. The GitHub fixtures of the dialect rows
+are in `github/grammar-differs.txt`, and their named cases pass. The long test
+of the gate found that the per-line indentation memo of design 5.1 was
+missing: nested list items indented line by line took 7.3 s at the input
+limit. `29668ad` adds it. The pathological subtest has 41 inputs, and each
+new linear-time mechanism was checked with a mutation. At the input limit,
+`task long` takes at most 0.82 s per input, for a table header of many cells
+with one-cell rows, and at most 1.50 GiB of memory, for unmatched link
+openers. `FuzzParse` and `FuzzEqual` ran 90 seconds each with no finding.
 
 ### Stage 5: differential fuzzing
 

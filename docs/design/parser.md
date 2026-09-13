@@ -1285,7 +1285,9 @@ constructs, and checks each new linear-time mechanism with a mutation:
     section of the test renderer, and the `dialect.md` rows for an escaped or
     entity `^` and for a label across a line ending.
 44. The comment pass.
-45. The stage 4 gate.
+45. The per-line indentation memo of section 5.1, which the long test of
+    the gate showed missing.
+46. The stage 4 gate.
 
 ## 16. Roadmap changes
 
