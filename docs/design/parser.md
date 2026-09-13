@@ -1386,6 +1386,105 @@ disagreements come from the corpora (2026-09-13):
 60. The comment pass.
 61. The stage 5 gate.
 
+Stage 6, printers on the new tree. Each printer commit adds cases to
+`internal/format/testdata/cases` for the traps of appendix B that it meets,
+and removes the cases it makes pass from `testdata/cases/failing.txt`.
+`FuzzFormat` runs its seeds in every `task ci`. A fuzz finding lands as a
+failing case in the component that owns it (the printer, `Equal` or a dialect
+predicate), then the fix. A printer commit that picks a form the survey does
+not cover adds a Decisions row with the reason.
+
+62. This plan, and trap 21 of appendix B.
+63. The canonical style (roadmap Open decisions 1). The survey reads the source
+    and docs of Prettier 3.9.6, dprint-plugin-markdown 0.24.0, mdformat 1.0.0
+    with mdformat-gfm 1.0.0, markdownlint 0.41.1, and the Google Markdown style
+    guide at commit `895579e`. A source that keeps the input form, or accepts
+    any consistent form, has no vote. A construct has a majority when more than
+    half of its votes choose one form. Each construct with a majority is a
+    Decisions row with its evidence. The other constructs are questions to the
+    user, in one ask with the question of commit 64.
+64. GitHub fixtures for the six `dialect.md` rows marked "Not captured yet",
+    after the user allows the API call. The new fixtures shift the IDs after
+    them: renumber `github/failing.txt` and `github/grammar-differs.txt`, and
+    add the `markfmt/grammar.txt` cases.
+65. `format.Source` on the new parser: parse, print, parse the output, and
+    `Equal`. `markfmt.Format` recovers a panic as an error with the stack
+    (design 1). The input limit, and an output writer that fails at 16 MiB
+    (design 7.2). The first printer writes every leaf as it is, with LF line
+    endings. Delete the goldmark-based formatter, `checkRendering` and
+    `FuzzSource`. `testdata/spec` stays as data for the idempotence subtest of
+    `TestSource`. `testdata/cases/failing.txt` lists the cases that need a
+    printer, with the list rules of section 11.2. Rename the cases whose names
+    describe the goldmark formatter. `task ci` fails when `go list -deps
+    ./cmd/markfmt` lists a goldmark package.
+66. `FuzzFormat` in `internal/markdown`, as `package markdown_test`, with
+    `export_test.go` for the test renderer (section 10.5). It asserts that
+    `Source` returns no error, that `Source` of the output gives the output,
+    and that input and output render equal test HTML. Seeds: every corpus, the
+    GitHub fixtures, the pairs, `testdata/cases` and the `FuzzSource` inputs.
+67. `Kept`, a test-only event stream (section 12): Escape and EntityRef leaves
+    with their bytes, raw label bytes, and each NUL and invalid UTF-8 sequence
+    in a content leaf with its bytes. cmark writes an invalid byte in a
+    destination as `%A6`, where markfmt's value is U+FFFD, so the printer keeps
+    the byte. `FuzzFormat` asserts equal `Kept` streams for input and output.
+68. Dialect spans in `Equal` (section 10.4). `dialect.go` finds the spans of a
+    tree in one walk. `Equal` compares the row set of each Enter event in both
+    directions, the non-prefix bytes of each span, and the matched containers
+    of each span line: its prefix leaves, and the list items and footnote
+    definitions whose indentation ends inside a split tab (section 4.3).
+    `Kept` adds the blank lines around each span. The first predicate is the
+    kind 6 row for `search`. The dialect mutation test of section 10.5 starts
+    here.
+69. Predicates for the other HTML rows: `source`, the kind 4 start, kind 7 on
+    a lazy candidate line, and raw HTML comments.
+70. Predicates for the inline rows: flanking next to a Unicode symbol or
+    U+FFFD, a code span after an unmatched backtick run, VT and FF in a
+    destination, VT and FF in a link label, and label length.
+71. Predicates for the other rows: a setext underline after definitions alone,
+    a failed definition title, VT and FF in an info string, the paragraph split
+    off above a table, list items that start on one line, a footnote reference
+    whose caret is an escape or an entity reference, and a footnote reference
+    label across a line ending. Each predicate commit adds its pairs, with the
+    GitHub fixture as the reason, and extends the dialect mutation test.
+72. The block printer: the document, one blank line between blocks, one final
+    newline, block quote and footnote definition prefixes from the printer's
+    stack, lazy lines (trap 2), prefix tabs (trap 20), and blocks per line
+    (trap 21). Leaf blocks keep their non-prefix leaves.
+73. Lists: the bullet marker, ordered numbering and delimiter, content
+    indentation, adjacent sibling lists (trap 3), numbering bounds (trap 11),
+    blank lines from looseness (trap 15), and task boxes.
+74. Paragraphs and line breaks: no indentation and no trailing spaces, the hard
+    break form (trap 10), and continuation lines that would start a block
+    (trap 1).
+75. Headings: ATX, multi-line setext headings (trap 5), and content that ends
+    in `#` (trap 6).
+76. Thematic breaks (traps 4, 7).
+77. Code blocks: fenced, the fence character and length, the info string, and
+    `virt` spaces (traps 8, 20).
+78. HTML blocks (trap 12), front matter (trap 7), and link reference
+    definitions: label, destination and title bytes, and title quotes.
+79. Emphasis, strong emphasis and strikethrough (traps 13, 19).
+80. Code spans (traps 9, 14), links, images, autolinks (trap 13), raw HTML,
+    escapes, entity references and footnote references.
+81. Tables: columns aligned by display width, from a table generated from the
+    pinned Unicode `EastAsianWidth.txt` (section 13); the delimiter row; pipe
+    escapes; the size bound and the missing cell cap (trap 14).
+82. Footnote definitions: label bytes, continuation and order (trap 18).
+83. Math and alert fixtures as printer cases (traps 16, 17). Each input of
+    `github/printer.txt` has a case in `testdata/cases`, and a test checks that
+    every fixture has one. If the user allows it, the capture loop also sends
+    each case output to the API, and the test checks that the HTML of the
+    output equals the HTML of the input.
+84. The last cases: `testdata/cases/failing.txt` is empty and deleted.
+85. Output bounds: the largest output-to-input ratio over the corpora, fuzz
+    seeds at the threshold of each bound (section 12), the tab expansion bound
+    (section 17), and `Format` in the long test within the 4 GiB budget
+    (sections 7.2, 11.1).
+86. The comment pass.
+87. The stage 6 gate: a `FuzzFormat` run of 1 CPU-hour (workers × wall time)
+    with no finding, as for stage 5; `go list -deps ./cmd/markfmt`; and the
+    roadmap.
+
 ## 16. Roadmap changes
 
 Apply these in the commit that marks stage 0 done.
@@ -1557,6 +1656,11 @@ design, not parser gates.
 20. Tabs: a tab inside code content is content and stays. Structural
     indentation is written from the printer's canonical prefix, whatever tabs
     the source used. `virt` adds at most 3 spaces per line.
+21. A printed line starts at most 99 blocks, unless a dialect span keeps the
+    line. So a footnote definition stays a definition (section 9.2), and no
+    printed line of list items becomes a `dialect.md` span. A container whose
+    first child would be block 100 on its line puts that child on the next
+    line.
 
 ## Appendix C. goldmark v2: taken and dropped
 
