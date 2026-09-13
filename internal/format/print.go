@@ -461,6 +461,11 @@ func (p *printer) leaf(id markdown.NodeID, k markdown.Kind, start, end int) {
 	case k == markdown.Whitespace && p.afterBox && p.inSpan == 0:
 		p.write(spaces[:1])
 	case k == markdown.TrailingSpace && p.inSpan == 0 && p.inLabel == 0:
+		// After a backslash that is not an escape, the line ending would
+		// make a hard break (spec 6.7).
+		if p.backslash {
+			p.write(spaces[:1])
+		}
 	case k == markdown.HardBreakMarker && p.inSpan == 0 && p.inLabel == 0 && t.Raw(id)[0] != '\\':
 		// A hard break is a backslash, except after a backslash that is not
 		// an escape, which the backslash would escape (appendix B, trap 10),
