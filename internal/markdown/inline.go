@@ -24,6 +24,10 @@ type inlineParser struct {
 	ticksAll bool     // a backtick search reached the end of the block
 
 	failed [len(closers)]uint32 // one past the start of the last failed search for each raw HTML closer
+
+	// pipes makes each "\|" pair a CellPipeEscape: in a table cell, and in the
+	// paragraph split off above a table (design 8.2). inlines clears it.
+	pipes bool
 }
 
 // pos is a position in the lines of a block: offset i of line k, at most the
@@ -39,7 +43,7 @@ type piece struct {
 	kind  Kind
 	virt  uint8
 	open  Kind  // the span that opens before the leaf, or Document for none
-	flags uint8 // the flags of that span
+	flags uint8 // the flags of that span, or of a CellPipeEscape leaf
 	close bool  // the innermost span closes after the leaf
 	join  bool  // the leaf of the piece before extends over this piece
 	held  bool  // a later decision can change the piece, so no text joins it while scanning
@@ -73,6 +77,7 @@ func (s *inlineParser) inlines(lines []pendingLine) {
 	}
 	s.processEmphasis(-1)
 	s.emit()
+	s.pipes = false
 }
 
 // begin starts the pieces of lines at the Indent leaf of the first line.
@@ -119,6 +124,10 @@ func (s *inlineParser) scan(i, end uint32) {
 		switch {
 		case i+1 == end && s.k+1 < len(s.lines):
 			s.push(piece{kind: HardBreakMarker, open: HardBreak, end: i + 1})
+		case s.pipes && i+1 < end && s.src[i+1] == '|':
+			s.push(piece{kind: CellPipeEscape, flags: uint8(Text), end: i + 2})
+		case s.pipes && i+2 < end && s.src[i+1] == '\\' && s.src[i+2] == '|':
+			s.push(piece{kind: CellPipeEscape, flags: uint8(Text), end: i + 3})
 		case i+1 < end && isASCIIPunct(s.src[i+1]):
 			s.push(piece{kind: Escape, end: i + 2})
 		default:
@@ -206,10 +215,10 @@ var inlineTriggers = [256]bool{'\\': true, '&': true, '`': true, '<': true, '*':
 // the prefix leaves and the Indent leaf at each line boundary.
 func (s *inlineParser) verbatim(p pos, text Kind) {
 	for s.k < p.k {
-		s.pushIf(text, s.lines[s.k].rest.end)
+		s.pushContent(text, s.lines[s.k].rest.end)
 		s.nextLine(VerbatimLineEnding)
 	}
-	s.pushIf(text, p.i)
+	s.pushContent(text, p.i)
 }
 
 // byteAt returns the byte at p, or false at the end of its line.
@@ -264,6 +273,35 @@ func (s *inlineParser) push(x piece) {
 	s.pieces = append(s.pieces, x)
 }
 
+// pushContent pushes content pieces of kind k to end, on the line being
+// scanned. With pipes, each "\|" pair is a CellPipeEscape piece of group k,
+// and in a destination or a title, which decode escapes, an unescaped '\'
+// before the pair joins it (design 8.2).
+func (s *inlineParser) pushContent(k Kind, end uint32) {
+	decodes := k == Destination || k == Title
+	for i := s.end(); s.pipes && i+1 < end; i++ {
+		if s.src[i] != '\\' {
+			continue
+		}
+		var n uint32
+		switch {
+		case s.src[i+1] == '|':
+			n = 2
+		case decodes && i+2 < end && s.src[i+1] == '\\' && s.src[i+2] == '|':
+			n = 3
+		case decodes && isASCIIPunct(s.src[i+1]):
+			i++
+			continue
+		default:
+			continue
+		}
+		s.pushIf(k, i)
+		s.push(piece{kind: CellPipeEscape, flags: uint8(k), end: i + n})
+		i += n - 1
+	}
+	s.pushIf(k, end)
+}
+
 // pushIf pushes a piece of kind k to end, unless the last piece ends there.
 func (s *inlineParser) pushIf(k Kind, end uint32) {
 	if end > s.end() {
@@ -302,6 +340,9 @@ func (s *inlineParser) emit() {
 			s.b.prefix(x.kind, x.end, x.owner)
 		} else {
 			s.b.leaf(x.kind, x.end)
+		}
+		if x.kind == CellPipeEscape {
+			s.b.flagLeaf(x.flags)
 		}
 		if x.close {
 			s.b.close()

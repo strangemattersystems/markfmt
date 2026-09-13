@@ -217,13 +217,13 @@ func (p *blockParser) tableLine(first uint32, indent int) bool {
 }
 
 // startTable appends the lines of the open paragraph before its last line as a
-// paragraph, with no definition parse, then opens a table whose header row is
+// paragraph, with no definition parse and with the cell pipe rule, then opens a table whose header row is
 // the last line and appends the delimiter row that starts at first
 // (design 5.4).
 func (p *blockParser) startTable(first uint32) {
 	n := len(p.pending) - 1
 	if n > 0 {
-		p.appendLines(Paragraph, p.pending[:n])
+		p.appendLines(Paragraph, p.pending[:n], true)
 		p.b.close()
 	}
 	header := p.pending[n]
@@ -277,6 +277,7 @@ func (p *blockParser) tableCell(i, k uint32, col int) {
 		p.b.leaf(Text, end)
 	default:
 		p.cell[0] = pendingLine{rest: line{start: start, end: end, eol: end}}
+		p.inline.pipes = true
 		p.inline.inlines(p.cell[:])
 	}
 	p.b.leafIf(Whitespace, k)

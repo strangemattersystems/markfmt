@@ -231,6 +231,7 @@ from the same byte-level function, and `Verify` checks them against the bytes
 | HTML block kind | `htmlblock.go` | `flags` |
 | Table column count | `table.go` | TableDelimiter leaves, O(columns): read once at Table enter and kept for its rows |
 | Cell alignment, header | `table.go` | `flags` of TableCell |
+| Cell pipe escape group | `inline.go` | `flags` of CellPipeEscape: the kind of the content leaves around it |
 | Link and image form | `link.go` | `flags` |
 | Reference label | `chars.go` | label leaves, normalized |
 | Footnote reference resolved | `link.go` | `flags` |
@@ -921,7 +922,8 @@ the rows.
 ### 10.3 Groups and table rows
 
 - Groups: Text, Escape, EntityRef form the Text group. CellPipeEscape belongs
-  to the group of the content leaves around it: Text in text, Destination in a
+  to the group of the content leaves around it, which the parser writes in
+  its flags (section 3.5): Text in text, Destination in a
   destination, Title in a title, AutolinkText in an autolink, HTMLText in raw
   HTML, LinkLabel or FootnoteLabel in a label. VerbatimLineEnding belongs to the
   group given by its parent: CodeText in a CodeBlock or CodeSpan, HTMLText in an
@@ -1377,6 +1379,7 @@ Flags:
 | HTMLBlock | kind 1 to 7 | start condition of the first line |
 | Link, Image | form: inline, full, collapsed, shortcut | no |
 | TableCell | alignment, header | delimiter row cell |
+| CellPipeEscape | group: Text, CodeText, HTMLText, AutolinkText, Destination, Title or LinkLabel | no |
 | FootnoteReference | resolved | no |
 
 ## Appendix B. Printer traps for stage 6

@@ -107,6 +107,8 @@ func (r *valueReader) decodes(b []byte) bool {
 
 var replacement = []byte("\uFFFD")
 
+var pipe = []byte("|")
+
 // newValueReader returns a reader of the value of content leaf m. Escapes and
 // entity references decode in an Escape, an EntityRef, a Destination, a Title
 // and an InfoString, and entity references in an AutolinkText, as cmark
@@ -119,6 +121,8 @@ func (t *Tree) newValueReader(m Node) valueReader {
 		return valueReader{b: t.src[m.start:m.end], entities: true}
 	case VerbatimLineEnding:
 		return valueReader{b: lineFeed}
+	case CellPipeEscape:
+		return valueReader{b: pipe}
 	}
 	return valueReader{b: t.src[m.start:m.end]}
 }
@@ -178,13 +182,17 @@ func (f *labelFolder) write(b []byte) {
 }
 
 // leaf writes the label bytes of a leaf of kind k with bytes b (design 6.7):
-// none for a prefix or Indent leaf, a line feed for a line ending, and b for
-// any other leaf.
+// none for a prefix or Indent leaf, a line feed for a line ending, b without
+// the backslash of its pair for a cell pipe escape, and b for any other leaf.
 func (f *labelFolder) leaf(k Kind, b []byte) {
 	switch _, prefix := k.owner(); {
 	case prefix, k == Indent:
 	case k == LineEnding, k == VerbatimLineEnding:
 		f.write(lineFeed)
+	case k == CellPipeEscape:
+		// Its bytes without the backslash of its "\|" pair (design 6.7).
+		f.write(b[:len(b)-2])
+		f.write(pipe)
 	default:
 		f.write(b)
 	}

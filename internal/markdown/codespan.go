@@ -124,6 +124,8 @@ func (t *Tree) codeSpanBytes(m Node) []byte {
 		return t.src[m.start:m.end:m.end]
 	case VerbatimLineEnding:
 		return spaces[:1:1]
+	case CellPipeEscape:
+		return pipe[:1:1]
 	}
 	return nil
 }

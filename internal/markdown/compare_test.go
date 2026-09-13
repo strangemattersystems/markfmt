@@ -147,6 +147,7 @@ func FuzzEqual(f *testing.F) {
 		"[a][Bc] [b][] ![c]\n\n[b]: /u\n[bc]: /v\n[c]: /w\n",
 		"~a~ ~~b~~ *~c~* ~~d~\n",
 		"| a | b |\n|:-|-:|\n| c |\nd | e | f\n\n> x | y\n> --- | ---\n",
+		"a\\|b\n| c\\|d | `e\\|` [f](g\\\\|h) |\n| - | - |\n",
 	} {
 		for op := range byte(mutations) {
 			f.Add([]byte(src), op)
@@ -169,7 +170,7 @@ func FuzzEqual(f *testing.F) {
 	})
 }
 
-const mutations = 17
+const mutations = 18
 
 // mutateSyntax returns the source of tree with one kind of block syntax
 // changed everywhere, chosen by op: bullet characters, line endings, ordered
@@ -178,8 +179,8 @@ const mutations = 17
 // references as their characters, the length of code span fences, the
 // emphasis character, the quotes of titles, the case of labels, the number of
 // tildes of strikethrough, the outer pipes of table rows, the spaces of
-// Whitespace leaves, or the dashes of delimiter row cells (design 10.5). A
-// mutation may change meaning.
+// Whitespace leaves, the dashes of delimiter row cells, or the backslash before
+// a cell pipe escape (design 10.5). A mutation may change meaning.
 func mutateSyntax(tree *Tree, op byte) []byte {
 	var out []byte
 	for i, n := range tree.nodes {
@@ -255,6 +256,10 @@ func mutateSyntax(tree *Tree, op byte) []byte {
 		case 15:
 			if n.kind == Whitespace {
 				b = bytes.Repeat(b, 2)
+			}
+		case 17:
+			if n.kind == CellPipeEscape {
+				b = []byte(`\\|`)[len(b)-2:]
 			}
 		case 16:
 			if n.kind == TableDelimiter {

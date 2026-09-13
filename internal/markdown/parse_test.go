@@ -42,6 +42,7 @@ func TestParse(t *testing.T) {
 		{"gives raw html over lines with their prefix and indent leaves", "> a <b\n>  c='d\n> e'>f", "Document{BlockQuote{QuoteMarker@1 \"> \", Paragraph{Text \"a \", RawHTML{HTMLText \"<b\", VerbatimLineEnding \"\\n\", QuoteMarker@1 \"> \", Indent \" \", HTMLText \"c='d\", VerbatimLineEnding \"\\n\", QuoteMarker@1 \"> \", HTMLText \"e'>\"}, Text \"f\"}}}"},
 		{"gives raw html comments, processing instructions, declarations and cdata sections", "a <!--> <!---> <!-- b -- c ---> <?x?> <!X y> <![CDATA[>]]> </d >", "Document{Paragraph{Text \"a \", RawHTML{HTMLText \"<!-->\"}, Text \" \", RawHTML{HTMLText \"<!--->\"}, Text \" \", RawHTML{HTMLText \"<!-- b -- c --->\"}, Text \" \", RawHTML{HTMLText \"<?x?>\"}, Text \" \", RawHTML{HTMLText \"<!X y>\"}, Text \" \", RawHTML{HTMLText \"<![CDATA[>]]>\"}, Text \" \", RawHTML{HTMLText \"</d >\"}}}"},
 		{"gives text for a tag that does not close", "a <33> </a x> <a b='c> <a\n\nb>", "Document{Paragraph{Text \"a <33> </a x> <a b='c> <a\", LineEnding \"\\n\"}, BlankLine \"\\n\", Paragraph{Text \"b>\"}}"},
+		{"gives cell pipe escapes in text, a code span, a destination and the paragraph above a table", "a\\|b\n| a\\|b \\\\|c `d\\|` [e](f\\\\|g) |\n| - |", "Document{Paragraph{Text \"a\", CellPipeEscape[Text] \"\\\\|\", Text \"b\", LineEnding \"\\n\"}, Table{TableRow{TablePipe \"|\", Whitespace \" \", TableCell[4]{Text \"a\", CellPipeEscape[Text] \"\\\\|\", Text \"b \", CellPipeEscape[Text] \"\\\\\\\\|\", Text \"c \", CodeSpan{CodeFence \"`\", CodeText \"d\", CellPipeEscape[CodeText] \"\\\\|\", CodeFence \"`\"}, Text \" \", Link{Bracket \"[\", Text \"e\", Bracket \"]\", Paren \"(\", Destination \"f\", CellPipeEscape[Destination] \"\\\\\\\\|\", Destination \"g\", Paren \")\"}, Whitespace \" \"}, TablePipe \"|\", LineEnding \"\\n\"}, TablePipe \"|\", Whitespace \" \", TableDelimiter \"-\", Whitespace \" \", TablePipe \"|\"}}"},
 		{"gives a table with a header row, a delimiter row and a body row", "| a | b |\n| :- | -: |\nc | d", `Document{Table{TableRow{TablePipe "|", Whitespace " ", TableCell[5]{Text "a", Whitespace " "}, TablePipe "|", Whitespace " ", TableCell[7]{Text "b", Whitespace " "}, TablePipe "|", LineEnding "\n"}, TablePipe "|", Whitespace " ", TableDelimiter ":-", Whitespace " ", TablePipe "|", Whitespace " ", TableDelimiter "-:", Whitespace " ", TablePipe "|", LineEnding "\n", TableRow{TableCell[1]{Text "c", Whitespace " "}, TablePipe "|", Whitespace " ", TableCell[3]{Text "d"}}}}`},
 		{"gives the paragraph lines above a table header, and empty cells and cells beyond the header count", "a\n b\n||\n|-|\n|| c |", `Document{Paragraph{Text "a", SoftBreak{LineEnding "\n"}, Indent " ", Text "b", LineEnding "\n"}, Table{TableRow{TablePipe "|", TableCell[4]{}, TablePipe "|", LineEnding "\n"}, TablePipe "|", TableDelimiter "-", TablePipe "|", LineEnding "\n", TableRow{TablePipe "|", TableCell{}, TablePipe "|", Whitespace " ", TableCell{Text "c", Whitespace " "}, TablePipe "|"}}}`},
 		{"tries a table header once per paragraph", "| a | b |\n| - |\n| a |\n| - |", `Document{Paragraph{Text "| a | b |", SoftBreak{LineEnding "\n"}, Text "| - |", SoftBreak{LineEnding "\n"}, Text "| a |", SoftBreak{LineEnding "\n"}, Text "| - |"}}`},
@@ -731,8 +732,8 @@ func firstOf(tree *Tree, k Kind) NodeID {
 	panic("no node of kind " + k.String())
 }
 
-// dump returns tree as nested kinds with their flags, and each leaf with the
-// owner of a prefix leaf, its virt and its bytes, as in
+// dump returns tree as nested kinds with their flags, and each leaf with its
+// flags as a kind, the owner of a prefix leaf, its virt and its bytes, as in
 // Document{BlockQuote{QuoteMarker@1 ">", HTMLBlock[6]{HTMLText+2 "\t<p>"}}}.
 func dump(tree *Tree) string {
 	var b strings.Builder
@@ -753,6 +754,9 @@ func dump(tree *Tree) string {
 			sep = ""
 		default:
 			b.WriteString(sep + k.String())
+			if f := tree.nodes[e.ID].flags; f != 0 {
+				b.WriteString("[" + Kind(f).String() + "]")
+			}
 			if link := tree.nodes[e.ID].link; link != 0 {
 				b.WriteString("@" + strconv.Itoa(int(link)))
 			}

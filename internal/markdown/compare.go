@@ -123,7 +123,7 @@ func (c *comparer) equalKeys(ia, ib NodeID) bool {
 		FrontMatterText, BOM, LineEnding, BlankLine, Indent, ThematicRun, ATXMarker, ATXClose,
 		Whitespace, CodeIndent, FenceMarker, SetextUnderline, QuoteMarker, ListMarker, ItemIndent,
 		Bracket, Colon, AngleBracket, TitleQuote, FrontMatterFence, TrailingSpace, HardBreakMarker, Escape, EntityRef, CodeFence, AutolinkText, Delimiter, Paren,
-		TablePipe, TableDelimiter:
+		TablePipe, TableDelimiter, CellPipeEscape:
 	}
 	panic(fmt.Sprintf("markdown: key of node %d of kind %v, which is not a structure kind", ia, a.nodes[ia].kind))
 }
@@ -236,6 +236,9 @@ func (p *projection) observe(m Node) {
 // gives no Content event: it is syntax, or its value is in a key (design
 // 10.1, 10.3).
 func (p *projection) group(m, parent Node) (Kind, bool) {
+	if m.kind == CellPipeEscape {
+		m.kind = Kind(m.flags)
+	}
 	switch {
 	case m.kind.class() != classContent, m.kind == LinkLabel, parent.kind == LinkReferenceDefinition && p.label:
 		return 0, false

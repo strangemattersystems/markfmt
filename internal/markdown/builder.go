@@ -51,6 +51,15 @@ func (b *builder) flag(f uint8) {
 	n.flags = f
 }
 
+// flagLeaf sets the flags of the last node, a leaf.
+func (b *builder) flagLeaf(f uint8) {
+	n := &b.tree.nodes[len(b.tree.nodes)-1]
+	if n.kind.class() == classStructure || !n.kind.validFlags(f) {
+		panic(fmt.Sprintf("markdown: leaf flags %#x out of range for kind %v", f, n.kind))
+	}
+	n.flags = f
+}
+
 // top returns the index of the innermost open node.
 func (b *builder) top() uint32 {
 	return b.stack[len(b.stack)-1]

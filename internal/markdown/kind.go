@@ -69,6 +69,7 @@ const (
 	TableCell
 	TablePipe
 	TableDelimiter
+	CellPipeEscape
 )
 
 type class uint8
@@ -89,7 +90,7 @@ func (k Kind) class() class {
 		SoftBreak, HardBreak, CodeSpan, Autolink, RawHTML, Emphasis, Strong, Link, Image, Strikethrough,
 		Table, TableRow, TableCell:
 		return classStructure
-	case Text, CodeText, VerbatimLineEnding, InfoString, HTMLText, LinkLabel, Destination, Title, FrontMatterText, Escape, EntityRef, AutolinkText:
+	case Text, CodeText, VerbatimLineEnding, InfoString, HTMLText, LinkLabel, Destination, Title, FrontMatterText, Escape, EntityRef, AutolinkText, CellPipeEscape:
 		return classContent
 	case BOM, LineEnding, BlankLine, Indent, ThematicRun, ATXMarker, ATXClose, Whitespace, CodeIndent, FenceMarker, SetextUnderline, QuoteMarker, ListMarker, ItemIndent, Bracket, Colon, AngleBracket, TitleQuote, FrontMatterFence,
 		TrailingSpace, HardBreakMarker, CodeFence, Delimiter, Paren, TablePipe, TableDelimiter:
@@ -121,6 +122,13 @@ func (k Kind) validFlags(f uint8) bool {
 		return f <= 3
 	case TableCell:
 		return f <= 7
+	case CellPipeEscape:
+		// The kind of the content leaves around it (design 10.3).
+		switch Kind(f) {
+		case Text, CodeText, HTMLText, AutolinkText, Destination, Title, LinkLabel:
+			return true
+		}
+		return false
 	}
 	return f == 0
 }
@@ -252,6 +260,8 @@ func (k Kind) String() string {
 		return "TablePipe"
 	case TableDelimiter:
 		return "TableDelimiter"
+	case CellPipeEscape:
+		return "CellPipeEscape"
 	}
 	return "Kind(" + strconv.Itoa(int(k)) + ")"
 }

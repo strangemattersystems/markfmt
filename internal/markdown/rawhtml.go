@@ -155,10 +155,10 @@ func (s *inlineParser) search(p pos, c int) (pos, bool) {
 }
 
 // AppendRawHTML appends the value of raw HTML id to dst: its HTMLText leaves,
-// with a line feed for each line ending.
+// with a line feed for each line ending and a '|' for each cell pipe escape.
 func (t *Tree) AppendRawHTML(dst []byte, id NodeID) []byte {
 	for i := id + 1; i < NodeID(t.nodes[id].link); i++ {
-		if k := t.nodes[i].kind; k == HTMLText || k == VerbatimLineEnding {
+		if k := t.nodes[i].kind; k == HTMLText || k == VerbatimLineEnding || k == CellPipeEscape {
 			dst = t.AppendValue(dst, i)
 		}
 	}

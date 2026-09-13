@@ -455,21 +455,21 @@ func (p *blockParser) addPending() {
 // appendParagraph opens a block of kind k, Paragraph or Heading, appends the
 // pending lines as its inline content and clears them.
 func (p *blockParser) appendParagraph(k Kind) {
-	p.appendLines(k, p.pending)
+	p.appendLines(k, p.pending, false)
 	p.clearPending()
 }
 
 // appendLines opens a block of kind k, Paragraph or Heading, and appends
-// lines, pending lines, as its inline content. The prefix leaves of its first
-// line come before its node.
-func (p *blockParser) appendLines(k Kind, lines []pendingLine) {
+// lines, pending lines, as its inline content, with the cell pipe rule when
+// pipes is true. The prefix leaves of its first line come before its node.
+func (p *blockParser) appendLines(k Kind, lines []pendingLine, pipes bool) {
 	p.appendPendingPrefix(lines[0])
 	p.b.open(k)
 	last := lines[len(lines)-1].rest
 	if p.pass1 {
 		p.b.leaf(Text, last.end)
 	} else {
-		p.inline.arena = p.arena
+		p.inline.arena, p.inline.pipes = p.arena, pipes
 		p.inline.inlines(lines)
 	}
 	p.b.leafIf(LineEnding, last.eol)

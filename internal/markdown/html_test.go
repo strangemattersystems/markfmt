@@ -42,6 +42,7 @@ func TestRenderHTML(t *testing.T) {
 		{"writes raw html", "a <b\n c='d'>e<!---->", "<p>a <b\nc='d'>e<!----></p>\n"},
 		{"writes emphasis", "*a* __b__", "<p><em>a</em> <strong>b</strong></p>\n"},
 		{"writes strikethrough", "~a~ ~~b~~", "<p><del>a</del> <del>b</del></p>\n"},
+		{"writes cell pipe escapes in text, a code span, a destination and an autolink", "| \\| | `\\\\|` | [a](\\\\|) | <http://a\\|b> |\n|-|-|-|-|", "<table>\n<thead>\n<tr>\n<th>|</th>\n<th><code>\\|</code></th>\n<th><a href=\"%7C\">a</a></th>\n<th><a href=\"http://a%7Cb\">http://a|b</a></th>\n</tr>\n</thead>\n</table>\n"},
 		{"writes tables with missing cells and without cells beyond the header count", "| a | b |\n| :-: | - |\n| c |\n| d | e | f |", "<table>\n<thead>\n<tr>\n<th align=\"center\">a</th>\n<th>b</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td align=\"center\">c</td>\n<td></td>\n</tr>\n<tr>\n<td align=\"center\">d</td>\n<td>e</td>\n</tr>\n</tbody>\n</table>\n"},
 		{"writes links and images", "[a *b*](/u&amp; \"t\\\"\") ![c *d* `e`\n<f>](g 'h')", "<p><a href=\"/u&amp;\" title=\"t&quot;\">a <em>b</em></a> <img src=\"g\" alt=\"c d e &lt;f&gt;\" title=\"h\" /></p>\n"},
 		{"writes reference links", "[a][B] [b][] [b] ![b]\n\n[B]: /u \"t\"\n[b]: /v", "<p><a href=\"/u\" title=\"t\">a</a> <a href=\"/u\" title=\"t\">b</a> <a href=\"/u\" title=\"t\">b</a> <img src=\"/u\" alt=\"b\" title=\"t\" /></p>\n"},
@@ -191,7 +192,7 @@ func renderHTML(tree *Tree, tagFilter bool) string {
 				b.WriteString(`"` + titleAttr(tree, target(e.ID)) + " />")
 				plain = 0
 			case e.Exit:
-			case n.kind == Text, n.kind == Escape, n.kind == EntityRef, n.kind == AutolinkText:
+			case n.kind == Text, n.kind == Escape, n.kind == EntityRef, n.kind == AutolinkText, n.kind == CellPipeEscape && written(n):
 				b.WriteString(htmlEscaper.Replace(string(tree.AppendValue(nil, e.ID))))
 			case n.kind == CodeSpan:
 				b.WriteString(htmlEscaper.Replace(string(tree.AppendCodeSpan(nil, e.ID))))
@@ -291,13 +292,17 @@ func renderHTML(tree *Tree, tagFilter bool) string {
 				b.WriteString("</a>")
 				break
 			}
-			href := string(tree.AppendValue(nil, e.ID+2))
+			href := string(autolinkURL(tree, e.ID))
 			if tree.AutolinkEmail(e.ID) {
 				href = "mailto:" + href
 			}
 			b.WriteString(`<a href="` + escapeHref(href) + `">`)
 		case Text, Escape, EntityRef, AutolinkText:
 			b.WriteString(htmlEscaper.Replace(string(tree.AppendValue(nil, e.ID))))
+		case CellPipeEscape:
+			if written(n) {
+				b.WriteString("|")
+			}
 		case Link:
 			if e.Exit {
 				b.WriteString("</a>")
@@ -505,6 +510,24 @@ func titleAttr(tree *Tree, id NodeID) string {
 		return ""
 	}
 	return ` title="` + htmlEscaper.Replace(string(title)) + `"`
+}
+
+// written reports whether the test renderer writes cell pipe escape n as
+// text: in text and in an autolink, and not in a destination, a title, a
+// label, a code span or raw HTML, whose values it writes from their nodes.
+func written(n Node) bool {
+	return Kind(n.flags) == Text || Kind(n.flags) == AutolinkText
+}
+
+// autolinkURL returns the value of the content leaves of autolink id.
+func autolinkURL(tree *Tree, id NodeID) []byte {
+	var url []byte
+	for i := id + 1; i < NodeID(tree.nodes[id].link); i++ {
+		if tree.nodes[i].kind.class() == classContent {
+			url = tree.AppendValue(url, i)
+		}
+	}
+	return url
 }
 
 // alignAttr returns the align attribute of a table cell with alignment a.

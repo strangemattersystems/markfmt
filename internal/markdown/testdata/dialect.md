@@ -1,11 +1,13 @@
 # Dialect rows
 
-Each row is a rule where GitHub and markfmt's grammar give a document a
+Each row is a rule where GitHub and CommonMark 0.31.2 give a document a
 different meaning (design 2.1). markfmt follows CommonMark 0.31.2 for core
-constructs. Each row names an input, both results, the GitHub fixture in
-`github/github.txt` that shows GitHub's result, and the markfmt test of the
-rule. `github/grammar-differs.txt` lists each fixture with a case of
-markfmt's result (design 11.4). At stage 6 each row gets a dialect predicate.
+constructs, and GitHub where a GFM construct decides. Each row names an input,
+markfmt's result, GitHub's result, the GitHub fixture in `github/github.txt`
+that shows GitHub's result, and the markfmt test of the rule. Where markfmt
+and GitHub differ, `github/grammar-differs.txt` lists the fixture with a case
+of markfmt's result (design 11.4). At stage 6 each row gets a dialect
+predicate.
 
 | Rule | Input | markfmt | GitHub | GitHub fixture | markfmt test |
 | --- | --- | --- | --- | --- | --- |
@@ -16,3 +18,4 @@ markfmt's result (design 11.4). At stage 6 each row gets a dialect predicate.
 | Raw HTML comment: `<!--`, text without `-->`, and `-->`; or `<!-->`; or `<!--->` (CM 626) | `a <!--> b --> <!-- c -- d --->` | Paragraph with the raw HTML `<!-->`, the text ` b --> `, and the raw HTML `<!-- c -- d --->` | Paragraph with the raw HTML `<!-->`, then the text ` b --> <!-- c -- d --->`: comment text must not contain `--` | `dialect/html-comment` | `TestParse/gives_raw_html_comments,_processing_instructions,_declarations_and_cdata_sections` |
 | Unicode punctuation for flanking: Unicode P and S, and U+FFFD, which is So | `£_a_£` | Paragraph with the emphasis `a` | Paragraph `£_a_£`: only Unicode P and ASCII punctuation count, so `_` is not preceded by punctuation | `dialect/flanking-symbol` | `TestParse/treats_unicode_symbols_and_u+fffd_as_punctuation_for_flanking` |
 | HTML block kind 4 start: `<!` and any ASCII letter | `<!doctype html>` | HTML block | Paragraph with the text `<!doctype html>`: the kind 4 start and the declaration grammar need an uppercase letter | `dialect/html-block-declaration` | `TestParse/starts_an_html_block_of_kind_4_with_any_ascii_letter` |
+| Paragraph split off above a table: its lines get the cell pipe rule of the table (design 5.4). CommonMark 0.31.2, which has no tables, gives the text `a\|b c\\|d` and the code span `e\\|f` | ``a\\|b c\\\|d `e\\|f`⏎\| x \|⏎\| - \|`` | Paragraph with the text `a\|b c\|d` and the code span `e\|f`, then a table | The same as markfmt | `tables/split-paragraph` | `TestParse/gives_cell_pipe_escapes_in_text,_a_code_span,_a_destination_and_the_paragraph_above_a_table` |

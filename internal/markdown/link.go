@@ -208,7 +208,7 @@ func (s *inlineParser) linkLabel() (found, blank bool) {
 	for j++; chars <= 999; j++ {
 		end := s.lines[s.k].rest.end
 		if j == end {
-			s.pushIf(LinkLabel, j)
+			s.pushContent(LinkLabel, j)
 			if !s.nextLine(VerbatimLineEnding) {
 				return false, false
 			}
@@ -217,7 +217,7 @@ func (s *inlineParser) linkLabel() (found, blank bool) {
 		}
 		switch c := s.src[j]; {
 		case c == ']':
-			s.pushIf(LinkLabel, j)
+			s.pushContent(LinkLabel, j)
 			s.push(piece{kind: Bracket, end: j + 1})
 			return true, blank
 		case c == '[':
@@ -250,7 +250,7 @@ func (s *inlineParser) linkDestination() bool {
 		for j++; j < end; j++ {
 			switch s.src[j] {
 			case '>':
-				s.pushIf(Destination, j)
+				s.pushContent(Destination, j)
 				s.push(piece{kind: AngleBracket, end: j + 1})
 				return true
 			case '<':
@@ -285,7 +285,7 @@ func (s *inlineParser) linkDestination() bool {
 	if j == start || depth > 0 {
 		return false
 	}
-	s.push(piece{kind: Destination, end: j})
+	s.pushContent(Destination, j)
 	return true
 }
 
@@ -308,7 +308,7 @@ func (s *inlineParser) linkTitle() bool {
 	for j++; ; j++ {
 		end := s.lines[s.k].rest.end
 		if j == end {
-			s.pushIf(Title, j)
+			s.pushContent(Title, j)
 			if !s.nextLine(VerbatimLineEnding) {
 				return false
 			}
@@ -317,7 +317,7 @@ func (s *inlineParser) linkTitle() bool {
 		}
 		switch b := s.src[j]; {
 		case b == closing:
-			s.pushIf(Title, j)
+			s.pushContent(Title, j)
 			s.push(piece{kind: TitleQuote, end: j + 1})
 			return true
 		case b == '(' && c == '(':
@@ -357,7 +357,7 @@ func (t *Tree) AppendDestination(dst []byte, id NodeID) []byte {
 		switch m := t.nodes[i]; {
 		case m.kind.class() == classStructure:
 			i = m.link - 1
-		case m.kind == Destination:
+		case m.kind == Destination, m.kind == CellPipeEscape && Kind(m.flags) == Destination:
 			dst = t.AppendValue(dst, NodeID(i))
 		}
 	}
@@ -374,7 +374,7 @@ func (t *Tree) AppendTitle(dst []byte, id NodeID) []byte {
 			i = m.link - 1
 		case m.kind == TitleQuote:
 			quotes++
-		case quotes == 1 && (m.kind == Title || m.kind == VerbatimLineEnding):
+		case quotes == 1 && (m.kind == Title || m.kind == VerbatimLineEnding || m.kind == CellPipeEscape):
 			dst = t.AppendValue(dst, NodeID(i))
 		}
 	}
