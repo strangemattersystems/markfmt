@@ -86,6 +86,7 @@ func TestGoldmarkDiffers(t *testing.T) {
 		{"skips a tab before a nested list marker after a list item prefix", "0) 0\n   \t* 0", "goldmark deviates, spec sections 2.2 and 5.2: a tab after the prefix of a list item line stops at a column counted from the start of the line"},
 		{"skips a control character in an unquoted value after whitespace", "<A A0000= \x01>0", "goldmark deviates, spec section 6.6: an unquoted attribute value takes ASCII control characters"},
 		{"skips a paragraph after an empty nested list item that follows a paragraph", "0) 0\n\n   0)\n\n   0", "goldmark deviates, spec section 5.2: a blank line after an empty nested list item continues the outer list item"},
+		{"skips a tab and text after a kind 6 tag name", "</td\t0", "goldmark deviates, spec section 4.6: a tab after the tag name starts HTML block kind 6"},
 		{"skips a tab in the indentation after a list item prefix", "* 0\n  \t -", "goldmark deviates, spec sections 2.2 and 5.2: a tab after the prefix of a list item line stops at a column counted from the start of the line"},
 	}
 	for _, tt := range tests {
@@ -581,5 +582,5 @@ var (
 	emptyInstruction     = regexp.MustCompile(`<\?>`)
 	unquotedControl      = regexp.MustCompile(`<[A-Za-z][^<>]*=[ \t\r\n]*[^ \t\r\n"'=<>\x60]*[\x01-\x08\x0b\x0c\x0e-\x1f\x7f]`)
 	spacedClosingTag     = regexp.MustCompile(`</[ \t\r\n]+[A-Za-z]`)
-	tabAfterTagName      = regexp.MustCompile(`</?[A-Za-z][A-Za-z0-9]*\t[\t />]*(?:\r|\n|$)`)
+	tabAfterTagName      = regexp.MustCompile(`</?[A-Za-z][A-Za-z0-9]*\t`)
 )

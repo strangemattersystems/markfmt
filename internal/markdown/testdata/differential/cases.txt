@@ -549,16 +549,19 @@ goldmark reads `</ A0>` as a closing tag and starts an HTML block.
 
 ## goldmark deviates, spec section 4.6: a tab after the tag name starts HTML block kind 6
 
-goldmark gives a paragraph when only tabs, `/` or `>` follow the tab on the
-line.
+goldmark does not start kind 6 at a tab after the tag name. It agrees only
+when the line is a complete tag, which starts kind 7.
 
 ```````````````````````````````` example
 <p→
 
 </div→>
+
+<div→0>
 .
 <p	
 </div	>
+<div	0>
 ````````````````````````````````
 
 ## goldmark deviates, spec section 6.4: a line break in an image description is a space in the alt text, as cmark writes it
