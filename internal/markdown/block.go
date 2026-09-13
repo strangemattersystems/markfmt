@@ -1,6 +1,9 @@
 package markdown
 
-import "math"
+import (
+	"bytes"
+	"math"
+)
 
 // blockParser runs the block phase: it reads the input line by line and
 // appends the blocks to the builder (design 5).
@@ -28,7 +31,8 @@ type blockParser struct {
 
 	inline inlineParser
 	defs   *definitions
-	pass1  bool   // the block phase of pass 1, which skips the inline phase (design 7.1)
+	pass1  bool // the block phase of pass 1, which skips the inline phase (design 7.1)
+	trace  func(line, int)
 	label  []byte // a normalized label
 
 	pending []pendingLine // lines of the open leaf block that are not appended yet (design 5.3)
@@ -190,6 +194,15 @@ starts:
 
 	if p.leaf.kind == paragraphLeaf && !blank {
 		// A continuation line, which is lazy when a container did not match.
+		if p.trace != nil {
+			n := 0
+			for _, c := range p.containers[1:matched] {
+				if c.kind != List {
+					n++
+				}
+			}
+			p.trace(l, n)
+		}
 		p.addPending()
 		return
 	}
@@ -627,4 +640,131 @@ func nextColumn(c byte, col int) int {
 		return col + 4 - col%4
 	}
 	return col + 1
+}
+
+// containerWalk follows a walk over the nodes of a tree in order. It keeps the
+// open block quotes, list items and footnote definitions with the columns that
+// each continues on, and the column after the last leaf, so that it can count
+// the containers that a line matched (design 4.3, 10.4).
+type containerWalk struct {
+	t     *Tree
+	col   int
+	chain []openContainer // outermost first
+}
+
+type openContainer struct {
+	id     uint32
+	indent int // the columns that a list item or a footnote definition continues on
+}
+
+// visit moves the walk to node i, the node after the last one it visited.
+func (w *containerWalk) visit(i uint32) {
+	w.pop(i)
+	t := w.t
+	n := t.nodes[i]
+	switch n.kind {
+	case BlockQuote:
+		w.chain = append(w.chain, openContainer{id: i})
+	case ListItem:
+		w.chain = append(w.chain, openContainer{id: i, indent: t.itemIndent(NodeID(i), w.col)})
+	case FootnoteDefinition:
+		w.chain = append(w.chain, openContainer{id: i, indent: 4})
+	}
+	if n.kind.class() == classStructure {
+		return
+	}
+	_, w.col = t.leafColumns(n, w.col)
+	if c := t.src[n.end-1]; c == '\n' || c == '\r' {
+		w.col = 0
+	}
+}
+
+// pop closes the containers that end before node i.
+func (w *containerWalk) pop(i uint32) {
+	for len(w.chain) > 0 && w.t.nodes[w.chain[len(w.chain)-1].id].link <= i {
+		w.chain = w.chain[:len(w.chain)-1]
+	}
+}
+
+// matched returns how many open containers the line whose first leaf is node
+// i matched: the owners of its prefix leaves and the containers before them,
+// then the list items and footnote definitions whose indentation ends inside
+// the split tab of the first leaf that is not a prefix leaf (design 4.3).
+func (w *containerWalk) matched(i uint32) int {
+	w.pop(i)
+	t, chain := w.t, w.chain
+	k, col, partial := 0, 0, 0 // partial: columns of that tab that the last prefix leaf's container consumed
+	for ; int(i) < len(t.nodes); i++ {
+		n := t.nodes[i]
+		if n.kind.class() == classStructure {
+			continue
+		}
+		if _, prefix := n.kind.owner(); !prefix {
+			if n.virt == 0 {
+				return k
+			}
+			consumed := nextColumn('\t', col) - col - int(n.virt) - partial
+			for k < len(chain) && t.nodes[chain[k].id].kind != BlockQuote && chain[k].indent <= consumed {
+				consumed -= chain[k].indent
+				k++
+			}
+			return k
+		}
+		for k < len(chain) && chain[k].id != n.link {
+			k++
+		}
+		if k == len(chain) {
+			return k
+		}
+		start, end := t.leafColumns(n, col)
+		partial = chain[k].indent - (end - start)
+		if n.kind == QuoteMarker {
+			// The optional space after '>' takes a column of a tab.
+			partial = 0
+			if t.src[n.end-1] == '>' {
+				partial = 1
+			}
+		}
+		k, col = k+1, end
+	}
+	return k
+}
+
+// itemIndent returns the columns that list item id continues on, when its
+// ListMarker leaf is at column col: its indentation, marker and padding
+// (design 5.5).
+func (t *Tree) itemIndent(id NodeID, col int) int {
+	marker := t.nodes[id+1]
+	start, end := t.leafColumns(marker, col)
+	next := end
+	for i := int(id) + 2; i < len(t.nodes); i++ {
+		if n := t.nodes[i]; n.kind.class() != classStructure {
+			next, _ = t.leafColumns(n, end)
+			break
+		}
+	}
+	// After a marker with a blank rest, the padding is 1 column that no leaf
+	// holds.
+	if c := t.src[marker.end-1]; next == end && c != ' ' && c != '\t' {
+		next++
+	}
+	return next - start
+}
+
+// leafColumns returns the columns of leaf n, whose first byte is at column
+// col: the column where its own columns start, after the columns of a split
+// tab that structures consumed (design 4.3), and the column after it.
+func (t *Tree) leafColumns(n Node, col int) (start, end int) {
+	b := t.src[n.start:n.end]
+	start, end = col, col+len(b)
+	if n.virt > 0 {
+		start = nextColumn('\t', col) - int(n.virt)
+	}
+	if bytes.IndexByte(b, '\t') >= 0 {
+		end = col
+		for _, c := range b {
+			end = nextColumn(c, end)
+		}
+	}
+	return start, end
 }

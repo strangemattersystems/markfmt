@@ -1,0 +1,107 @@
+package markdown
+
+import (
+	"slices"
+	"testing"
+)
+
+func TestContainerWalk_Matched(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		src  string
+		want []int
+	}{
+		{"counts no container on a lazy line of a block quote", "> a\nb", []int{0}},
+		{"counts a block quote", "> a\n> b", []int{1}},
+		{"counts a list item", "- a\n  b", []int{1}},
+		{"counts no container on a lazy line of a list item", "- a\nb", []int{0}},
+		{"counts a block quote whose list item does not match", "> - a\n> b", []int{1}},
+		{"counts a block quote and its list item", "> - a\n>   b", []int{2}},
+		{"counts a list item that consumes part of a tab", "- a\n\tb", []int{1}},
+		{"counts two list items that consume one tab", "- - a\n\t\tb", []int{2}},
+		{"counts the list item whose indentation matches", "- - a\n   b", []int{1}},
+		{"counts a list item after the optional space of a block quote in a tab", "> - a\n>\t b", []int{2}},
+		{"counts a list item that consumes part of a tab after another list item", "> - - a\n>\t\t b", []int{3}},
+		{"counts no list item that a tab after a block quote marker is too narrow for", "> 1. a\n>\tb", []int{1}},
+		{"counts no list item after a list item that consumes part of a tab", "1. - b\n \tc", []int{1}},
+		{"counts a footnote definition", "[^a]: x\n    y", []int{1}},
+		{"counts a footnote definition that consumes a tab", "[^a]: x\n\ty", []int{1}},
+		{"counts no container on a lazy line of a footnote definition", "[^a]: x\ny", []int{0}},
+		{"counts a list item whose first line is blank", "-\n  a\n  b", []int{1}},
+		{"counts a list item whose first line is blank in a tab", "-\n\ta\n\tb", []int{1}},
+		{"counts each line", "> a\n> b\nc", []int{1, 0}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			parser, walk := matchedLines([]byte(tt.src))
+			if !slices.Equal(parser, tt.want) || !slices.Equal(walk, tt.want) {
+				t.Fatalf("matched containers of %q: parser %v, walk %v, want %v", tt.src, parser, walk, tt.want)
+			}
+		})
+	}
+
+	t.Run("agrees with the parser on every corpus example", func(t *testing.T) {
+		t.Parallel()
+
+		for _, c := range corpora {
+			for _, ex := range readExamples(t, c.path) {
+				if parser, walk := matchedLines([]byte(ex.markdown)); !slices.Equal(parser, walk) {
+					t.Errorf("%s example %d: matched containers of %q: parser %v, walk %v", c.name, ex.id, ex.markdown, parser, walk)
+				}
+			}
+		}
+	})
+}
+
+func TestTree_ItemIndent(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		src  string
+		want int
+	}{
+		{"gives the marker and a space", "- a", 2},
+		{"gives the indentation, the marker and the padding", " 10.  a", 6},
+		{"gives 1 column of padding after a marker at the end of a line", "-\n", 2},
+		{"gives 1 column of padding after a marker at the end of the input", "-", 2},
+		{"gives 1 column of padding after a marker and spaces at the end of a line", "-   \n", 2},
+		{"gives 1 column of padding before indented code", "-     a", 2},
+		{"gives the columns of a tab after the marker", "-\ta", 4},
+		{"gives the columns of a tab that the padding splits", "-\t    a", 2},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			tree := Parse([]byte(tt.src))
+			item := slices.IndexFunc(tree.nodes, func(n Node) bool { return n.kind == ListItem })
+			if got := tree.itemIndent(NodeID(count(item)), 0); got != tt.want {
+				t.Fatalf("itemIndent of %q = %d, want %d", tt.src, got, tt.want)
+			}
+		})
+	}
+}
+
+// matchedLines returns, for each paragraph continuation line of src in
+// order, the containers that the parser matched and the containers that a
+// [containerWalk] counts.
+func matchedLines(src []byte) (parser, walk []int) {
+	var starts []uint32
+	tree := parse(src, func(l line, matched int) {
+		starts = append(starts, l.start)
+		parser = append(parser, matched)
+	})
+	w := containerWalk{t: tree}
+	for i, n := range tree.nodes {
+		if len(walk) < len(starts) && n.kind.class() != classStructure && n.start == starts[len(walk)] {
+			walk = append(walk, w.matched(uint32(i)))
+		}
+		w.visit(uint32(i))
+	}
+	return parser, walk
+}

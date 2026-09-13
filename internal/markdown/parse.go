@@ -10,11 +10,18 @@ import (
 // definitions, so that pass 2 can resolve references to them (design 7.1).
 // Every definition contains "]:", so an input without it needs no pass 1.
 func Parse(src []byte) *Tree {
+	return parse(src, nil)
+}
+
+// parse is [Parse]. When trace is not nil, pass 2 calls it with each
+// paragraph continuation line and the number of block quotes, list items and
+// footnote definitions that the line matched.
+func parse(src []byte, trace func(l line, matched int)) *Tree {
 	var defs definitions
 	if bytes.Contains(src, []byte("]:")) {
-		parseBlocks(src, &defs, true)
+		parseBlocks(src, &defs, true, nil)
 	}
-	t := parseBlocks(src, &defs, false)
+	t := parseBlocks(src, &defs, false, trace)
 	defs.finish()
 	return t
 }
@@ -22,8 +29,8 @@ func Parse(src []byte) *Tree {
 // parseBlocks runs the block phase over src. Pass 1 skips the inline phase,
 // and drops its nodes whenever only the document is open at a line boundary,
 // so it holds one top-level block at a time.
-func parseBlocks(src []byte, defs *definitions, pass1 bool) *Tree {
-	p := blockParser{b: newBuilder(src), src: src, defs: defs, pass1: pass1}
+func parseBlocks(src []byte, defs *definitions, pass1 bool, trace func(line, int)) *Tree {
+	p := blockParser{b: newBuilder(src), src: src, defs: defs, pass1: pass1, trace: trace}
 	p.inline = inlineParser{b: p.b, src: src, defs: defs}
 	p.b.open(Document)
 	p.containers = append(p.containers, container{kind: Document})
