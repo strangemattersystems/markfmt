@@ -48,6 +48,8 @@ type printer struct {
 	delimScope markdown.NodeID
 	delimText  [3]bool
 
+	table *table // the table that prints, or nil
+
 	// The heading that is open: how it prints, its level, where its content
 	// starts in out, and whether its line is written.
 	head      headForm
@@ -250,6 +252,16 @@ func (p *printer) enter(id markdown.NodeID, k markdown.Kind) {
 	if f.span {
 		p.inSpan++
 	}
+	if k == markdown.Table && p.inSpan == 0 {
+		p.table = &table{start: len(p.out)}
+	}
+	if k == markdown.TableCell && p.table != nil {
+		if t.CellHeader(id) {
+			p.table.aligns = append(p.table.aligns, t.CellAlignment(id))
+		}
+		p.startTableLine(false)
+		p.table.cells = append(p.table.cells, tableCell{start: len(p.out)})
+	}
 	if k == markdown.CodeBlock && p.inSpan == 0 {
 		f.fence, f.opening = p.codeFence(id)
 		// Indented code has no fence line: its first line is code.
@@ -429,6 +441,14 @@ func (p *printer) leaf(id markdown.NodeID, k markdown.Kind, start, end int) {
 		if (k == markdown.LineEnding || k == markdown.VerbatimLineEnding) && top.children == 0 {
 			top.blankFirst = true
 		}
+	case p.table != nil && (top.kind == markdown.Table || top.kind == markdown.TableRow):
+		// The printer writes the pipes, the spaces and the delimiter row.
+		if k == markdown.LineEnding {
+			p.lineStart = true
+		} else {
+			p.startTableLine(top.kind == markdown.Table)
+		}
+	case p.table != nil && top.kind == markdown.TableCell && k == markdown.Whitespace:
 	case top.fence != nil:
 		p.codeLeaf(top, id, k, start)
 	case top.code != nil:
@@ -1235,7 +1255,16 @@ func (p *printer) exit() {
 		p.lineStart = false
 		p.endLine()
 		p.span, p.blanks, p.lastLeaf, p.open, p.bracket = g.span, 0, g.kind, false, false
+	case g.kind == markdown.TableCell && p.table != nil:
+		c := &p.table.cells[len(p.table.cells)-1]
+		c.end = len(p.out)
+		if !p.full {
+			c.width = markdown.DisplayWidth(p.out[c.start:c.end])
+		}
 	case isLeafBlock(g.kind):
+		if p.table != nil {
+			p.printTable()
+		}
 		if g.kind == markdown.Heading {
 			if p.head == headSingle && !p.headDone {
 				p.endHeading()
@@ -1264,6 +1293,159 @@ func (p *printer) exit() {
 		if !p.lineStart {
 			p.endLine()
 		}
+	}
+}
+
+// table is a table that prints: the lines that the printer wrote for it, which
+// it aligns when the table ends.
+type table struct {
+	start  int                  // the offset in out where the table starts
+	aligns []markdown.Alignment // the alignment of each column
+	lines  []tableLine
+	cells  []tableCell
+}
+
+// tableLine is a line of a table in out: its container prefixes from prefix
+// to start, then its cells from index cells, or the delimiter row.
+type tableLine struct {
+	prefix, start int
+	cells         int
+	delimiter     bool
+}
+
+// tableCell is the content of a table cell in out, with its display width.
+type tableCell struct {
+	start, end, width int
+}
+
+// lineCells returns the cells of line i.
+func (tb *table) lineCells(i int) []tableCell {
+	end := len(tb.cells)
+	if i+1 < len(tb.lines) {
+		end = tb.lines[i+1].cells
+	}
+	return tb.cells[tb.lines[i].cells:end]
+}
+
+// startTableLine writes the container prefixes of a line of the table that
+// prints, unless the line has started. delimiter reports whether the line is
+// the delimiter row.
+func (p *printer) startTableLine(delimiter bool) {
+	if !p.lineStart {
+		return
+	}
+	tb := p.table
+	prefix := len(p.out)
+	p.indent, p.lead, p.matched = -1, false, p.containers()
+	p.writePrefix(false)
+	p.lineStart = false
+	tb.lines = append(tb.lines, tableLine{prefix: prefix, start: len(p.out), cells: len(tb.cells), delimiter: delimiter})
+}
+
+// printTable writes the table that ends in place of the lines that the
+// printer wrote for it: with outer pipes, a space inside each pipe, and
+// delimiter cells of at least 3 dashes. Its columns are aligned by display
+// width and its short rows get empty cells, unless that adds more bytes than
+// the table has without them, or the table has as many missing cells as
+// cmark-gfm's cap (appendix B, trap 14).
+func (p *printer) printTable() {
+	tb := p.table
+	p.table, p.lineStart = nil, true
+	if p.full {
+		return
+	}
+	cols := len(tb.aligns)
+	widths := make([]int, cols)
+	for c := range widths {
+		widths[c] = 3
+	}
+	rows, present := 0, 0
+	for i, l := range tb.lines {
+		if l.delimiter {
+			continue
+		}
+		cells := tb.lineCells(i)
+		rows++
+		present += min(len(cells), cols)
+		for c, cell := range cells[:min(len(cells), cols)] {
+			widths[c] = max(widths[c], cell.width)
+		}
+	}
+	short, aligned := 0, 0
+	for i, l := range tb.lines {
+		n := l.start - l.prefix + 2 // the prefixes, the first pipe and the line feed
+		short += n
+		aligned += n
+		if l.delimiter {
+			for _, w := range widths {
+				short += 6
+				aligned += w + 3
+			}
+			continue
+		}
+		cells := tb.lineCells(i)
+		for c, cell := range cells {
+			short += cell.end - cell.start + 3
+			aligned += cell.end - cell.start + 3
+			if c < cols {
+				aligned += widths[c] - cell.width
+			}
+		}
+		for c := len(cells); c < cols; c++ {
+			aligned += widths[c] + 3
+		}
+	}
+	align := aligned-short <= short && cols*rows-present < markdown.MaxMissingCells
+	src := bytes.Clone(p.out[tb.start:])
+	p.out = p.out[:tb.start]
+	for i, l := range tb.lines {
+		p.write(src[l.prefix-tb.start : l.start-tb.start])
+		p.write([]byte{'|'})
+		if l.delimiter {
+			for c, a := range tb.aligns {
+				w := 3
+				if align {
+					w = widths[c]
+				}
+				first, last := byte('-'), byte('-')
+				if a == markdown.AlignLeft || a == markdown.AlignCenter {
+					first = ':'
+				}
+				if a == markdown.AlignRight || a == markdown.AlignCenter {
+					last = ':'
+				}
+				p.write([]byte{' ', first})
+				p.write(bytes.Repeat([]byte{'-'}, w-2))
+				p.write([]byte{last, ' ', '|'})
+			}
+			p.write(lineFeed)
+			continue
+		}
+		cells := tb.lineCells(i)
+		for c, cell := range cells {
+			before, after := 0, 0
+			if align && c < cols {
+				pad := widths[c] - cell.width
+				switch tb.aligns[c] {
+				case markdown.AlignRight:
+					before = pad
+				case markdown.AlignCenter:
+					before = pad / 2
+				}
+				after = pad - before
+			}
+			p.write(spaces[:1])
+			p.writeSpaces(before)
+			p.write(src[cell.start-tb.start : cell.end-tb.start])
+			p.writeSpaces(after)
+			p.write([]byte(" |"))
+		}
+		for c := len(cells); align && c < cols; c++ {
+			p.write(spaces[:1])
+			p.writeSpaces(widths[c])
+			p.write([]byte(" |"))
+		}
+		p.write(lineFeed)
 	}
 }
 

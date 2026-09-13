@@ -6,4 +6,3 @@
 #   go test ./internal/format 2>&1 |
 #     sed -n 's/^ *--- FAIL: TestSource\/cases\/\(.*\) (.*/\1/p' |
 #     tr '_' '-' | sort
-separates-a-table-from-the-paragraph-above-it

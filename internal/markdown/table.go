@@ -68,9 +68,9 @@ func (t *Tree) CellHeader(id NodeID) bool {
 // them in a uint16. A line with more is not a row.
 const maxCells = 65535
 
-// maxMissingCells is the most missing cells of a table after which cmark-gfm
+// MaxMissingCells is the most missing cells of a table after which cmark-gfm
 // and GitHub read another row (GitHub API, 2026-09-13; design 8.2).
-const maxMissingCells = 0x80000
+const MaxMissingCells = 0x80000
 
 // cellFlags returns the flags of the cell at index col of the row at index row
 // of a table whose columns have alignments aligns. A cell beyond the column
@@ -205,7 +205,7 @@ func (p *blockParser) tableLine(first uint32, indent int) bool {
 		p.startTable(first)
 		return true
 	case tableLeaf:
-		if rowCells(p.src, first, l.end) == 0 || p.leaf.columns*p.leaf.rows-p.leaf.cells > maxMissingCells {
+		if rowCells(p.src, first, l.end) == 0 || p.leaf.columns*p.leaf.rows-p.leaf.cells > MaxMissingCells {
 			return false
 		}
 		p.appendPrefix()

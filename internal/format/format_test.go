@@ -46,6 +46,22 @@ func TestSource(t *testing.T) {
 		}
 	})
 
+	t.Run("keeps the short rows of a table at the missing cell cap", func(t *testing.T) {
+		t.Parallel()
+
+		// A header of 1,000 cells and 525 rows of one cell reach the cap of
+		// missing cells. The rows are long enough that padding them would add
+		// fewer bytes than the table has.
+		row := "| " + strings.Repeat("x", 7000) + " |"
+		in := strings.Repeat("| a ", 1000) + "|\n" + strings.Repeat("| --- ", 1000) + "|\n" + strings.Repeat(row+"\n", 525)
+		out := checkSource(t, []byte(in))
+		for i, line := range strings.Split(strings.TrimSuffix(string(out), "\n"), "\n")[2:] {
+			if line != row {
+				t.Fatalf("row %d has %d bytes, want the %d bytes of its input", i+1, len(line), len(row))
+			}
+		}
+	})
+
 	t.Run("rejects an input above the input limit", func(t *testing.T) {
 		t.Parallel()
 
