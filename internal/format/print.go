@@ -31,6 +31,7 @@ type printer struct {
 	leafKind  markdown.Kind // the kind of the last leaf block that started
 	pad       int           // spaces to write after the prefix of the next line
 	backslash bool          // the last byte written is a backslash that is not an escape
+	codeLine  bool          // the line of the input has a CodeIndent leaf, which makes it a line of code
 
 	// The blocks that ended last, for the blank lines before the next block.
 	blanks      int           // the input's blank lines after the last leaf block
@@ -316,6 +317,7 @@ func (p *printer) leaf(id markdown.NodeID, k markdown.Kind, start, end int) {
 	case (k == markdown.Indent || k == markdown.CodeIndent) && p.inSpan == 0:
 		// Indentation is its columns, whatever tabs it holds (design 4.3):
 		// content writes them.
+		p.codeLine = p.codeLine || k == markdown.CodeIndent
 	case k == markdown.TrailingSpace && p.inSpan == 0:
 	case k == markdown.HardBreakMarker && p.inSpan == 0 && t.Raw(id)[0] != '\\':
 		// A hard break is a backslash, except after a backslash that is not
@@ -435,7 +437,7 @@ func (p *printer) continuation(id markdown.NodeID) {
 }
 
 func (p *printer) endLine() {
-	p.indent = -1
+	p.indent, p.codeLine = -1, false
 	if p.lineStart {
 		p.writePrefix(true)
 	}
@@ -469,7 +471,10 @@ func (p *printer) exit() {
 	}
 	switch {
 	case isLeafBlock(g.kind):
-		if !p.lineStart {
+		// A last line of code at the end of the input without a line ending
+		// is a line of the code's value, also when it holds only indentation
+		// (design 8.2).
+		if !p.lineStart || p.codeLine {
 			p.endLine()
 		}
 		p.open = g.kind == markdown.CodeBlock && g.fences == 1 || g.kind == markdown.HTMLBlock && !t.HTMLBlockClosed(g.id)
