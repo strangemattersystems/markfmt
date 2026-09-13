@@ -12,6 +12,11 @@ func RenderTestHTML(tree *Tree) string {
 	return normalizeHTML(renderHTML(tree, false))
 }
 
+// Kept returns the kept syntax of tree (design 12).
+func Kept(tree *Tree) []string {
+	return kept(tree)
+}
+
 // CorpusInputs returns the Markdown of every example of every corpus, and of
 // every file of the pair corpus.
 func CorpusInputs(tb testing.TB) [][]byte {

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 
 	"github.com/strangemattersystems/markfmt/internal/format"
@@ -42,6 +43,9 @@ func FuzzFormat(f *testing.F) {
 		}
 		if in, got := markdown.RenderTestHTML(markdown.Parse(src)), markdown.RenderTestHTML(markdown.Parse(out)); in != got {
 			t.Fatalf("Source(%q) = %q, whose test HTML differs:\n %q\n %q", src, out, in, got)
+		}
+		if in, got := markdown.Kept(markdown.Parse(src)), markdown.Kept(markdown.Parse(out)); !slices.Equal(in, got) {
+			t.Fatalf("Source(%q) = %q, whose kept syntax differs:\n %q\n %q", src, out, in, got)
 		}
 	})
 }

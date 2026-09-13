@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -334,4 +335,115 @@ func swapLineEnding(b []byte) []byte {
 		return append(bytes.Clone(b[:len(b)-1]), '\r', '\n')
 	}
 	return b
+}
+
+func TestKept(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		src  string
+		want []string
+	}{
+		{"gives escapes, entity references and cell pipe escapes with their bytes", "a \\* &amp;\n\n| b\\|c |\n| - |", []string{"Escape \\*", "EntityRef &amp;", "CellPipeEscape \\|"}},
+		{"gives the raw bytes of link labels without prefixes and with lf line endings", "> [Foo\r\n> bar] [x][Y] [z][]\n\n[foo bar]: /u\n[y]: /v\n[z]: /w", []string{"label Foo\nbar", "label Y", "label z", "label foo bar", "label y", "label z"}},
+		{"gives the raw labels of footnote references and definitions", "a[^B]\n\n[^B]: x", []string{"label B", "label B"}},
+		{"gives each nul and invalid utf-8 sequence in content", "a\x00b\xa6\xe0\xa0c", []string{"invalid \x00", "invalid \xa6", "invalid \xe0\xa0"}},
+		{"gives an ordered list that starts at 1 and whose second item is 1", "1. a\n1. b\n\n- c\n\n3) d\n1) e\n\n1. f\n2. g", []string{"lazy numbering"}},
+		{"gives nothing for text, emphasis and an inline link", "a *b* [c](/u)", nil},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			if got := kept(Parse([]byte(tt.src))); !slices.Equal(got, tt.want) {
+				t.Fatalf("kept(%q) = %q, want %q", tt.src, got, tt.want)
+			}
+		})
+	}
+}
+
+// kept returns the kept syntax of tree in document order (design 12): the
+// bytes of each Escape, EntityRef and CellPipeEscape leaf, the raw bytes of
+// each label, each NUL and invalid UTF-8 sequence in a content leaf, and each
+// ordered list with lazy numbering.
+func kept(tree *Tree) []string {
+	var events []string
+	for i, n := range tree.nodes {
+		id := NodeID(i)
+		b := tree.src[n.start:n.end]
+		switch n.kind {
+		case Escape, EntityRef, CellPipeEscape:
+			events = append(events, n.kind.String()+" "+string(b))
+		case LinkReferenceDefinition, FootnoteReference:
+			events = append(events, "label "+string(rawLabel(tree, id, 1)))
+		case FootnoteDefinition:
+			events = append(events, "label "+string(tree.FootnoteDefinitionLabel(id)))
+		case Link, Image:
+			switch tree.LinkForm(id) {
+			case FullReference:
+				events = append(events, "label "+string(rawLabel(tree, id, 3)))
+			case CollapsedReference, ShortcutReference:
+				events = append(events, "label "+string(rawLabel(tree, id, 1)))
+			case InlineLink:
+			}
+		case List:
+			if lazyNumbering(tree, id) {
+				events = append(events, "lazy numbering")
+			}
+		}
+		if n.kind.class() != classContent {
+			continue
+		}
+		for len(b) > 0 {
+			r, size := decodeRune(b)
+			if r == '�' && !bytes.HasPrefix(b, []byte("�")) {
+				events = append(events, "invalid "+string(b[:size]))
+			}
+			b = b[size:]
+		}
+	}
+	return events
+}
+
+// rawLabel returns the bytes of the leaves of node id after its own bracket
+// first and before the next one, without prefix, Indent and Caret leaves, and
+// with LF line endings.
+func rawLabel(tree *Tree, id NodeID, first int) []byte {
+	var label []byte
+	brackets, nested := 0, uint32(0)
+	for i := uint32(id) + 1; i < tree.nodes[id].link && brackets <= first; i++ {
+		m := tree.nodes[i]
+		_, prefix := m.kind.owner()
+		switch {
+		case m.kind.class() == classStructure:
+			nested = max(nested, m.link)
+		case m.kind == Bracket && i >= nested:
+			brackets++
+		case brackets == first && !prefix && m.kind != Indent && m.kind != Caret:
+			label = append(label, tree.src[m.start:m.end]...)
+		}
+	}
+	return bytes.ReplaceAll(bytes.ReplaceAll(label, []byte("\r\n"), []byte("\n")), []byte("\r"), []byte("\n"))
+}
+
+// lazyNumbering reports whether list id is ordered, starts at 1, and has a
+// second item numbered 1.
+func lazyNumbering(tree *Tree, id NodeID) bool {
+	if start, ordered := tree.ListStart(id); !ordered || start != 1 {
+		return false
+	}
+	for i := tree.nodes[id+1].link; i < tree.nodes[id].link; i++ {
+		if tree.nodes[i].kind != ListItem {
+			continue
+		}
+		marker := tree.nodes[i+1]
+		j := marker.start
+		for isSpaceOrTab(tree.src[j]) {
+			j++
+		}
+		m, _ := parseListMarker(tree.src, j, marker.end)
+		return m.start == 1
+	}
+	return false
 }

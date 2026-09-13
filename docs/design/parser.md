@@ -1182,8 +1182,9 @@ require of it. Appendix B collects printer traps with byte bounds.
 - **Facts.** The printer reads facts only through accessors, and skips prefix
   leaves. It writes container prefixes from its own stack.
 - **Kept syntax.** Printer output is a function of the projection plus a named
-  set of kept syntax: escape and entity forms, raw label bytes, the lazy
-  numbering of an ordered list (appendix B, trap 11), and for each
+  set of kept syntax: escape and entity forms, raw label bytes, each NUL and
+  invalid UTF-8 sequence in a content leaf, the lazy numbering of an ordered
+  list (appendix B, trap 11), and for each
   dialect span its non-prefix bytes, the number of matched containers on each
   of its lines (so lazy lines stay lazy), and the blank lines before and after
   it. At stage 6, a `Kept(t)` event stream sits next to the projection, and the
