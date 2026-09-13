@@ -62,14 +62,18 @@ Kind 7 excludes these tag names only for an open tag.
 
 ## goldmark deviates, spec sections 4.3 and 4.7: a setext underline after link reference definitions alone is paragraph text
 
-goldmark gives a thematic break, as commonmark.js does. markfmt follows cmark
-(`../dialect.md`).
+goldmark gives a thematic break for `---`, as commonmark.js does, and an empty
+list item for `-`. markfmt follows cmark (`../dialect.md`).
 
 ```````````````````````````````` example
 [foo]: /url
 ---
+
+[bar]: /url
+-
 .
 <p>---</p>
+<p>-</p>
 ````````````````````````````````
 
 ## goldmark deviates, spec section 5.3: a blank line at the end of a code block in a list item leaves the list tight

@@ -92,6 +92,7 @@ func TestGoldmarkDiffers(t *testing.T) {
 		{"skips a paragraph after lists that end in an empty item two levels down", "* 0)   *  \n\n  0", "goldmark deviates, spec section 5.2: a blank line after an empty nested list item continues the outer list item"},
 		{"skips an open parenthesis before a backslash and a space", "[]((\\ )", "goldmark deviates, spec sections 4.7 and 6.3: a parenthesis in a destination is escaped or in a balanced pair"},
 		{"skips a control character in an unquoted value after a quoted value with >", "<A A='>' A=\x15>", "goldmark deviates, spec section 6.6: an unquoted attribute value takes ASCII control characters"},
+		{"skips a single dash after definitions alone", "[0]:0\n-", "goldmark deviates, spec sections 4.3 and 4.7: a setext underline after link reference definitions alone is paragraph text"},
 		{"skips a tab in the indentation after a list item prefix", "* 0\n  \t -", "goldmark deviates, spec sections 2.2 and 5.2: a tab after the prefix of a list item line stops at a column counted from the start of the line"},
 	}
 	for _, tt := range tests {
@@ -213,8 +214,8 @@ var goldmarkDeviations = []struct {
 		return angleDestinationLT.Match(t.src)
 	}},
 	{"goldmark deviates, spec sections 4.3 and 4.7: a setext underline after link reference definitions alone is paragraph text", func(t *Tree) bool {
-		// Only this rule gives a paragraph whose first line is a thematic
-		// break of "-".
+		// Only this rule gives a paragraph whose first line is "-", which
+		// goldmark reads as an empty list item, or a thematic break of "-".
 		for i, n := range t.nodes {
 			if n.kind != Paragraph {
 				continue
@@ -223,7 +224,7 @@ var goldmarkDeviations = []struct {
 			if end := bytes.IndexAny(line, "\r\n"); end >= 0 {
 				line = line[:end]
 			}
-			if line = bytes.Trim(line, " \t"); len(line) >= 3 && len(bytes.Trim(line, "-")) == 0 {
+			if line = bytes.Trim(line, " \t"); (len(line) == 1 || len(line) >= 3) && len(bytes.Trim(line, "-")) == 0 {
 				return true
 			}
 		}
