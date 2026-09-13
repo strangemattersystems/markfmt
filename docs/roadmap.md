@@ -126,6 +126,8 @@ CommonMark example 210. Our own parser makes this finding obsolete.
 | Design document at `docs/design/parser.md` | It is reviewed and versioned with the code. |
 | `grammar-differs.txt` also lists corpus examples where cmark and commonmark.js disagree | markfmt follows cmark (design 2). The named case holds the output of `cmark --unsafe`. commonmark.js regression 25: cmark 0.31.1 makes a list loose after a blank line in an HTML block. |
 | Full case folding table from Unicode `CaseFolding.txt` | Label matching needs Unicode full case folding (CM 540: `ẞ` matches `SS`). Go's `unicode` package has only simple folding. Design 15, commit 19. |
+| Differential fuzz budget: 1 CPU-hour at stage 5, 24 CPU-hours at stage 7 | The user wants no long run before the product is near v0.1. The long run must end before stage 7 deletes the differential test. |
+| No goldmark extensions in the differential test | goldmark's GFM extensions are not cmark-gfm: with them on, goldmark disagrees on 81 corpus examples with a GFM construct. The corpora and GitHub fixtures test GFM. Design 11.5. |
 | Canonical style by consensus | The style follows modern best practice across the major formatters and style guides, not personal preference. See Open decisions. |
 
 ## Open decisions
@@ -305,16 +307,19 @@ openers. `FuzzParse` and `FuzzEqual` ran 90 seconds each with no finding.
 ### Stage 5: differential fuzzing
 
 - [ ] `internal/markdown/differential_test.go` fuzzes our parser against
-  goldmark and compares test HTML. goldmark is a test-only requirement of the
-  root module until stage 7. No release happens before stage 7.
-- [ ] One predicate per row of Known goldmark deviations, so the fuzzer skips
-  known deviations.
+  goldmark v2.0.2 with no extensions and compares test HTML (design 11.5).
+  goldmark is a test-only requirement of the root module until stage 7. No
+  release happens before stage 7.
+- [ ] The fuzzer skips inputs in markfmt's grammar outside CommonMark: GFM,
+  GitHub footnotes and front matter.
+- [ ] One predicate per row of Known goldmark deviations that shows in HTML,
+  so the fuzzer skips known deviations.
 - [ ] Triage every disagreement against the spec text. Save each one as a
-  permanent case, marked "fixed in markfmt" or "goldmark deviates, spec
-  section X".
+  permanent case in `testdata/differential/cases.txt`, marked "fixed in
+  markfmt" or "goldmark deviates, spec section X".
 
-Gate: the agreed fuzz budget (proposal: 24 CPU-hours) finds no disagreement
-that has not been triaged.
+Gate: a `FuzzDifferential` run of 1 CPU-hour (workers × wall time) finds no
+disagreement that has not been triaged.
 
 ### Stage 6: printers on the new tree
 
@@ -339,7 +344,8 @@ Remove the differential test when all of these are true:
 - [ ] All corpora at 100%: every example passes, or is listed in a
   `grammar-differs.txt` and its named case passes. Every `failing.txt` is
   empty.
-- [ ] The stage 5 fuzz budget has run with every disagreement triaged.
+- [ ] A `FuzzDifferential` run of 24 CPU-hours finds no disagreement that
+  has not been triaged.
 - [ ] Every disagreement is a permanent case in `testdata`.
 
 Gate: `differential_test.go` is deleted and `go mod tidy` has run. No goldmark

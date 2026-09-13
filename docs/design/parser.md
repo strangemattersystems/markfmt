@@ -1097,11 +1097,49 @@ adds its set of `Dialect(row)` values to its Enter event. `Equal` requires:
 
 ### 11.5 Differential fuzzing (stage 5)
 
-- `internal/markdown/differential_test.go` fuzzes `Parse` plus the test renderer
-  against goldmark.
-- One predicate per row of the roadmap's "Known goldmark deviations", each
-  tested with its seed input. The fuzz function skips inputs a predicate
-  matches. A new triaged deviation adds a row and a predicate in one commit.
+- `internal/markdown/differential_test.go` holds `FuzzDifferential`. It
+  compares the test HTML of `Parse` with the HTML of goldmark v2.0.2, both
+  after `normalizeHTML`. goldmark runs with `html.WithUnsafe` and with no
+  extensions.
+- goldmark reads the input with LF line endings and a final line ending.
+  CommonMark gives both forms the same meaning (product rule 7), but goldmark
+  does not: rows 4 to 6 of the roadmap's "Known goldmark deviations". `Parse`
+  reads the input as written, so its line ending rules stay under test.
+- No goldmark extension is on. goldmark's tables, strikethrough, linkify and
+  footnotes are not cmark-gfm. With its table, strikethrough and task list
+  extensions on, goldmark disagrees on 81 corpus examples that have a GFM
+  construct (2026-09-13). The corpora and the GitHub fixtures test GFM,
+  GitHub footnotes and front matter (sections 11.2, 11.4).
+- `goldmarkDiffers` returns the reason to skip an input, or nothing. The fuzz
+  function skips an input that has a reason:
+  - markfmt grammar outside CommonMark: the tree has a Table, Strikethrough,
+    FootnoteDefinition, FootnoteReference, FrontMatter, extended Autolink or
+    task ListItem, or a Text or Delimiter leaf holds `~`. A `~` run can make
+    emphasis delimiters text with no Strikethrough node (section 6.4).
+  - A known goldmark deviation: one predicate per row that shows in HTML.
+    The rows about positions do not show in HTML and have no predicate.
+- Each disagreement becomes a case in `testdata/differential/cases.txt`, in
+  the `spec.txt` format, which runs as conformance. The section of a case
+  gives its verdict: `fixed in markfmt: RULE` or `goldmark deviates, spec
+  section X: RULE`. The expected HTML is the output of `cmark --unsafe`
+  0.31.1, or of cmark-gfm 0.29.0.gfm.13 with its extensions for a GFM rule.
+  `TestGoldmarkDiffers` checks each case: a predicate matches a "goldmark
+  deviates" case and goldmark still disagrees on it; no predicate matches a
+  "fixed in markfmt" case and goldmark agrees on it.
+- Triage uses the spec text first, then cmark 0.31.1 for core rules and
+  cmark-gfm 0.29.0.gfm.13 for GFM rules (section 2). A markfmt bug lands as a
+  failing test in the component that owns it, the fix and its case. A goldmark
+  deviation lands as its row, its predicate and its case, in one commit.
+- goldmark follows CommonMark. On the input of a `dialect.md` row it can give
+  GitHub's result, or commonmark.js's where cmark and commonmark.js disagree.
+  That disagreement is a goldmark deviation with the row's rule. Any other
+  result on a dialect row input is triaged like any disagreement.
+- The seeds are the examples of every corpus. The inputs that the fuzzer
+  writes to `testdata/fuzz/FuzzDifferential` are not committed: each one is a
+  case in `cases.txt`.
+- Budget: the stage 5 gate is a run of 1 CPU-hour (workers × wall time) with
+  no disagreement that is not triaged. A run of 24 CPU-hours is an exit
+  criterion of stage 7, before goldmark goes.
 - goldmark stays a test-only requirement in the root `go.mod` until stage 7
   deletes this file. It then appears in a consumer's `go.sum` and module list,
   but not in its build. No release happens before stage 7.
@@ -1285,6 +1323,47 @@ constructs, and checks each new linear-time mechanism with a mutation:
 45. The per-line indentation memo of section 5.1, which the long test of
     the gate showed missing.
 46. The stage 4 gate.
+
+Stage 5, differential fuzzing. Each commit that triages a disagreement adds its
+case to `testdata/differential/cases.txt` (section 11.5). A goldmark deviation
+adds its Known goldmark deviations row and its predicate. A markfmt bug adds a
+failing test in the component that owns it, then the fix. The known
+disagreements come from the corpora (2026-09-13):
+
+47. `[foo]: /url` then `---` follows cmark 0.31.1: the underline line is
+    paragraph text (`dialect.md`, github 10).
+48. This plan, section 11.5, and the stage 5 and stage 7 budgets in the
+    roadmap.
+49. `differential_test.go`: `FuzzDifferential` against goldmark v2.0.2 with no
+    extensions, goldmark's canonical input, and `goldmarkDiffers` with the
+    markfmt grammar reason, one subtest per construct. Seeds: the `commonmark`
+    corpus, where goldmark agrees on every example outside markfmt's grammar.
+    The Known goldmark deviations table records how the test handles each row.
+50. `testdata/differential` with its README, `failing.txt` and conformance,
+    and the case checks of `TestGoldmarkDiffers`. The first case:
+    `<!doctype html>` and `x<!x>`. goldmark needs an uppercase letter after
+    `<!`, as GitHub does (spec 4.6 kind 4, 6.6; `dialect.md`).
+51. The HTML block kind 6 tag list: goldmark's list has `meta`, which the spec
+    does not list (spec 4.6).
+52. A closing tag of `pre`, `script`, `style` or `textarea` starts kind 7, and
+    goldmark gives a paragraph (spec 4.6; cmark-gfm regression 17).
+53. An angle destination with an unescaped `<`, which goldmark accepts (spec
+    6.3; cmark-gfm regression 6).
+54. A setext underline after definitions alone: goldmark gives a thematic
+    break, as commonmark.js does (`dialect.md`).
+55. A blank line in a code or HTML block of a list item: goldmark makes the
+    list loose, as commonmark.js does, and markfmt follows cmark (spec 5.3;
+    commonmark.js regression 25).
+56. The info word `language-r`: goldmark writes the class
+    `language-language-r` (spec 4.5; commonmark.js regression 28).
+57. `[0]:`, a destination line, then a line that is not a title: goldmark
+    repeats the destination line as paragraph text (spec 4.7, CM 210).
+58. Seeds from every corpus.
+59. Fuzz findings, one commit each, until a run of 1 CPU-hour finds none. A
+    new dialect row needs a GitHub fixture, which shifts the IDs after it:
+    renumber `github/failing.txt` and `github/grammar-differs.txt`.
+60. The comment pass.
+61. The stage 5 gate.
 
 ## 16. Roadmap changes
 
