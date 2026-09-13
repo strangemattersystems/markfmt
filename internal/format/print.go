@@ -561,9 +561,10 @@ func (p *printer) thematicRun() []byte {
 
 // continuation sets the prefix and the indentation of a paragraph line whose
 // first written leaf is id. The line gets the prefixes of every open
-// container, unless it is lazy in the input and those prefixes are longer
-// than the line (appendix B, trap 2). It gets 4 columns of indentation when
-// its content would otherwise start a block (trap 1).
+// container, unless it is lazy in the input, those prefixes are longer than
+// the line (appendix B, trap 2), and it starts no block as a lazy line. It
+// gets 4 columns of indentation when its content would otherwise start a
+// block (trap 1).
 func (p *printer) continuation(id markdown.NodeID) {
 	line := bytes.TrimRight(p.tree.RestOfLine(id), " \t")
 	open, full := 0, 0
@@ -573,33 +574,13 @@ func (p *printer) continuation(id markdown.NodeID) {
 			full += len(p.stack[i].rest)
 		}
 	}
-	lazy := p.matched < open && full > len(line)
-	if !lazy {
-		p.matched = open
-	}
 	p.indent = -1
-	if !markdown.InterruptsParagraph(line, lazy) {
+	if p.matched < open && full > len(line) && !markdown.InterruptsParagraph(line, true) {
 		return
 	}
-	p.pad = 4
-	if !lazy {
-		return
-	}
-	// On a lazy line, spaces also match the list items and footnote
-	// definitions after the matched containers, up to a block quote.
-	n := 0
-	for i := range p.stack {
-		f := &p.stack[i]
-		if !f.container {
-			continue
-		}
-		if n >= p.matched {
-			if f.kind == markdown.BlockQuote {
-				break
-			}
-			p.pad += len(f.rest)
-		}
-		n++
+	p.matched = open
+	if markdown.InterruptsParagraph(line, false) {
+		p.pad = 4
 	}
 }
 
