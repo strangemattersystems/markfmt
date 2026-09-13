@@ -156,7 +156,7 @@ func (p *printer) enter(id markdown.NodeID, k markdown.Kind) {
 	parent := len(p.stack) - 1
 	f := frame{id: id, kind: k, span: p.spanAt(id)}
 	if parent >= 0 && isBlock(k) {
-		p.separate(parent, k, f.span)
+		p.separate(parent, id, k, f.span)
 	}
 	switch k {
 	case markdown.BlockQuote:
@@ -188,10 +188,10 @@ func (p *printer) spanAt(id markdown.NodeID) bool {
 	return len(p.spans) > 0 && p.spans[0] == id
 }
 
-// separate writes the blank lines before a block of kind k that starts in
+// separate writes the blank lines before block id of kind k, which starts in
 // the frame at index parent. span reports whether the block is a dialect
 // span.
-func (p *printer) separate(parent int, k markdown.Kind, span bool) {
+func (p *printer) separate(parent int, id markdown.NodeID, k markdown.Kind, span bool) {
 	f := &p.stack[parent]
 	if f.children > 0 {
 		n := 1
@@ -211,7 +211,7 @@ func (p *printer) separate(parent int, k markdown.Kind, span bool) {
 		case k == markdown.LinkReferenceDefinition && f.lastChild == markdown.LinkReferenceDefinition:
 			n = 0
 		}
-		if n == 0 && p.quoteGap != nil && p.quoteParent == parent {
+		if n == 0 && p.quoteGap != nil && p.quoteParent == parent && !markdown.InterruptsParagraph(p.firstLine(id), true) {
 			// Without a blank line in the block quote, the block would
 			// continue the quote's paragraph as a lazy line.
 			p.write(p.quoteGap)
@@ -224,6 +224,17 @@ func (p *printer) separate(parent int, k markdown.Kind, span bool) {
 	f.children++
 	f.lastChild = k
 	p.blanks, p.open, p.span, p.quoteGap = 0, false, false, nil
+}
+
+// firstLine returns the first line of block id from its first leaf after its
+// indentation, without trailing spaces and tabs.
+func (p *printer) firstLine(id markdown.NodeID) []byte {
+	t := p.tree
+	i := id + 1
+	for !t.Kind(i).Leaf() || t.Kind(i) == markdown.Indent {
+		i++
+	}
+	return bytes.Trim(t.RestOfLine(i), " \t")
 }
 
 // writePrefix writes the prefixes of the open containers at the start of a

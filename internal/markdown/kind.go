@@ -105,6 +105,12 @@ func (k Kind) class() class {
 	return classInvalid
 }
 
+// Leaf reports whether k is a leaf kind. Other kinds are structure kinds,
+// which group the nodes after them (design 3.4).
+func (k Kind) Leaf() bool {
+	return k.class() != classStructure
+}
+
 // owner returns the kind of the container that owns a prefix leaf of kind k,
 // and whether k is a prefix kind.
 func (k Kind) owner() (Kind, bool) {
