@@ -697,6 +697,9 @@ var goldmarkDeviations = []struct {
 	{"goldmark deviates, spec section 6.3: a link forms after any number of open brackets", func(t *Tree) bool {
 		return bytes.Count(t.src, []byte("[")) >= 1000
 	}},
+	{"goldmark deviates, spec section 6.3: whitespace separates a link title from an angle destination", func(t *Tree) bool {
+		return angleTitle.Match(t.src)
+	}},
 }
 
 var (
@@ -712,4 +715,5 @@ var (
 	spacedClosingTag     = regexp.MustCompile(`</[ \t\r\n]+[A-Za-z]`)
 	tabAfterTagName      = regexp.MustCompile(`</?[A-Za-z][A-Za-z0-9]*\t`)
 	tabAfterTag          = regexp.MustCompile(`<[A-Za-z/][^<>\r\n]*>[ \t]*\t[ \t]*(?:\r|\n|$)`)
+	angleTitle           = regexp.MustCompile(`\]\([ \t\r\n]*<[^<>\r\n]*>["'(]`)
 )
