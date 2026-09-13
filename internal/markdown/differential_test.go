@@ -81,6 +81,7 @@ func TestGoldmarkDiffers(t *testing.T) {
 		{"skips an extended autolink", "www.a.com <https://b.c>", "markfmt grammar: extended autolink"},
 		{"skips a task list item", "- [ ] a", "markfmt grammar: task list item"},
 		{"skips a tab after a nested list marker that a split tab starts", "* 0\n\t* \t*", "goldmark deviates, spec sections 2.2 and 5.2: a tab after the prefix of a list item line stops at a column counted from the start of the line"},
+		{"skips an open parenthesis after a nul in a destination", "[0]:0\x00(", "goldmark deviates, spec sections 4.7 and 6.3: a parenthesis in a destination is escaped or in a balanced pair"},
 		{"skips a tab in the indentation after a list item prefix", "* 0\n  \t -", "goldmark deviates, spec sections 2.2 and 5.2: a tab after the prefix of a list item line stops at a column counted from the start of the line"},
 	}
 	for _, tt := range tests {
@@ -261,7 +262,7 @@ var goldmarkDeviations = []struct {
 	}},
 	{"goldmark deviates, spec sections 4.7 and 6.3: a parenthesis in a destination is escaped or in a balanced pair", func(t *Tree) bool {
 		// A destination after "](" or "]:" whose open parentheses do not all
-		// close before a space or a line ending.
+		// close before a space, a tab, a line ending, VT or FF (design 8.4).
 		src := t.src
 		for i := 0; i+1 < len(src); i++ {
 			if src[i] != ']' || src[i+1] != '(' && src[i+1] != ':' {
@@ -272,7 +273,7 @@ var goldmarkDeviations = []struct {
 				j++
 			}
 			depth := 0
-			for ; j < len(src) && src[j] > ' ' && depth >= 0; j++ {
+			for ; j < len(src) && strings.IndexByte(" \t\n\r\v\f", src[j]) < 0 && depth >= 0; j++ {
 				switch src[j] {
 				case '\\':
 					j++
