@@ -6,8 +6,5 @@
 #   go test ./internal/markdown -run '^TestParse$/^commonmark-js-regression$' 2>&1 |
 #     sed -n 's/^ *--- FAIL: TestParse\/commonmark-js-regression\/commonmark-js-regression_example_\([0-9]*\) .*/\1/p' |
 #     sort -n
-18
-21
 25
 28
-30

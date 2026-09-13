@@ -69,7 +69,7 @@ func (c *comparer) equalKeys(ia, ib NodeID) bool {
 	a, b := c.a, c.b
 	//exhaustive:enforce
 	switch a.nodes[ia].kind {
-	case Document, BlockQuote, ListItem, Paragraph, ThematicBreak, SoftBreak, HardBreak, RawHTML, Emphasis, Strong, Link, Image:
+	case Document, BlockQuote, ListItem, Paragraph, ThematicBreak, SoftBreak, HardBreak, RawHTML, Emphasis, Strong:
 		return true
 	case FrontMatter:
 		return a.FrontMatterTOML(ia) == b.FrontMatterTOML(ib)
@@ -88,6 +88,16 @@ func (c *comparer) equalKeys(ia, ib NodeID) bool {
 		return equalPieces(&ra, &rb)
 	case Autolink:
 		return a.AutolinkEmail(ia) == b.AutolinkEmail(ib)
+	case Link, Image:
+		form := a.LinkForm(ia)
+		if form != b.LinkForm(ib) {
+			return false
+		}
+		if form == InlineLink {
+			return true
+		}
+		c.labelA, c.labelB = a.AppendLinkLabel(c.labelA[:0], ia), b.AppendLinkLabel(c.labelB[:0], ib)
+		return bytes.Equal(c.labelA, c.labelB)
 	case CodeSpan:
 		ra, rb := newCodeSpanReader(a, ia), newCodeSpanReader(b, ib)
 		return equalPieces(&ra, &rb)
@@ -151,7 +161,7 @@ func (p *projection) next() (event, bool) {
 		}
 		parent := nodes[p.stack[len(p.stack)-1]]
 		p.observe(n)
-		group, ok := p.group(n, parent.kind)
+		group, ok := p.group(n, parent)
 		if !ok {
 			continue
 		}
@@ -160,7 +170,7 @@ func (p *projection) next() (event, bool) {
 			if m.kind.class() == classStructure {
 				break
 			}
-			if g, ok := p.group(m, parent.kind); m.kind.class() == classContent && (!ok || g != group) {
+			if g, ok := p.group(m, parent); m.kind.class() == classContent && (!ok || g != group) {
 				break
 			}
 			p.observe(m)
@@ -176,22 +186,25 @@ func (p *projection) observe(m Node) {
 	}
 }
 
-// group returns the content group of leaf m in a node of kind parent, or
-// false when m gives no Content event: it is syntax, or its value is in its
-// parent's key (design 10.1, 10.3).
-func (p *projection) group(m Node, parent Kind) (Kind, bool) {
+// group returns the content group of leaf m in node parent, or false when m
+// gives no Content event: it is syntax, or its value is in a key (design
+// 10.1, 10.3).
+func (p *projection) group(m, parent Node) (Kind, bool) {
 	switch {
-	case m.kind.class() != classContent, parent == LinkReferenceDefinition && p.label:
+	case m.kind.class() != classContent, m.kind == LinkLabel, parent.kind == LinkReferenceDefinition && p.label:
 		return 0, false
 	case m.kind == Escape, m.kind == EntityRef:
 		return Text, true
 	case m.kind != VerbatimLineEnding:
 		return m.kind, true
-	case parent == FrontMatter:
+	case parent.kind == FrontMatter:
 		return FrontMatterText, true
-	case parent == RawHTML:
+	case parent.kind == RawHTML:
 		return HTMLText, true
-	case parent == LinkReferenceDefinition, parent == Link, parent == Image:
+	case (parent.kind == Link || parent.kind == Image) && LinkForm(parent.flags) == FullReference:
+		// A line ending in the label of a full reference.
+		return 0, false
+	case parent.kind == LinkReferenceDefinition, parent.kind == Link, parent.kind == Image:
 		return Title, true
 	}
 	return m.kind, true

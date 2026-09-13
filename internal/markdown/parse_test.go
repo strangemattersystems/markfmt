@@ -47,6 +47,9 @@ func TestParse(t *testing.T) {
 		{"gives an image with a link tail over lines", "![a](\n<b c>\n'd\ne')", "Document{Paragraph{Image{Bracket \"![\", Text \"a\", Bracket \"]\", Paren \"(\", LineEnding \"\\n\", AngleBracket \"<\", Destination \"b c\", AngleBracket \">\", LineEnding \"\\n\", TitleQuote \"'\", Title \"d\", VerbatimLineEnding \"\\n\", Title \"e\", TitleQuote \"'\", Paren \")\"}}}"},
 		{"makes the link openers before a link inactive", "[a [b](c) d](e)", "Document{Paragraph{Text \"[a \", Link{Bracket \"[\", Text \"b\", Bracket \"]\", Paren \"(\", Destination \"c\", Paren \")\"}, Text \" d](e)\"}}"},
 		{"gives text for a link tail that does not close", "[a](b c d) ![e]", "Document{Paragraph{Text \"[a](b c d) ![e]\"}}"},
+		{"gives full, collapsed and shortcut references", "[a][B]\n[b][]\n[b]\n\n[b]: /u", "Document{Paragraph{Link[1]{Bracket \"[\", Text \"a\", Bracket \"]\", Bracket \"[\", LinkLabel \"B\", Bracket \"]\"}, SoftBreak{LineEnding \"\\n\"}, Link[2]{Bracket \"[\", Text \"b\", Bracket \"]\", Bracket \"[\", Bracket \"]\"}, SoftBreak{LineEnding \"\\n\"}, Link[3]{Bracket \"[\", Text \"b\", Bracket \"]\"}, LineEnding \"\\n\"}, BlankLine \"\\n\", LinkReferenceDefinition{Bracket \"[\", LinkLabel \"b\", Bracket \"]\", Colon \":\", Whitespace \" \", Destination \"/u\"}}"},
+		{"gives no shortcut reference for a bracket text followed by a label", "[a][b][c]\n\n[c]: /u", "Document{Paragraph{Text \"[a]\", Link[1]{Bracket \"[\", Text \"b\", Bracket \"]\", Bracket \"[\", LinkLabel \"c\", Bracket \"]\"}, LineEnding \"\\n\"}, BlankLine \"\\n\", LinkReferenceDefinition{Bracket \"[\", LinkLabel \"c\", Bracket \"]\", Colon \":\", Whitespace \" \", Destination \"/u\"}}"},
+		{"gives a collapsed reference for a blank label, as cmark does", "![a\nb][ ]\n\n[a b]: /u", "Document{Paragraph{Image[2]{Bracket \"![\", Text \"a\", SoftBreak{LineEnding \"\\n\"}, Text \"b\", Bracket \"]\", Bracket \"[\", LinkLabel \" \", Bracket \"]\"}, LineEnding \"\\n\"}, BlankLine \"\\n\", LinkReferenceDefinition{Bracket \"[\", LinkLabel \"a b\", Bracket \"]\", Colon \":\", Whitespace \" \", Destination \"/u\"}}"},
 		{"gives no break at the end of a block", "a\\\n\n# b\\", `Document{Paragraph{Text "a\\", LineEnding "\n"}, BlankLine "\n", Heading{ATXMarker "#", Whitespace " ", Text "b\\"}}`},
 		{"gives breaks between setext heading lines", "a  \nb \n==", `Document{Heading{Text "a", HardBreak{HardBreakMarker "  ", LineEnding "\n"}, Text "b", TrailingSpace " ", LineEnding "\n", SetextUnderline "=="}}`},
 		{"gives the indentation of a first line", "   a", `Document{Paragraph{Indent "   ", Text "a"}}`},
@@ -120,7 +123,7 @@ func TestParse(t *testing.T) {
 		{"keeps a list tight at a blank line after its last item", "- a\n- b\n\n", "Document{List{ListItem{ListMarker@2 \"- \", Paragraph{Text \"a\", LineEnding \"\\n\"}}, ListItem{ListMarker@7 \"- \", Paragraph{Text \"b\", LineEnding \"\\n\"}, BlankLine \"\\n\"}}}"},
 		{"keeps a list tight at a blank line in fenced code", "- ```\n\n  ```\n- b", "Document{List{ListItem{ListMarker@2 \"- \", CodeBlock{FenceMarker \"```\", LineEnding \"\\n\", VerbatimLineEnding \"\\n\", ItemIndent@2 \"  \", FenceMarker \"```\", LineEnding \"\\n\"}}, ListItem{ListMarker@11 \"- \", Paragraph{Text \"b\"}}}}"},
 		{"makes only the list whose item has a blank line between children loose", "- a\n  - b\n\n    c\n- d", "Document{List{ListItem{ListMarker@2 \"- \", Paragraph{Text \"a\", LineEnding \"\\n\"}, ItemIndent@2 \"  \", List[1]{ListItem{ListMarker@9 \"- \", Paragraph{Text \"b\", LineEnding \"\\n\"}, BlankLine \"\\n\", ItemIndent@2 \"  \", ItemIndent@9 \"  \", Paragraph{Text \"c\", LineEnding \"\\n\"}}}}, ListItem{ListMarker@20 \"- \", Paragraph{Text \"d\"}}}}"},
-		{"gives a link reference definition", "[foo]: /url \"title\"\n\n[foo]", "Document{LinkReferenceDefinition{Bracket \"[\", LinkLabel \"foo\", Bracket \"]\", Colon \":\", Whitespace \" \", Destination \"/url\", Whitespace \" \", TitleQuote \"\\\"\", Title \"title\", TitleQuote \"\\\"\", LineEnding \"\\n\"}, BlankLine \"\\n\", Paragraph{Text \"[foo]\"}}"},
+		{"gives a link reference definition", "[foo]: /url \"title\"\n\n[foo]", "Document{LinkReferenceDefinition{Bracket \"[\", LinkLabel \"foo\", Bracket \"]\", Colon \":\", Whitespace \" \", Destination \"/url\", Whitespace \" \", TitleQuote \"\\\"\", Title \"title\", TitleQuote \"\\\"\", LineEnding \"\\n\"}, BlankLine \"\\n\", Paragraph{Link[3]{Bracket \"[\", Text \"foo\", Bracket \"]\"}}}"},
 		{"gives a link reference definition over several lines", "   [foo]: \n      /url  \n           'the title'  \n", "Document{LinkReferenceDefinition{Indent \"   \", Bracket \"[\", LinkLabel \"foo\", Bracket \"]\", Colon \":\", Whitespace \" \", LineEnding \"\\n\", Indent \"      \", Destination \"/url\", Whitespace \"  \", LineEnding \"\\n\", Indent \"           \", TitleQuote \"'\", Title \"the title\", TitleQuote \"'\", Whitespace \"  \", LineEnding \"\\n\"}}"},
 		{"gives a label over several lines and an angle destination", "[\nfoo\n]: <my url>\nbar", "Document{LinkReferenceDefinition{Bracket \"[\", VerbatimLineEnding \"\\n\", LinkLabel \"foo\", VerbatimLineEnding \"\\n\", Bracket \"]\", Colon \":\", Whitespace \" \", AngleBracket \"<\", Destination \"my url\", AngleBracket \">\", LineEnding \"\\n\"}, Paragraph{Text \"bar\"}}"},
 		{"gives a title over several lines", "[foo]: /url '\ntitle\n'", "Document{LinkReferenceDefinition{Bracket \"[\", LinkLabel \"foo\", Bracket \"]\", Colon \":\", Whitespace \" \", Destination \"/url\", Whitespace \" \", TitleQuote \"'\", VerbatimLineEnding \"\\n\", Title \"title\", VerbatimLineEnding \"\\n\", TitleQuote \"'\"}}"},
@@ -128,12 +131,12 @@ func TestParse(t *testing.T) {
 		{"rewinds a failed title to the end of the destination", "[foo]: /url\n\"title\" ok", "Document{LinkReferenceDefinition{Bracket \"[\", LinkLabel \"foo\", Bracket \"]\", Colon \":\", Whitespace \" \", Destination \"/url\", LineEnding \"\\n\"}, Paragraph{Text \"\\\"title\\\" ok\"}}"},
 		{"needs only spaces and tabs after a definition on its line", "[foo]: /url \"title\" ok\n\n[foo]: <bar>(baz)", "Document{Paragraph{Text \"[foo]: /url \\\"title\\\" ok\", LineEnding \"\\n\"}, BlankLine \"\\n\", Paragraph{Text \"[foo]: \", RawHTML{HTMLText \"<bar>\"}, Text \"(baz)\"}}"},
 		{"needs a label that is not blank and has no unescaped bracket", "[ ]: /u\n\n[a[b]: /u\n\n[a\\]b]: /u", "Document{Paragraph{Text \"[ ]: /u\", LineEnding \"\\n\"}, BlankLine \"\\n\", Paragraph{Text \"[a[b]: /u\", LineEnding \"\\n\"}, BlankLine \"\\n\", LinkReferenceDefinition{Bracket \"[\", LinkLabel \"a\\\\]b\", Bracket \"]\", Colon \":\", Whitespace \" \", Destination \"/u\"}}"},
-		{"needs balanced parentheses in a destination", "[a]: (b)c\n[a]: (b", "Document{LinkReferenceDefinition{Bracket \"[\", LinkLabel \"a\", Bracket \"]\", Colon \":\", Whitespace \" \", Destination \"(b)c\", LineEnding \"\\n\"}, Paragraph{Text \"[a]: (b\"}}"},
+		{"needs balanced parentheses in a destination", "[a]: (b)c\n[a]: (b", "Document{LinkReferenceDefinition{Bracket \"[\", LinkLabel \"a\", Bracket \"]\", Colon \":\", Whitespace \" \", Destination \"(b)c\", LineEnding \"\\n\"}, Paragraph{Link[3]{Bracket \"[\", Text \"a\", Bracket \"]\"}, Text \": (b\"}}"},
 		{"needs a destination", "[a]:\n\n[a]:", "Document{Paragraph{Text \"[a]:\", LineEnding \"\\n\"}, BlankLine \"\\n\", Paragraph{Text \"[a]:\"}}"},
 		{"gives several definitions before a paragraph", "[a]: /a\n[b]: /b\nc", "Document{LinkReferenceDefinition{Bracket \"[\", LinkLabel \"a\", Bracket \"]\", Colon \":\", Whitespace \" \", Destination \"/a\", LineEnding \"\\n\"}, LinkReferenceDefinition{Bracket \"[\", LinkLabel \"b\", Bracket \"]\", Colon \":\", Whitespace \" \", Destination \"/b\", LineEnding \"\\n\"}, Paragraph{Text \"c\"}}"},
 		{"gives a definition in a block quote the prefix leaves of its lines", "> [foo]:\n> /url\n> bar", "Document{BlockQuote{QuoteMarker@1 \"> \", LinkReferenceDefinition{Bracket \"[\", LinkLabel \"foo\", Bracket \"]\", Colon \":\", LineEnding \"\\n\", QuoteMarker@1 \"> \", Destination \"/url\", LineEnding \"\\n\"}, QuoteMarker@1 \"> \", Paragraph{Text \"bar\"}}}"},
 		{"parses definitions before a setext heading", "[foo]: /url\nbar\n===", "Document{LinkReferenceDefinition{Bracket \"[\", LinkLabel \"foo\", Bracket \"]\", Colon \":\", Whitespace \" \", Destination \"/url\", LineEnding \"\\n\"}, Heading{Text \"bar\", LineEnding \"\\n\", SetextUnderline \"===\"}}"},
-		{"dispatches an underline after definitions alone as if a paragraph were open", "[foo]: /url\n===\n[foo]\n\n[a]: /a\n-\n\n[b]: /b\n---", "Document{LinkReferenceDefinition{Bracket \"[\", LinkLabel \"foo\", Bracket \"]\", Colon \":\", Whitespace \" \", Destination \"/url\", LineEnding \"\\n\"}, Paragraph{Text \"===\", SoftBreak{LineEnding \"\\n\"}, Text \"[foo]\", LineEnding \"\\n\"}, BlankLine \"\\n\", LinkReferenceDefinition{Bracket \"[\", LinkLabel \"a\", Bracket \"]\", Colon \":\", Whitespace \" \", Destination \"/a\", LineEnding \"\\n\"}, Paragraph{Text \"-\", LineEnding \"\\n\"}, BlankLine \"\\n\", LinkReferenceDefinition{Bracket \"[\", LinkLabel \"b\", Bracket \"]\", Colon \":\", Whitespace \" \", Destination \"/b\", LineEnding \"\\n\"}, ThematicBreak{ThematicRun \"---\"}}"},
+		{"dispatches an underline after definitions alone as if a paragraph were open", "[foo]: /url\n===\n[foo]\n\n[a]: /a\n-\n\n[b]: /b\n---", "Document{LinkReferenceDefinition{Bracket \"[\", LinkLabel \"foo\", Bracket \"]\", Colon \":\", Whitespace \" \", Destination \"/url\", LineEnding \"\\n\"}, Paragraph{Text \"===\", SoftBreak{LineEnding \"\\n\"}, Link[3]{Bracket \"[\", Text \"foo\", Bracket \"]\"}, LineEnding \"\\n\"}, BlankLine \"\\n\", LinkReferenceDefinition{Bracket \"[\", LinkLabel \"a\", Bracket \"]\", Colon \":\", Whitespace \" \", Destination \"/a\", LineEnding \"\\n\"}, Paragraph{Text \"-\", LineEnding \"\\n\"}, BlankLine \"\\n\", LinkReferenceDefinition{Bracket \"[\", LinkLabel \"b\", Bracket \"]\", Colon \":\", Whitespace \" \", Destination \"/b\", LineEnding \"\\n\"}, ThematicBreak{ThematicRun \"---\"}}"},
 		{"takes a label of 999 characters", "[" + strings.Repeat("é", 999) + "]: /u", "Document{LinkReferenceDefinition{Bracket \"[\", LinkLabel \"" + strings.Repeat("é", 999) + "\", Bracket \"]\", Colon \":\", Whitespace \" \", Destination \"/u\"}}"},
 		{"rejects a label of 1000 characters", "[" + strings.Repeat("a", 1000) + "]: /u", "Document{Paragraph{Text \"[" + strings.Repeat("a", 1000) + "]: /u\"}}"},
 		{"gives front matter", "---\na: 1\n\n  \n---  \nb", "Document{FrontMatter{FrontMatterFence \"---\", LineEnding \"\\n\", FrontMatterText \"a: 1\", VerbatimLineEnding \"\\n\", VerbatimLineEnding \"\\n\", FrontMatterText \"  \", VerbatimLineEnding \"\\n\", FrontMatterFence \"---\", Whitespace \"  \", LineEnding \"\\n\"}, Paragraph{Text \"b\"}}"},
@@ -356,6 +359,23 @@ var pathologicalInputs = []struct {
 	}},
 	{"parenthesized titles that do not close", func(n int) []byte {
 		return []byte(strings.Repeat("[ (](", n/5))
+	}},
+	{"nested brackets with a definition", func(n int) []byte {
+		return []byte(strings.Repeat("[", n/2) + "b" + strings.Repeat("]", n/2) + "\n\n[a]: u")
+	}},
+	{"nested brackets of 499 with a definition", func(n int) []byte {
+		return []byte(strings.Repeat(strings.Repeat("[", 499)+"b"+strings.Repeat("]", 499)+" ", n/1000) + "\n\n[a]: u")
+	}},
+	{"definitions and references", func(n int) []byte {
+		var b []byte
+		for i := 0; len(b) < n/2; i++ {
+			b = fmt.Appendf(b, "[%d]: u\n", i)
+		}
+		b = append(b, '\n')
+		for i := 0; len(b) < n; i++ {
+			b = fmt.Appendf(b, "[%d] [x%d] ", i, i)
+		}
+		return b
 	}},
 	{"backtick runs of every length", func(n int) []byte {
 		var b []byte
@@ -629,6 +649,52 @@ func hasInlineHTML(html string) bool {
 		}
 	}
 	return false
+}
+
+func TestDefinitions_Add(t *testing.T) {
+	t.Parallel()
+
+	t.Run("panics on a label that pass 1 did not find", func(t *testing.T) {
+		t.Parallel()
+
+		var d definitions
+		d.add([]byte("a"), true)
+		defer func() {
+			if recover() == nil {
+				t.Fatal("add did not panic")
+			}
+		}()
+		d.add([]byte("b"), false)
+	})
+
+	t.Run("panics when pass 2 finds more definitions", func(t *testing.T) {
+		t.Parallel()
+
+		var d definitions
+		defer func() {
+			if recover() == nil {
+				t.Fatal("add did not panic")
+			}
+		}()
+		d.add([]byte("a"), false)
+	})
+}
+
+func TestDefinitions_Finish(t *testing.T) {
+	t.Parallel()
+
+	t.Run("panics when pass 2 finds fewer definitions", func(t *testing.T) {
+		t.Parallel()
+
+		var d definitions
+		d.add([]byte("a"), true)
+		defer func() {
+			if recover() == nil {
+				t.Fatal("finish did not panic")
+			}
+		}()
+		d.finish()
+	})
 }
 
 func FuzzParse(f *testing.F) {

@@ -110,6 +110,8 @@ func (k Kind) validFlags(f uint8) bool {
 		return 1 <= f && f <= 7
 	case List:
 		return f <= 1
+	case Link, Image:
+		return f <= 3
 	}
 	return f == 0
 }

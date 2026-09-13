@@ -41,3 +41,4 @@ emphasis-nesting different emphasis around strong emphasis is not strong emphasi
 link-title-quote equal the quotes of a title are not content (CM 505)
 link-destination-angle equal the angle brackets of a destination are not content (CM 492, 580)
 link-tail-line-ending equal whitespace in a link tail is not content (CM 510)
+reference-label-case equal a reference label matches after case folding (CM 539)

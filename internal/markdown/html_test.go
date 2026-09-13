@@ -39,6 +39,7 @@ func TestRenderHTML(t *testing.T) {
 		{"writes raw html", "a <b\n c='d'>e<!---->", "<p>a <b\nc='d'>e<!----></p>\n"},
 		{"writes emphasis", "*a* __b__", "<p><em>a</em> <strong>b</strong></p>\n"},
 		{"writes links and images", "[a *b*](/u&amp; \"t\\\"\") ![c *d* `e`\n<f>](g 'h')", "<p><a href=\"/u&amp;\" title=\"t&quot;\">a <em>b</em></a> <img src=\"g\" alt=\"c d e &lt;f&gt;\" title=\"h\" /></p>\n"},
+		{"writes reference links", "[a][B] [b][] [b] ![b]\n\n[B]: /u \"t\"\n[b]: /v", "<p><a href=\"/u\" title=\"t\">a</a> <a href=\"/u\" title=\"t\">b</a> <a href=\"/u\" title=\"t\">b</a> <img src=\"/u\" alt=\"b\" title=\"t\" /></p>\n"},
 		{"writes line breaks", "a\\\nb  \nc \nd  ", "<p>a<br />\nb<br />\nc\nd</p>\n"},
 		{"writes paragraphs", "\xEF\xBB\xBFa\r\n b\n \nc", "<p>a\nb</p>\n<p>c</p>\n"},
 	}
@@ -99,8 +100,25 @@ var htmlEscaper = strings.NewReplacer("&", "&amp;", "<", "&lt;", ">", "&gt;", `"
 // renderHTML renders tree as HTML, as cmark does, for conformance tests.
 func renderHTML(tree *Tree) string {
 	var b strings.Builder
-	var open []NodeID // entered interior nodes, innermost last
-	var plain NodeID  // the image whose alt text is being written, or 0
+	var open []NodeID               // entered interior nodes, innermost last
+	var plain NodeID                // the image whose alt text is being written, or 0
+	defs := make(map[string]NodeID) // the first definition of each label
+	for i, n := range tree.nodes {
+		if n.kind != LinkReferenceDefinition {
+			continue
+		}
+		if label := string(tree.AppendLabel(nil, NodeID(i))); defs[label] == 0 {
+			defs[label] = NodeID(i)
+		}
+	}
+	// target returns the node that holds the destination and title of link
+	// or image id.
+	target := func(id NodeID) NodeID {
+		if tree.LinkForm(id) == InlineLink {
+			return id
+		}
+		return defs[string(tree.AppendLinkLabel(nil, id))]
+	}
 	c := tree.Walk()
 	for e, ok := c.Next(); ok; e, ok = c.Next() {
 		n := tree.nodes[e.ID]
@@ -111,7 +129,7 @@ func renderHTML(tree *Tree) string {
 			// Alt text is plain text, as cmark writes it.
 			switch {
 			case e.Exit && e.ID == plain:
-				b.WriteString(`"` + titleAttr(tree, e.ID) + " />")
+				b.WriteString(`"` + titleAttr(tree, target(e.ID)) + " />")
 				plain = 0
 			case e.Exit:
 			case n.kind == Text, n.kind == Escape, n.kind == EntityRef, n.kind == AutolinkText:
@@ -200,9 +218,9 @@ func renderHTML(tree *Tree) string {
 				b.WriteString("</a>")
 				break
 			}
-			b.WriteString(`<a href="` + escapeHref(string(tree.AppendDestination(nil, e.ID))) + `"` + titleAttr(tree, e.ID) + ">")
+			b.WriteString(`<a href="` + escapeHref(string(tree.AppendDestination(nil, target(e.ID)))) + `"` + titleAttr(tree, target(e.ID)) + ">")
 		case Image:
-			b.WriteString(`<img src="` + escapeHref(string(tree.AppendDestination(nil, e.ID))) + `" alt="`)
+			b.WriteString(`<img src="` + escapeHref(string(tree.AppendDestination(nil, target(e.ID)))) + `" alt="`)
 			plain = e.ID
 		case Emphasis:
 			b.WriteString(inlineTag("em", e.Exit))

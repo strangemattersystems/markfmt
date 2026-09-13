@@ -13,9 +13,12 @@ func (p *blockParser) commitDefinitions() bool {
 			break
 		}
 		p.appendPendingPrefix(p.pending[k])
+		id := NodeID(p.b.next())
 		p.b.open(LinkReferenceDefinition)
 		s.emit()
 		p.b.close()
+		p.label = p.b.tree.AppendLabel(p.label[:0], id)
+		p.defs.add(p.label, p.pass1)
 		k += s.k + 1
 	}
 	p.pending = p.pending[k:]
@@ -33,10 +36,8 @@ func (t *Tree) AppendLabel(dst []byte, id NodeID) []byte {
 			if brackets++; brackets == 2 {
 				return f.dst
 			}
-		case brackets == 1 && m.kind == LinkLabel:
-			f.write(t.src[m.start:m.end])
-		case brackets == 1 && m.kind == VerbatimLineEnding:
-			f.write([]byte{'\n'})
+		case brackets == 1:
+			f.leaf(m.kind, t.src[m.start:m.end])
 		}
 	}
 	return f.dst
@@ -46,7 +47,7 @@ func (t *Tree) AppendLabel(dst []byte, id NodeID) []byte {
 // start of the lines: a label, ':', a destination and an optional title, then
 // the end of a line. It reports whether there is one.
 func (s *inlineParser) definition() bool {
-	if !s.linkLabel() {
+	if found, blank := s.linkLabel(); !found || blank {
 		return false
 	}
 	if _, ok := s.expect(pos{s.k, s.end()}, ':'); !ok {

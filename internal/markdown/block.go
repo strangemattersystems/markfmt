@@ -25,6 +25,9 @@ type blockParser struct {
 	breakMemo uint32 // a thematic break scan from a marker of the line before this offset fails
 
 	inline inlineParser
+	defs   *definitions
+	pass1  bool   // the block phase of pass 1, which skips the inline phase (design 7.1)
+	label  []byte // a normalized label
 
 	pending []pendingLine // lines of the open leaf block that are not appended yet (design 5.3)
 	arena   []prefixLeaf  // prefix leaves of the pending lines
@@ -264,7 +267,11 @@ func (p *blockParser) startLeaf(first uint32, indent, matched int) bool {
 		p.b.leafIf(Indent, first)
 		p.b.leaf(ATXMarker, h.markerEnd)
 		p.b.leafIf(Whitespace, h.textStart)
-		p.inline.inlines([]pendingLine{{rest: line{start: h.textStart, end: h.textEnd, eol: h.textEnd}}})
+		if p.pass1 {
+			p.b.leafIf(Text, h.textEnd)
+		} else {
+			p.inline.inlines([]pendingLine{{rest: line{start: h.textStart, end: h.textEnd, eol: h.textEnd}}})
+		}
 		p.b.leafIf(Whitespace, h.closeStart)
 		p.b.leafIf(ATXClose, h.closeEnd)
 		p.b.leafIf(Whitespace, l.end)
@@ -439,9 +446,14 @@ func (p *blockParser) addPending() {
 func (p *blockParser) appendParagraph(k Kind) {
 	p.appendPendingPrefix(p.pending[0])
 	p.b.open(k)
-	p.inline.arena = p.arena
-	p.inline.inlines(p.pending)
-	p.b.leafIf(LineEnding, p.pending[len(p.pending)-1].rest.eol)
+	last := p.pending[len(p.pending)-1].rest
+	if p.pass1 {
+		p.b.leaf(Text, last.end)
+	} else {
+		p.inline.arena = p.arena
+		p.inline.inlines(p.pending)
+	}
+	p.b.leafIf(LineEnding, last.eol)
 	p.clearPending()
 }
 

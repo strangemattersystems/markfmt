@@ -177,6 +177,19 @@ func (f *labelFolder) write(b []byte) {
 	}
 }
 
+// leaf writes the label bytes of a leaf of kind k with bytes b (design 6.7):
+// none for a prefix or Indent leaf, a line feed for a line ending, and b for
+// any other leaf.
+func (f *labelFolder) leaf(k Kind, b []byte) {
+	switch _, prefix := k.owner(); {
+	case prefix, k == Indent:
+	case k == LineEnding, k == VerbatimLineEnding:
+		f.write(lineFeed)
+	default:
+		f.write(b)
+	}
+}
+
 // isASCIIPunct reports whether c is ASCII punctuation, which a backslash
 // escapes.
 func isASCIIPunct(c byte) bool {

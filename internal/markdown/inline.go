@@ -6,8 +6,10 @@ package markdown
 type inlineParser struct {
 	b     *builder
 	src   []byte
+	defs  *definitions
 	lines []pendingLine
 	arena []prefixLeaf
+	label []byte // a normalized label
 
 	pieces     []piece
 	k          int    // the line being scanned
@@ -36,10 +38,11 @@ type pos struct {
 type piece struct {
 	kind  Kind
 	virt  uint8
-	open  Kind // the span that opens before the leaf, or Document for none
-	close bool // the innermost span closes after the leaf
-	join  bool // the leaf of the piece before extends over this piece
-	held  bool // a later decision can change the piece, so no text joins it while scanning
+	open  Kind  // the span that opens before the leaf, or Document for none
+	flags uint8 // the flags of that span
+	close bool  // the innermost span closes after the leaf
+	join  bool  // the leaf of the piece before extends over this piece
+	held  bool  // a later decision can change the piece, so no text joins it while scanning
 	end   uint32
 	owner uint32 // the owner of a prefix leaf
 }
@@ -289,6 +292,9 @@ func (s *inlineParser) emit() {
 	for j, x := range s.pieces {
 		if x.open != Document {
 			s.b.open(x.open)
+			if x.flags != 0 {
+				s.b.flag(x.flags)
+			}
 		}
 		if j+1 < len(s.pieces) {
 			if y := s.pieces[j+1]; !x.close && y.open == Document && (y.join || x.kind == Text && y.kind == Text) {

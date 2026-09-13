@@ -35,12 +35,23 @@ func (s *inlineParser) closeBracket(i, end uint32) {
 	if b.image || b.seq > s.linkFormed {
 		m := s.mark()
 		s.push(piece{kind: Bracket, end: i + 1})
-		if i+1 < end && s.src[i+1] == '(' && s.linkTail() {
+		form, ok := InlineLink, false
+		if i+1 < end && s.src[i+1] == '(' {
+			tail := s.mark()
+			if ok = s.linkTail(); !ok {
+				s.reset(tail)
+			}
+		}
+		if !ok {
+			form, ok = s.reference(b)
+		}
+		if ok {
 			kind := Image
 			if !b.image {
 				kind, s.linkFormed = Link, b.seq
 			}
-			s.pieces[b.piece].kind, s.pieces[b.piece].open = Bracket, kind
+			opener := &s.pieces[b.piece]
+			opener.kind, opener.open, opener.flags = Bracket, kind, uint8(form)
 			s.pieces[len(s.pieces)-1].close = true
 			s.processEmphasis(b.bottom)
 			return
@@ -48,6 +59,113 @@ func (s *inlineParser) closeBracket(i, end uint32) {
 		s.reset(m)
 	}
 	s.text(i + 1)
+}
+
+// reference pushes the label of the reference link or image that the last
+// piece, a ']', closes for opener b, and returns its form: a full reference
+// whose label is defined, or a collapsed or shortcut reference whose bracket
+// text is a defined label (CM 527 to 571). A bracket text followed by a label
+// that is not blank is never a shortcut reference (CM 569). A blank label
+// makes a collapsed reference, as cmark reads it. With no definitions, no
+// lookup runs.
+func (s *inlineParser) reference(b bracket) (LinkForm, bool) {
+	if len(s.defs.labels) == 0 {
+		return InlineLink, false
+	}
+	closer := len(s.pieces) - 1
+	m := s.mark()
+	form := CollapsedReference
+	switch found, blank := s.linkLabel(); {
+	case found && !blank:
+		return FullReference, s.defined(m.pieces+1, len(s.pieces)-1)
+	case !found:
+		s.reset(m)
+		form = ShortcutReference
+	}
+	// A bracket text with an unescaped bracket is not a label, and a bracket
+	// pushed after the opener shows one in O(1) (CM 546 to 548).
+	return form, b.seq == s.seq && s.defined(b.piece+1, closer)
+}
+
+// defined reports whether the label bytes of the pieces from index from to
+// index to, normalized, are a defined label. The label cap is checked before
+// the label is read: at most 999 bytes, or at most 3,996 bytes and 999
+// characters (design 6.7).
+func (s *inlineParser) defined(from, to int) bool {
+	size := 0
+	for j := from; j < to; j++ {
+		switch k := s.pieces[j].kind; k {
+		case Indent:
+		case LineEnding, VerbatimLineEnding:
+			size++
+		default:
+			if _, prefix := k.owner(); !prefix {
+				size += int(s.pieces[j].end - s.startOf(j))
+			}
+		}
+	}
+	if size > 3996 {
+		return false
+	}
+	if size > 999 {
+		chars := 0
+		for j := from; j < to; j++ {
+			for _, c := range s.src[s.startOf(j):s.pieces[j].end] {
+				if c&0xC0 != 0x80 {
+					chars++
+				}
+			}
+		}
+		if chars > 999 {
+			return false
+		}
+	}
+	f := labelFolder{dst: s.label[:0]}
+	for j := from; j < to; j++ {
+		f.leaf(s.pieces[j].kind, s.src[s.startOf(j):s.pieces[j].end])
+	}
+	s.label = f.dst
+	return len(f.dst) > 0 && s.defs.defined[string(f.dst)]
+}
+
+// LinkForm is the form of a link or an image (design 10.2).
+type LinkForm uint8
+
+const (
+	InlineLink LinkForm = iota
+	FullReference
+	CollapsedReference
+	ShortcutReference
+)
+
+// LinkForm returns the form of link or image id.
+func (t *Tree) LinkForm(id NodeID) LinkForm {
+	return LinkForm(t.nodes[id].flags)
+}
+
+// AppendLinkLabel appends the normalized label of reference link or image id
+// to dst: the label of a full reference, or the bracket text of a collapsed
+// or shortcut reference (design 6.7).
+func (t *Tree) AppendLinkLabel(dst []byte, id NodeID) []byte {
+	f := labelFolder{dst: dst, start: len(dst)}
+	first := 1 // the label follows this many of the link's own brackets
+	if t.LinkForm(id) == FullReference {
+		first = 3
+	}
+	brackets, nested := 0, uint32(0)
+	for i := uint32(id) + 1; i < t.nodes[id].link; i++ {
+		switch m := t.nodes[i]; {
+		case m.kind.class() == classStructure:
+			nested = max(nested, m.link)
+		case m.kind == Bracket && i >= nested:
+			if brackets++; brackets > first {
+				return f.dst
+			}
+		case brackets == first:
+			f.leaf(m.kind, t.src[m.start:m.end])
+		}
+	}
+	return f.dst
 }
 
 // linkTail pushes the inline link tail at the position: '(', optional
@@ -77,20 +195,22 @@ func (s *inlineParser) linkTail() bool {
 
 // linkLabel pushes the link label at the position: '[', up to 999 characters
 // with no unescaped bracket and at least one that is not a space, tab or line
-// ending, and ']' (design 6.7). It reports whether there is one.
-func (s *inlineParser) linkLabel() bool {
+// ending, and ']' (design 6.7). It reports whether there is one, and whether
+// it is blank: it has only spaces, tabs and line endings.
+func (s *inlineParser) linkLabel() (found, blank bool) {
 	j := s.end()
 	if c, ok := s.byteAt(pos{s.k, j}); !ok || c != '[' {
-		return false
+		return false, false
 	}
 	s.push(piece{kind: Bracket, end: j + 1})
-	chars, blank := 0, true
+	chars := 0
+	blank = true
 	for j++; chars <= 999; j++ {
 		end := s.lines[s.k].rest.end
 		if j == end {
 			s.pushIf(LinkLabel, j)
 			if !s.nextLine(VerbatimLineEnding) {
-				return false
+				return false, false
 			}
 			j, chars = s.end()-1, chars+1
 			continue
@@ -99,9 +219,9 @@ func (s *inlineParser) linkLabel() bool {
 		case c == ']':
 			s.pushIf(LinkLabel, j)
 			s.push(piece{kind: Bracket, end: j + 1})
-			return !blank
+			return true, blank
 		case c == '[':
-			return false
+			return false, false
 		case c == '\\' && j+1 < end && isASCIIPunct(s.src[j+1]):
 			j++
 			chars++
@@ -113,7 +233,7 @@ func (s *inlineParser) linkLabel() bool {
 			chars++
 		}
 	}
-	return false
+	return false, false
 }
 
 // linkDestination pushes the link destination at the position: '<',

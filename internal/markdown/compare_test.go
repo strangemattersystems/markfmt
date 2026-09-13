@@ -70,6 +70,22 @@ func TestEqual(t *testing.T) {
 		}
 	})
 
+	t.Run("rejects links of different forms", func(t *testing.T) {
+		t.Parallel()
+
+		// No pair holds these cases: the forms render equal test HTML, but the
+		// form is in the key of a link (design 8.4).
+		for _, pair := range [][2]string{
+			{"[a](/u)\n\n[a]: /u", "[a]\n\n[a]: /u"},
+			{"[a][]\n\n[a]: /u", "[a]\n\n[a]: /u"},
+			{"[a][a]\n\n[a]: /u", "[a][]\n\n[a]: /u"},
+		} {
+			if err := Equal(Parse([]byte(pair[0])), Parse([]byte(pair[1]))); err == nil {
+				t.Errorf("Equal of %q and %q = nil, want a difference", pair[0], pair[1])
+			}
+		}
+	})
+
 	t.Run("lists every pair", func(t *testing.T) {
 		t.Parallel()
 
@@ -118,6 +134,7 @@ func FuzzEqual(f *testing.F) {
 		"a <b\n  c='d'> <!-- e -->\n",
 		"*a* __b__ ***c*** _d*\n",
 		"[a *b*](<c> \"d\") ![e](f\n'g')\n",
+		"[a][Bc] [b][] ![c]\n\n[b]: /u\n[bc]: /v\n[c]: /w\n",
 	} {
 		for op := range byte(mutations) {
 			f.Add([]byte(src), op)
@@ -140,14 +157,15 @@ func FuzzEqual(f *testing.F) {
 	})
 }
 
-const mutations = 12
+const mutations = 13
 
 // mutateSyntax returns the source of tree with one kind of block syntax
 // changed everywhere, chosen by op: bullet characters, line endings, ordered
 // delimiters, fence characters, the number of blank lines, the space after a
 // block quote marker, trailing spaces, the backslash of escapes, entity
 // references as their characters, the length of code span fences, the
-// emphasis character, or the quotes of titles (design 10.5). A mutation may change meaning.
+// emphasis character, the quotes of titles, or the case of labels (design
+// 10.5). A mutation may change meaning.
 func mutateSyntax(tree *Tree, op byte) []byte {
 	var out []byte
 	for i, n := range tree.nodes {
@@ -207,6 +225,10 @@ func mutateSyntax(tree *Tree, op byte) []byte {
 		case 11:
 			if n.kind == TitleQuote {
 				b = swapBytes(b, "\"'", "'\"")
+			}
+		case 12:
+			if n.kind == LinkLabel {
+				b = bytes.ToUpper(b)
 			}
 		}
 		out = append(out, b...)
