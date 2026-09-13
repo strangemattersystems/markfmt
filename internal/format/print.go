@@ -22,7 +22,8 @@ type printer struct {
 
 	layout markdown.Layout
 	spans  []markdown.NodeID // the dialect spans that the walk has not passed
-	stack  []frame           // the open structure nodes, the document first
+	lazy   map[markdown.NodeID]bool
+	stack  []frame // the open structure nodes, the document first
 
 	lineStart bool          // the output is at the start of a line
 	inputLine bool          // the next leaf starts a line of the input
@@ -156,6 +157,7 @@ func (p *printer) trimSpaces(start int) {
 func (p *printer) document() {
 	t := p.tree
 	p.layout, p.spans = t.Layout(), t.DialectSpans()
+	p.lazy = p.lazyItems()
 	p.lineStart, p.inputLine, p.indent = true, true, -1
 	c := t.Walk()
 	for e, ok := c.Next(); ok; e, ok = c.Next() {
@@ -517,7 +519,13 @@ func (p *printer) listMarker(f *frame, id markdown.NodeID, start int) {
 		}
 		f.marker = append(strconv.AppendInt(nil, int64(min(n, 999999999)), 10), delim)
 	}
-	padding := max(list.minIndent-len(f.marker), 1)
+	minIndent := list.minIndent
+	if p.lazy[f.id] {
+		// A lazy line of a dialect span keeps its indentation, so the item
+		// continues on its input columns at least.
+		minIndent = max(minIndent, f.indent)
+	}
+	padding := max(minIndent-len(f.marker), 1)
 	if padding > 4 {
 		// No padding lets the item continue on so many columns: the item keeps
 		// its indentation, marker and padding.
@@ -594,6 +602,53 @@ func (p *printer) sourceMarker(f *frame, id markdown.NodeID, start int) []byte {
 	}
 	chars := bytes.TrimRight(raw[i:], " \t")
 	return append(append(bytes.Clone(spaces[:lead-start]), chars...), spaces[:max(f.indent-(lead-start)-len(chars), 1)]...)
+}
+
+// lazyItems returns the list items that are the first container that a line
+// of a dialect span does not match.
+func (p *printer) lazyItems() map[markdown.NodeID]bool {
+	t := p.tree
+	if len(p.spans) == 0 {
+		return nil
+	}
+	items := map[markdown.NodeID]bool{}
+	layout, spans := t.Layout(), p.spans
+	var open, inSpan []markdown.NodeID
+	lineStart := true
+	c := t.Walk()
+	for e, ok := c.Next(); ok; e, ok = c.Next() {
+		k := t.Kind(e.ID)
+		switch {
+		case e.Exit:
+			if len(open) > 0 && open[len(open)-1] == e.ID {
+				open = open[:len(open)-1]
+			}
+			if len(inSpan) > 0 && inSpan[len(inSpan)-1] == e.ID {
+				inSpan = inSpan[:len(inSpan)-1]
+			}
+			continue
+		case k.Leaf():
+			if lineStart && len(inSpan) > 0 {
+				if matched, _ := layout.Matched(e.ID); matched < len(open) && t.Kind(open[matched]) == markdown.ListItem {
+					items[open[matched]] = true
+				}
+			}
+			layout.Visit(e.ID)
+			raw := t.Raw(e.ID)
+			lineStart = raw[len(raw)-1] == '\n' || raw[len(raw)-1] == '\r'
+			continue
+		case k == markdown.BlockQuote || k == markdown.ListItem || k == markdown.FootnoteDefinition:
+			open = append(open, e.ID)
+		}
+		layout.Visit(e.ID)
+		for len(spans) > 0 && spans[0] < e.ID {
+			spans = spans[1:]
+		}
+		if len(spans) > 0 && spans[0] == e.ID {
+			inSpan = append(inSpan, e.ID)
+		}
+	}
+	return items
 }
 
 // indentAfter returns the columns of indentation of the first line of the
