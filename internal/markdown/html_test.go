@@ -25,6 +25,7 @@ func TestRenderHTML(t *testing.T) {
 		{"writes headings", "## a\n", "<h2>a</h2>\n"},
 		{"writes indented code", "    <a>\n\n     b", "<pre><code>&lt;a&gt;\n\n b\n</code></pre>\n"},
 		{"writes fenced code", "```a b\n<\n```", "<pre><code class=\"language-a\">&lt;\n</code></pre>\n"},
+		{"writes decoded info strings", "~~~a\\+b&ouml;\x00 c\nx\n~~~", "<pre><code class=\"language-a+bö\ufffd\">x\n</code></pre>\n"},
 		{"writes html blocks", "<div>\n  <a>\n", "<div>\n  <a>\n"},
 		{"writes block quotes", "> a\n", "<blockquote>\n<p>a</p>\n</blockquote>\n"},
 		{"writes tight lists", "- a\n- b\n", "<ul>\n<li>a</li>\n<li>b</li>\n</ul>\n"},

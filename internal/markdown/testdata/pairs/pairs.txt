@@ -26,3 +26,5 @@ trailing-space equal spaces before a soft break or at the end of a paragraph are
 escape equal an escaped character is the character (CM 12)
 replacement-character equal NUL and invalid UTF-8 are U+FFFD (design 6.7, 8.4)
 entity-reference equal an entity or numeric character reference is its characters (CM 25, 26, 27)
+definition-escape equal escapes and entity references in a destination and a title are their characters (CM 23, 33)
+info-string-escape equal escapes and entity references in an info string are their characters (CM 24, 34)

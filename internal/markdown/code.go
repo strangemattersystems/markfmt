@@ -136,22 +136,23 @@ func (r *verbatimReader) next() []byte {
 	return nil
 }
 
-// AppendInfo appends the info string of code block id to dst.
+// AppendInfo appends the value of the info string of code block id to dst.
 func (t *Tree) AppendInfo(dst []byte, id NodeID) []byte {
-	return append(dst, t.infoString(id)...)
+	r := t.infoReader(id)
+	return appendPieces(dst, &r)
 }
 
-// infoString returns the source bytes of the info string of code block id,
-// or nil when it has none.
-func (t *Tree) infoString(id NodeID) []byte {
+// infoReader returns a reader of the value of the info string of code block
+// id, which reads nothing when it has none.
+func (t *Tree) infoReader(id NodeID) valueReader {
 	for _, m := range t.nodes[id+1 : t.nodes[id].link] {
 		switch m.kind {
 		case Indent, FenceMarker, Whitespace:
 		case InfoString:
-			return t.src[m.start:m.end:m.end]
+			return t.newValueReader(m)
 		default:
-			return nil
+			return valueReader{}
 		}
 	}
-	return nil
+	return valueReader{}
 }

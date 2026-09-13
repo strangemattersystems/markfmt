@@ -49,20 +49,17 @@ func decodeRune(b []byte) (rune, int) {
 }
 
 // valueReader reads the value of content bytes one piece at a time: each
-// NUL and each maximal invalid UTF-8 subsequence is U+FFFD (design 6.7).
+// NUL and each maximal invalid UTF-8 subsequence is U+FFFD (design 6.7), and
+// with escapes, each backslash escape and entity reference is its characters.
 type valueReader struct {
-	b     []byte
-	char  [8]byte // the value of an EntityRef
-	charN int
+	b       []byte
+	escapes bool
+	char    [8]byte // the characters of the last entity reference
 }
 
 func (r *valueReader) next() []byte {
-	if n := r.charN; n > 0 {
-		r.charN = 0
-		return r.char[:n:n]
-	}
 	b, i := r.b, 0
-	for i < len(b) && b[i] != 0 {
+	for i < len(b) && b[i] != 0 && !r.decodes(b[i:]) {
 		if b[i] < utf8.RuneSelf {
 			i++
 			continue
@@ -80,24 +77,42 @@ func (r *valueReader) next() []byte {
 		r.b = b[i:]
 		return b[:i:i]
 	}
+	if r.escapes && b[0] == '\\' && len(b) > 1 && isASCIIPunct(b[1]) {
+		r.b = b[2:]
+		return b[1:2:2]
+	}
+	if j := entityEnd(b, 0, count(len(b))); r.escapes && b[0] == '&' && j > 0 {
+		r.b = b[j:]
+		return appendEntityValue(r.char[:0], b[:j])
+	}
 	_, n := decodeRune(b)
 	r.b = b[n:]
 	return slices.Clip(replacement)
 }
 
+// decodes reports whether b starts with a backslash escape or an entity
+// reference that the reader decodes.
+func (r *valueReader) decodes(b []byte) bool {
+	switch {
+	case !r.escapes:
+		return false
+	case b[0] == '\\':
+		return len(b) > 1 && isASCIIPunct(b[1])
+	case b[0] == '&':
+		return entityEnd(b, 0, count(len(b))) > 0
+	}
+	return false
+}
+
 var replacement = []byte("\uFFFD")
 
-// newValueReader returns a reader of the value of content leaf m: an Escape
-// is its character, an EntityRef its characters, and a VerbatimLineEnding a
-// line feed.
+// newValueReader returns a reader of the value of content leaf m. Escapes and
+// entity references decode in an Escape, an EntityRef, a Destination, a Title
+// and an InfoString (design 8.4). A VerbatimLineEnding is a line feed.
 func (t *Tree) newValueReader(m Node) valueReader {
 	switch m.kind {
-	case Escape:
-		return valueReader{b: t.src[m.start+1 : m.end]}
-	case EntityRef:
-		var r valueReader
-		r.charN = len(appendEntityValue(r.char[:0], t.src[m.start:m.end]))
-		return r
+	case Escape, EntityRef, Destination, Title, InfoString:
+		return valueReader{b: t.src[m.start:m.end], escapes: true}
 	case VerbatimLineEnding:
 		return valueReader{b: lineFeed}
 	}
@@ -107,10 +122,7 @@ func (t *Tree) newValueReader(m Node) valueReader {
 // AppendValue appends the value of content leaf id to dst.
 func (t *Tree) AppendValue(dst []byte, id NodeID) []byte {
 	r := t.newValueReader(t.nodes[id])
-	for b := r.next(); b != nil; b = r.next() {
-		dst = append(dst, b...)
-	}
-	return dst
+	return appendPieces(dst, &r)
 }
 
 type caseFold struct {

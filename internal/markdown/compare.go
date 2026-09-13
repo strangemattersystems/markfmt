@@ -80,8 +80,9 @@ func (c *comparer) equalKeys(ia, ib NodeID) bool {
 	case Heading:
 		return a.HeadingLevel(ia) == b.HeadingLevel(ib)
 	case CodeBlock:
+		infoA, infoB := a.infoReader(ia), b.infoReader(ib)
 		ra, rb := newVerbatimReader(a, ia, CodeText), newVerbatimReader(b, ib, CodeText)
-		return bytes.Equal(a.infoString(ia), b.infoString(ib)) && equalPieces(&ra, &rb)
+		return equalPieces(&infoA, &infoB) && equalPieces(&ra, &rb)
 	case HTMLBlock:
 		ra, rb := newVerbatimReader(a, ia, HTMLText), newVerbatimReader(b, ib, HTMLText)
 		return equalPieces(&ra, &rb)
@@ -214,6 +215,14 @@ func equalPieces(a, b pieceReader) bool {
 		}
 		pa, pb = pa[n:], pb[n:]
 	}
+}
+
+// appendPieces appends every piece that r reads to dst.
+func appendPieces(dst []byte, r pieceReader) []byte {
+	for b := r.next(); b != nil; b = r.next() {
+		dst = append(dst, b...)
+	}
+	return dst
 }
 
 // runReader reads the value of a content run: the values of its content
