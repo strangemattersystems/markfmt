@@ -94,7 +94,10 @@ Layout:
   and `failing.txt`, the cases that the printer does not pass yet.
 - `internal/format/testdata/spec`: CommonMark 0.31.2 examples (goldmark's
   `spec.json`) and goldmark's extra and GFM case files, as idempotence data.
-- `internal/format/testdata/fuzz/FuzzSource`: 9 inputs that the fuzzer found.
+- `internal/markdown/format_test.go`: `FuzzFormat`, an external test of
+  `internal/format` against the test HTML (design 10.5). Its seeds are every
+  corpus, the pairs, `testdata/cases`, and in `testdata/fuzz/FuzzFormat` the 9
+  inputs that the fuzzer of the goldmark-based formatter found.
 - `tools/go.mod`: golangci-lint v2.13.2, kept out of the root `go.mod`.
 - `docs/design/parser.md`: the parser design.
 - `.scratch/design-research/` (local only, not tracked): the research reports

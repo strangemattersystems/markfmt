@@ -32,8 +32,8 @@ tasks:
   fuzz:
     desc: Fuzz one target (e.g. task fuzz PKG=./internal/markdown FUZZ=FuzzParse -- -fuzztime=5m)
     vars:
-      PKG: '{{.PKG | default "./internal/format"}}'
-      FUZZ: '{{.FUZZ | default "FuzzSource"}}'
+      PKG: '{{.PKG | default "./internal/markdown"}}'
+      FUZZ: '{{.FUZZ | default "FuzzFormat"}}'
     cmds:
       - go test -run='^$' -fuzz='^{{.FUZZ}}$' -fuzztime=30s {{.CLI_ARGS}} {{.PKG}}
 
