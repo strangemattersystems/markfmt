@@ -1,0 +1,7 @@
+# CommonMark examples whose meaning markfmt's grammar changes, one per line:
+# the example ID, the rule, a colon, and the section of ../markfmt/grammar.txt
+# whose case gives the expected HTML under markfmt's grammar (design 11.2).
+# The test fails when an entry no longer differs, when its case is missing or
+# has another input, and when an entry is also in failing.txt.
+96 front matter: commonmark 96
+98 front matter: commonmark 98

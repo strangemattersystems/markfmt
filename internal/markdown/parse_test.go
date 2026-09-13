@@ -2,6 +2,8 @@ package markdown
 
 import (
 	"bytes"
+	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"slices"
@@ -109,6 +111,12 @@ func TestParse(t *testing.T) {
 		{"dispatches an underline after definitions alone as if a paragraph were open", "[foo]: /url\n===\n[foo]\n\n[a]: /a\n-\n\n[b]: /b\n---", "Document{LinkReferenceDefinition{Bracket \"[\", LinkLabel \"foo\", Bracket \"]\", Colon \":\", Whitespace \" \", Destination \"/url\", LineEnding \"\\n\"}, Paragraph{Text \"===\", LineEnding \"\\n\", Text \"[foo]\", LineEnding \"\\n\"}, BlankLine \"\\n\", LinkReferenceDefinition{Bracket \"[\", LinkLabel \"a\", Bracket \"]\", Colon \":\", Whitespace \" \", Destination \"/a\", LineEnding \"\\n\"}, Paragraph{Text \"-\", LineEnding \"\\n\"}, BlankLine \"\\n\", LinkReferenceDefinition{Bracket \"[\", LinkLabel \"b\", Bracket \"]\", Colon \":\", Whitespace \" \", Destination \"/b\", LineEnding \"\\n\"}, ThematicBreak{ThematicRun \"---\"}}"},
 		{"takes a label of 999 characters", "[" + strings.Repeat("é", 999) + "]: /u", "Document{LinkReferenceDefinition{Bracket \"[\", LinkLabel \"" + strings.Repeat("é", 999) + "\", Bracket \"]\", Colon \":\", Whitespace \" \", Destination \"/u\"}}"},
 		{"rejects a label of 1000 characters", "[" + strings.Repeat("a", 1000) + "]: /u", "Document{Paragraph{Text \"[" + strings.Repeat("a", 1000) + "]: /u\"}}"},
+		{"gives front matter", "---\na: 1\n\n  \n---  \nb", "Document{FrontMatter{FrontMatterFence \"---\", LineEnding \"\\n\", FrontMatterText \"a: 1\", VerbatimLineEnding \"\\n\", VerbatimLineEnding \"\\n\", FrontMatterText \"  \", VerbatimLineEnding \"\\n\", FrontMatterFence \"---\", Whitespace \"  \", LineEnding \"\\n\"}, Paragraph{Text \"b\"}}"},
+		{"gives empty toml front matter after a bom", "\xEF\xBB\xBF+++\t\r\n+++", "Document{BOM \"\\ufeff\", FrontMatter{FrontMatterFence \"+++\", Whitespace \"\\t\", LineEnding \"\\r\\n\", FrontMatterFence \"+++\"}}"},
+		{"needs a closing front matter fence of the same delimiter", "---\n+++\na", "Document{ThematicBreak{ThematicRun \"---\", LineEnding \"\\n\"}, Paragraph{Text \"+++\", LineEnding \"\\n\", Text \"a\"}}"},
+		{"needs front matter at the start of the input", "\n---\n---", "Document{BlankLine \"\\n\", ThematicBreak{ThematicRun \"---\", LineEnding \"\\n\"}, ThematicBreak{ThematicRun \"---\"}}"},
+		{"needs an unindented front matter fence", " ---\n---", "Document{ThematicBreak{Indent \" \", ThematicRun \"---\", LineEnding \"\\n\"}, ThematicBreak{ThematicRun \"---\"}}"},
+		{"needs a front matter fence of exactly three characters", "----\n----", "Document{ThematicBreak{ThematicRun \"----\", LineEnding \"\\n\"}, ThematicBreak{ThematicRun \"----\"}}"},
 		{"needs a thematic break indented less than four columns", "a\n  \t___", `Document{Paragraph{Text "a", LineEnding "\n", Indent "  \t", Text "___"}}`},
 	}
 	for _, tt := range tests {
@@ -135,19 +143,20 @@ func TestParse(t *testing.T) {
 }
 
 // testConformance renders the examples of c's sections and compares them with
-// the expected HTML, against the examples listed in failing.txt next to c's
-// file. The list checks cover the whole corpus, whatever subtests -run
-// selects.
+// the expected HTML, against the examples listed in failing.txt and
+// grammar-differs.txt next to c's file. The list checks cover the whole
+// corpus, whatever subtests -run selects.
 func testConformance(t *testing.T, c corpus) {
 	examples := slices.DeleteFunc(readExamples(t, c.path), func(ex example) bool {
 		return !strings.HasSuffix(ex.section, c.sections)
 	})
 	failing := readFailing(t, filepath.Join(filepath.Dir(c.path), "failing.txt"), examples)
+	differs := readGrammarDiffers(t, filepath.Join(filepath.Dir(c.path), "grammar-differs.txt"), examples, failing)
 
 	got := make([]string, len(examples))
 	want := make([]string, len(examples))
 	pass := make([]bool, len(examples))
-	var unlisted, passing []int
+	var unlisted, passing, same []int
 	for i, ex := range examples {
 		tree := Parse([]byte(ex.markdown))
 		if err := tree.Verify(); err != nil {
@@ -159,6 +168,10 @@ func testConformance(t *testing.T, c corpus) {
 		// it tests only that parsing does not crash.
 		pass[i] = got[i] == want[i] || strings.TrimSpace(ex.html) == "<IGNORE>"
 		switch {
+		case differs[ex.id]:
+			if pass[i] {
+				same = append(same, ex.id)
+			}
 		case !pass[i] && !failing[ex.id]:
 			unlisted = append(unlisted, ex.id)
 		case pass[i] && failing[ex.id]:
@@ -171,12 +184,19 @@ func testConformance(t *testing.T, c corpus) {
 	if len(passing) > 0 {
 		t.Errorf("%d examples in failing.txt pass: %v", len(passing), passing)
 	}
+	if len(same) > 0 {
+		t.Errorf("%d examples in grammar-differs.txt no longer differ: %v", len(same), same)
+	}
 
 	for i, ex := range examples {
 		t.Run(c.name+" example "+strconv.Itoa(ex.id), func(t *testing.T) {
 			t.Parallel()
 
 			switch {
+			case differs[ex.id]:
+				if pass[i] {
+					t.Error("no longer differs: remove it from grammar-differs.txt")
+				}
 			case !pass[i] && !failing[ex.id]:
 				t.Errorf("fails and is not in failing.txt (section %s)\nmarkdown: %q\n     got: %q\n    want: %q",
 					ex.section, ex.markdown, got[i], want[i])
@@ -224,6 +244,66 @@ func readFailing(t *testing.T, path string, examples []example) map[int]bool {
 		last = max(last, id)
 	}
 	return failing
+}
+
+// readGrammarDiffers reads the entries of a grammar-differs.txt file, if it
+// exists: one per line, in increasing order, with "#" comments. An entry is
+// an example ID, the rule, a colon, and the section of the case in
+// testdata/markfmt/grammar.txt that has the same input. It reports an entry
+// that is not one, that names no example, that is also in failing.txt, or
+// whose case is missing or has another input.
+func readGrammarDiffers(t *testing.T, path string, examples []example, failing map[int]bool) map[int]bool {
+	t.Helper()
+
+	data, err := os.ReadFile(path)
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	inputs := make(map[int]string, len(examples))
+	for _, ex := range examples {
+		inputs[ex.id] = ex.markdown
+	}
+	cases := make(map[string]string)
+	for _, ex := range readExamples(t, "testdata/markfmt/grammar.txt") {
+		cases[ex.section] = ex.markdown
+	}
+	differs := make(map[int]bool)
+	last, n := 0, 0
+	for line := range strings.Lines(string(data)) {
+		n++
+		entry, _, _ := strings.Cut(line, "#")
+		entry = strings.TrimSpace(entry)
+		if entry == "" {
+			continue
+		}
+		idText, rule, _ := strings.Cut(entry, " ")
+		_, section, found := strings.Cut(rule, ":")
+		section = strings.TrimSpace(section)
+		id, err := strconv.Atoi(idText)
+		input, isExample := inputs[id]
+		caseInput, hasCase := cases[section]
+		switch {
+		case err != nil || !found:
+			t.Errorf("%s:%d: %q is not an entry", path, n, entry)
+			continue
+		case id <= last:
+			t.Errorf("%s:%d: %d is a duplicate or out of order", path, n, id)
+		case !isExample:
+			t.Errorf("%s:%d: %d names no example", path, n, id)
+		case failing[id]:
+			t.Errorf("%s:%d: %d is also in failing.txt", path, n, id)
+		case !hasCase:
+			t.Errorf("%s:%d: %q names no case in testdata/markfmt/grammar.txt", path, n, section)
+		case caseInput != input:
+			t.Errorf("%s:%d: case %q has another input than example %d", path, n, section, id)
+		}
+		differs[id] = true
+		last = max(last, id)
+	}
+	return differs
 }
 
 func TestNeedsInlines(t *testing.T) {

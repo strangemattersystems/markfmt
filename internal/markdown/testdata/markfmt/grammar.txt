@@ -1,0 +1,32 @@
+# markfmt grammar cases
+
+Each case gives the expected HTML of a corpus example whose meaning
+markfmt's grammar changes. A `grammar-differs.txt` file names the case by
+its section (design 11.2). The test HTML renderer writes nothing for front
+matter.
+
+## commonmark 96
+
+Front matter takes the first three lines.
+
+```````````````````````````````` example
+---
+Foo
+---
+Bar
+---
+Baz
+.
+<h2>Bar</h2>
+<p>Baz</p>
+````````````````````````````````
+
+## commonmark 98
+
+The two lines are empty front matter.
+
+```````````````````````````````` example
+---
+---
+.
+````````````````````````````````

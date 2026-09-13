@@ -8,6 +8,7 @@ type Kind uint8
 
 const (
 	Document Kind = iota
+	FrontMatter
 	BlockQuote
 	List
 	ListItem
@@ -25,6 +26,7 @@ const (
 	LinkLabel
 	Destination
 	Title
+	FrontMatterText
 	BOM
 	LineEnding
 	BlankLine
@@ -43,6 +45,7 @@ const (
 	Colon
 	AngleBracket
 	TitleQuote
+	FrontMatterFence
 )
 
 type class uint8
@@ -59,11 +62,11 @@ const (
 func (k Kind) class() class {
 	//exhaustive:enforce
 	switch k {
-	case Document, BlockQuote, List, ListItem, Paragraph, ThematicBreak, Heading, CodeBlock, HTMLBlock, LinkReferenceDefinition:
+	case Document, FrontMatter, BlockQuote, List, ListItem, Paragraph, ThematicBreak, Heading, CodeBlock, HTMLBlock, LinkReferenceDefinition:
 		return classStructure
-	case Text, CodeText, VerbatimLineEnding, InfoString, HTMLText, LinkLabel, Destination, Title:
+	case Text, CodeText, VerbatimLineEnding, InfoString, HTMLText, LinkLabel, Destination, Title, FrontMatterText:
 		return classContent
-	case BOM, LineEnding, BlankLine, Indent, ThematicRun, ATXMarker, ATXClose, Whitespace, CodeIndent, FenceMarker, SetextUnderline, QuoteMarker, ListMarker, ItemIndent, Bracket, Colon, AngleBracket, TitleQuote:
+	case BOM, LineEnding, BlankLine, Indent, ThematicRun, ATXMarker, ATXClose, Whitespace, CodeIndent, FenceMarker, SetextUnderline, QuoteMarker, ListMarker, ItemIndent, Bracket, Colon, AngleBracket, TitleQuote, FrontMatterFence:
 		return classSyntax
 	}
 	return classInvalid
@@ -167,6 +170,12 @@ func (k Kind) String() string {
 		return "AngleBracket"
 	case TitleQuote:
 		return "TitleQuote"
+	case FrontMatter:
+		return "FrontMatter"
+	case FrontMatterFence:
+		return "FrontMatterFence"
+	case FrontMatterText:
+		return "FrontMatterText"
 	}
 	return "Kind(" + strconv.Itoa(int(k)) + ")"
 }

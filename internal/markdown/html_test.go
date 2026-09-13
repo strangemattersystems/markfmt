@@ -101,7 +101,8 @@ func renderHTML(tree *Tree) string {
 		switch n.kind {
 		case Document, BOM, BlankLine, Indent, ThematicRun, ATXMarker, ATXClose, Whitespace,
 			CodeIndent, CodeText, VerbatimLineEnding, FenceMarker, InfoString, SetextUnderline, HTMLText, QuoteMarker, ListMarker, ItemIndent,
-			LinkReferenceDefinition, LinkLabel, Destination, Title, Bracket, Colon, AngleBracket, TitleQuote:
+			LinkReferenceDefinition, LinkLabel, Destination, Title, Bracket, Colon, AngleBracket, TitleQuote,
+			FrontMatter, FrontMatterFence, FrontMatterText:
 		case CodeBlock:
 			if e.Exit {
 				break

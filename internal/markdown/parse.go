@@ -10,6 +10,7 @@ func Parse(src []byte) *Tree {
 	if it.pos > 0 {
 		p.b.leaf(BOM, it.pos)
 	}
+	it = p.frontMatter(it)
 	for l, ok := it.next(); ok; l, ok = it.next() {
 		p.parseLine(l)
 	}

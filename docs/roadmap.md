@@ -51,7 +51,7 @@ Last updated: 2026-09-13. Nothing after `ff7de5b` is pushed.
 | `1f63d60`, `f32fd7e` | Parser design, after five review rounds |
 | `104566e` | `.scratch/` is gitignored |
 | `59e930f` onwards | Stage 1: tree, builder, `Verify`, line iterator, test HTML renderer, conformance runner, five corpora |
-| `1604b94` onwards | Stage 2: paragraphs, blank lines, thematic breaks, ATX and setext headings, indented and fenced code, HTML blocks, block quotes, tabs, lists, link reference definitions |
+| `1604b94` onwards | Stage 2: paragraphs, blank lines, thematic breaks, ATX and setext headings, indented and fenced code, HTML blocks, block quotes, tabs, lists, link reference definitions, front matter |
 
 Layout:
 
@@ -64,6 +64,10 @@ Layout:
   `commonmark-js-regression`, each with a README and `failing.txt`.
 - `internal/markdown/testdata/dialect.md`: the rules where GitHub and
   CommonMark 0.31.2 differ, one row each (design 2.1).
+- `internal/markdown/testdata/markfmt/grammar.txt`: markfmt's own cases, with
+  the expected HTML of each example that a `grammar-differs.txt` lists
+  (design 11.2). `testdata/commonmark/grammar-differs.txt` lists CM 96 and 98
+  (front matter).
 - `internal/format`: the goldmark-based formatter. It formats headings (ATX)
   and paragraphs, copies other blocks from source, passes front matter
   through, and compares goldmark HTML of input and output.
@@ -174,7 +178,7 @@ Passed 2026-09-12.
 - [x] Block quotes, lazy lines, prefix leaves and emission order; tabs and
   `virt`; list items and lists with looseness.
 - [ ] Link reference definitions, labels, and the setext re-dispatch rule.
-- [ ] Front matter, `grammar-differs.txt` and `markfmt/grammar.txt`.
+- [x] Front matter, `grammar-differs.txt` and `markfmt/grammar.txt`.
 - [ ] `Equal` for block kinds, the stage 2 pairs, `FuzzEqual` with block
   mutations.
 - [ ] Pathological block inputs, the long test and `task long` in the ubuntu
