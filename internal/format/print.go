@@ -490,20 +490,24 @@ func (p *printer) listMarker(f *frame, id markdown.NodeID, start int) {
 }
 
 // bullet returns the bullet of bullet list id, whose parent frame is prev:
-// '-', or '*' after an adjacent sibling list with '-' (appendix B, trap 3),
-// or '+' when neither works. A bullet does not work when an item's first line
-// is only that character with spaces, which the bullet would make one
-// thematic break: "- --" is a break.
+// '-', or '*' when '-' does not work, or '+'. A bullet does not work after an
+// adjacent sibling list with that bullet (appendix B, trap 3). It does not
+// work on the marker line of an item with that bullet, or when an item's
+// first line is only that character with spaces: "- - -" and "- --" are
+// thematic breaks.
 func (p *printer) bullet(id markdown.NodeID, prev frame) byte {
-	var avoid byte
+	var adjacent, line byte
 	if prev.children > 0 && prev.lastChild == markdown.List && !prev.listOrdered {
-		avoid = prev.listBullet
+		adjacent = prev.listBullet
+	}
+	if prev.kind == markdown.ListItem && !prev.started && len(prev.marker) > 0 {
+		line = prev.marker[0]
 	}
 	dashes, stars := p.breakItems(id)
 	switch {
-	case avoid != '-' && !dashes:
+	case adjacent != '-' && line != '-' && !dashes:
 		return '-'
-	case avoid != '*' && !stars:
+	case adjacent != '*' && line != '*' && !stars:
 		return '*'
 	}
 	return '+'
