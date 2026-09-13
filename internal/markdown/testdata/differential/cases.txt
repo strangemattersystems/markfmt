@@ -428,3 +428,23 @@ b
 <p>a\<br />
 b</p>
 ````````````````````````````````
+
+## goldmark deviates, spec section 5.2: a blank line after an empty nested list item continues the outer list item
+
+goldmark ends the outer item when its first child is a list with an empty
+item, and the content after the blank line leaves the list.
+
+```````````````````````````````` example
+- -
+
+  b
+.
+<ul>
+<li>
+<ul>
+<li></li>
+</ul>
+<p>b</p>
+</li>
+</ul>
+````````````````````````````````

@@ -466,6 +466,37 @@ var goldmarkDeviations = []struct {
 		}
 		return false
 	}},
+	{"goldmark deviates, spec section 5.2: a blank line after an empty nested list item continues the outer list item", func(t *Tree) bool {
+		// firstChild returns the first structure node in [from, to), or -1.
+		firstChild := func(from, to int) int {
+			for j := from; j < to; j++ {
+				if t.nodes[j].kind.class() == classStructure {
+					return j
+				}
+			}
+			return -1
+		}
+		for i, n := range t.nodes {
+			if n.kind != ListItem {
+				continue
+			}
+			list := firstChild(i+1, int(n.link))
+			if list < 0 || t.nodes[list].kind != List || firstChild(int(t.nodes[list].link), int(n.link)) < 0 {
+				continue
+			}
+			empty := false
+			for j := list + 1; j < int(t.nodes[list].link); j++ {
+				if m := t.nodes[j]; m.kind == ListItem {
+					empty = firstChild(j+1, int(m.link)) < 0
+					j = int(m.link) - 1
+				}
+			}
+			if empty {
+				return true
+			}
+		}
+		return false
+	}},
 	{"goldmark deviates, spec section 4.7: a definition with its destination on a later line ends at the destination when the next line is not a title", func(t *Tree) bool {
 		for i, n := range t.nodes {
 			if n.kind != LinkReferenceDefinition {
