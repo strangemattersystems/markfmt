@@ -137,6 +137,7 @@ func TestNormalizeGitHub(t *testing.T) {
 		{"removes user-content- prefixes and hashes from footnote references", `<sup><a href="#user-content-fn-1-0f1e088e7177de600f1295d2090035f7" id="user-content-fnref-1-2-0f1e088e7177de600f1295d2090035f7" data-footnote-ref="" aria-describedby="footnote-label">1</a></sup>`, `<sup><a data-footnote-ref href="#fn-1" id="fnref-1-2">1</a></sup>`},
 		{"removes the footnote classes and back reference index that cmark-gfm writes", `<sup class="footnote-ref"><a href="#fn-1" id="fnref-1" data-footnote-ref>1</a></sup> <a href="#fnref-1" class="footnote-backref" data-footnote-backref data-footnote-backref-idx="1" aria-label="Back to reference 1">↩</a>`, `<sup><a data-footnote-ref href="#fn-1" id="fnref-1">1</a></sup> <a aria-label="Back to reference 1" data-footnote-backref href="#fnref-1">↩</a>`},
 		{"removes the class of a github footnote back reference", `<a href="#user-content-fnref-1-0f1e088e7177de600f1295d2090035f7" data-footnote-backref="" aria-label="Back to reference 1" class="data-footnote-backref">↩</a>`, `<a aria-label="Back to reference 1" data-footnote-backref href="#fnref-1">↩</a>`},
+		{"writes the lang attribute of a code block as the class of its code", `<pre lang="a b" class="notranslate"><code class="notranslate">x</code></pre>`, `<pre><code class="language-a b">x</code></pre>`},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -593,6 +594,7 @@ var gitHubDecorations = []struct {
 	{regexp.MustCompile(` (data-footnote-ref|data-footnotes|data-footnote-backref)=""`), " $1"},
 	{regexp.MustCompile(`"(#?)user-content-`), `"$1`},
 	{regexp.MustCompile(`(fn(?:ref)?-[^"]*)-[0-9a-f]{32}"`), `$1"`},
+	{regexp.MustCompile(`<pre lang="([^"]*)"><code>`), `<pre><code class="language-$1">`},
 }
 
 // tag returns the start tag of an element, or its end tag and a line ending.

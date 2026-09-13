@@ -163,7 +163,49 @@ follows cmark (design 2, 5.6). The expected HTML is the output of
 </ul>
 ````````````````````````````````
 
+## github 10
+
+Every backtick run of the same length after an unmatched run can close a
+code span, as the spec text and commonmark.js give (`../dialect.md`).
+GitHub leaves the second code span as text.
+
+```````````````````````````````` example
+a `` b `c` d `e`
+.
+<p>a `` b <code>c</code> d <code>e</code></p>
+````````````````````````````````
+
 ## github 11
+
+A title that other characters follow on its line is not the title of the
+definition, as the spec text and commonmark.js give (CM 210,
+`../dialect.md`). GitHub keeps the title.
+
+```````````````````````````````` example
+[foo]: /url
+"title"ok
+
+[foo]
+.
+<p>&quot;title&quot;ok</p>
+<p><a href="/url">foo</a></p>
+````````````````````````````````
+
+## github 13
+
+VT and FF end a link destination, as in cmark 0.31.1 (`../dialect.md`).
+GitHub takes them into the destination.
+
+```````````````````````````````` example
+[a](bc)
+
+[a](bc)
+.
+<p>[a](bc)</p>
+<p>[a](bc)</p>
+````````````````````````````````
+
+## github 14
 
 Unicode symbols count as punctuation for flanking (`../dialect.md`). GitHub
 counts only Unicode P and ASCII punctuation.
@@ -174,7 +216,7 @@ counts only Unicode P and ASCII punctuation.
 <p>£<em>a</em>£</p>
 ````````````````````````````````
 
-## github 12
+## github 15
 
 An HTML block of kind 4 starts with `<!` and any ASCII letter
 (`../dialect.md`). GitHub needs an uppercase letter.
@@ -185,7 +227,7 @@ An HTML block of kind 4 starts with `<!` and any ASCII letter
 <!doctype html>
 ````````````````````````````````
 
-## github 13
+## github 16
 
 An HTML block of kind 7 does not start on a lazy candidate line, so both
 lines continue the paragraph in the block quote (`../dialect.md`). GitHub
@@ -203,7 +245,7 @@ closes the block quote and starts an HTML block.
 </blockquote>
 ````````````````````````````````
 
-## github 14
+## github 17
 
 `search` is in the tag list of HTML block kind 6, so it interrupts the
 paragraph (`../dialect.md`). GitHub reads it as kind 7, which does not.
@@ -218,7 +260,7 @@ a
 *b*
 ````````````````````````````````
 
-## github 15
+## github 18
 
 `source` is not in the tag list of HTML block kind 6, so it does not
 interrupt the paragraph (`../dialect.md`). GitHub reads it as kind 6.
@@ -233,7 +275,7 @@ a
 <em>b</em></p>
 ````````````````````````````````
 
-## github 16
+## github 19
 
 `<!-- c -- d --->` is a raw HTML comment under CommonMark 0.31.2
 (`../dialect.md`). GitHub's older comment grammar reads it as text.
@@ -307,7 +349,61 @@ foo@bar.example.com
 <p><a href="mailto:foo@bar.example.com">foo@bar.example.com</a></p>
 ````````````````````````````````
 
-## github 17
+## github 20
+
+VT and FF at the ends of an info string are trimmed, as in cmark 0.31.1
+(`../dialect.md`). GitHub keeps them, and its sanitizer writes VT as
+U+FFFD.
+
+```````````````````````````````` example
+~~~a
+x
+~~~
+
+~~~a
+y
+~~~
+.
+<pre><code class="language-a">x
+</code></pre>
+<pre><code class="language-a">y
+</code></pre>
+````````````````````````````````
+
+## github 21
+
+A link label has at most 999 characters, as the spec text and
+commonmark.js give (`../dialect.md`). GitHub counts at most 1000 bytes, so
+a label of 600 `é` is not a label.
+
+```````````````````````````````` example
+[éééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééé]: /u
+
+[éééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééé]
+.
+<p><a href="/u">éééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééé</a></p>
+````````````````````````````````
+
+## github 22
+
+VT and FF in a link label are whitespace, as in cmark 0.31.1
+(`../dialect.md`). GitHub keeps them in the label, so no definition
+matches.
+
+```````````````````````````````` example
+[a]
+
+[a]: /u
+
+[b]
+
+[b]: /v
+.
+<p><a href="/u">a</a></p>
+<p><a href="/v">b</a></p>
+````````````````````````````````
+
+## github 23
 
 cmark 0.31.1 opens every list item that starts on a line (`../dialect.md`).
 cmark-gfm opens at most 99 blocks on a line. The expected HTML is the output of
@@ -717,7 +813,7 @@ cmark-gfm opens at most 99 blocks on a line. The expected HTML is the output of
 </ul>
 ````````````````````````````````
 
-## github 23
+## github 29
 
 The decoded text of a footnote reference starts with `^`, so a caret that is
 a backslash escape or an entity reference makes a reference
@@ -738,7 +834,7 @@ a[\^1] b[&#94;1]
 </section>
 ````````````````````````````````
 
-## github 31
+## github 37
 
 The label of a footnote reference can hold a line ending, which no definition
 label has, so the reference is unresolved and written as its text
