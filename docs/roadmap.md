@@ -103,8 +103,6 @@ Layout:
 - `.scratch/design-research/` (local only, not tracked): the research reports
   and the five rounds of design reviews behind the parser design.
 
-The goldmark-based formatter is a stopgap. Stage 6 replaces it.
-
 ## Decisions
 
 | Decision | Reason |
@@ -339,7 +337,7 @@ fixture yet.
 - [ ] A printer for every node kind, meeting design 12: facts through
   accessors, kept syntax and `Kept`, size decisions on canonical measures, and
   the output limit.
-- [ ] Dialect predicates and spans in `Equal` (design 10.4).
+- [x] Dialect predicates and spans in `Equal` (design 10.4).
 - [ ] `FuzzFormat`: no check mismatch on any input, and equal test HTML for
   input and output (design 10.5).
 - [ ] Move `internal/format` to the new parser and delete the goldmark-based

@@ -6,8 +6,9 @@ constructs, and GitHub where a GFM construct decides. Each row names an input,
 markfmt's result, GitHub's result, the GitHub fixture in `github/github.txt`
 that shows GitHub's result, and the markfmt test of the rule. Where markfmt
 and GitHub differ, `github/grammar-differs.txt` lists the fixture with a case
-of markfmt's result (design 11.4). At stage 6 each row gets a dialect
-predicate.
+of markfmt's result (design 11.4). Each row has a dialect predicate in
+`dialect.go`, which finds a span of the row in the row's GitHub fixture
+(design 10.4).
 
 | Rule | Input | markfmt | GitHub | GitHub fixture | markfmt test |
 | --- | --- | --- | --- | --- | --- |

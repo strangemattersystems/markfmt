@@ -61,3 +61,5 @@ dialect-kind-7-lazy-line different GitHub starts an HTML block of kind 7 on a la
 dialect-declaration-blank-line different GitHub continues the paragraph with a declaration that starts with a lowercase letter (github 15)
 dialect-flanking-delimiter different GitHub reads an underscore next to a Unicode symbol as text and an asterisk as emphasis (github 14)
 dialect-code-span-fence different GitHub reads the last code span as text with a fence of one backtick, and as code with two (github 10)
+dialect-failed-title-blank-line different GitHub keeps a title that other characters follow as the title of the definition, unless a blank line comes before it (github 11)
+dialect-info-string-form-feed different GitHub keeps a form feed at the start of an info string (github 20)

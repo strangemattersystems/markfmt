@@ -41,6 +41,27 @@ const (
 	// rowLabelLength: GitHub reads at most 1000 bytes as a label, and markfmt
 	// at most 999 characters.
 	rowLabelLength
+	// rowDefinitionUnderline: commonmark.js reads an underline after
+	// definitions alone as a thematic break. markfmt and GitHub read a
+	// paragraph.
+	rowDefinitionUnderline
+	// rowFailedTitle: GitHub keeps a title that other characters follow as
+	// the title of the definition.
+	rowFailedTitle
+	// rowInfoVTFF: GitHub keeps VT and FF at the ends of an info string.
+	rowInfoVTFF
+	// rowSplitParagraph: CommonMark 0.31.2, which has no tables, reads the
+	// cell pipe escapes of a paragraph above a table as escapes.
+	rowSplitParagraph
+	// rowListItems: GitHub opens at most 99 blocks on a line, and markfmt
+	// opens every list item.
+	rowListItems
+	// rowFootnoteCaret: GitHub garbles a footnote reference whose caret is an
+	// escape or an entity reference.
+	rowFootnoteCaret
+	// rowFootnoteLineEnding: GitHub garbles a footnote reference label across
+	// a line ending.
+	rowFootnoteLineEnding
 )
 
 // dialectRows is a set of dialect rows.
@@ -91,6 +112,8 @@ type spanFinder struct {
 	lineFirst uint32 // the first leaf of the line
 	walk      containerWalk
 	vtff      bool // the input has VT or FF
+
+	opened, firstOpened uint32 // the containers opened on the line, and the first of them
 }
 
 func (f *spanFinder) add(id uint32, row dialectRow) {
@@ -121,7 +144,7 @@ func (f *spanFinder) node(id uint32) {
 			f.grandparent = f.stack[len(f.stack)-2]
 		}
 		if c := t.src[n.end-1]; c == '\n' || c == '\r' {
-			f.lineStart, f.newLine = true, true
+			f.lineStart, f.newLine, f.opened = true, true, 0
 		}
 	}
 	f.walk.visit(id)
@@ -141,10 +164,48 @@ func (f *spanFinder) enter(id uint32, n Node) {
 	case Paragraph, Heading, TableCell:
 		f.block = id
 		f.inlineBlock(id, n)
+		if n.kind == Paragraph {
+			f.afterDefinition(id)
+		}
 	case LinkReferenceDefinition:
 		f.inlineBlock(id, n)
 	case Table:
 		f.table = id
+		if t.nodes[f.last].kind == LineEnding && t.nodes[f.parent].kind == Paragraph {
+			if p := t.nodes[f.parent]; bytes.Contains(t.src[p.start:p.end], []byte(`\|`)) {
+				f.add(f.parent, rowSplitParagraph)
+				f.add(id, rowSplitParagraph)
+			}
+		}
+	case CodeBlock:
+		i := id + 1
+		if t.nodes[i].kind == Indent {
+			i++
+		}
+		if fence := t.nodes[i]; fence.kind == FenceMarker {
+			if info := t.src[fence.end:lineEnd(t.src, fence.end)]; bytes.ContainsAny(info, "\v\f") || bytes.Contains(info, []byte("&#")) {
+				f.add(id, rowInfoVTFF)
+			}
+		}
+	case BlockQuote, ListItem, FootnoteDefinition:
+		if f.opened == 0 {
+			f.firstOpened = id
+		}
+		if n.kind == ListItem && f.opened >= 99 {
+			f.add(f.firstOpened, rowListItems)
+		}
+		f.opened++
+	case FootnoteReference:
+		// The Caret leaf holds an escape or an entity reference as written.
+		if c := t.nodes[id+2]; c.end-c.start > 1 {
+			f.add(f.block, rowFootnoteCaret)
+		}
+		for i := id + 1; i < n.link; i++ {
+			if t.nodes[i].kind == VerbatimLineEnding {
+				f.add(f.block, rowFootnoteLineEnding)
+				break
+			}
+		}
 	case HTMLBlock:
 		switch s := t.htmlBlockLine(id); {
 		case n.flags == 6 && tagNamed(s, "search"):
@@ -186,6 +247,34 @@ func (f *spanFinder) inlineBlock(id uint32, n Node) {
 	}
 }
 
+// afterDefinition adds paragraph id and the link reference definition before
+// it to a row, when no blank line is between them and the paragraph starts
+// with an underline or a title quote.
+func (f *spanFinder) afterDefinition(id uint32) {
+	t := f.t
+	if t.nodes[f.last].kind != LineEnding || t.nodes[f.parent].kind != LinkReferenceDefinition {
+		return
+	}
+	def, i, end := f.parent, id+1, t.nodes[id].link
+	for i < end && (t.nodes[i].kind.class() == classStructure || t.nodes[i].kind == Indent) {
+		i++
+	}
+	if i == end {
+		return
+	}
+	var row dialectRow
+	switch start := t.nodes[i].start; {
+	case setextUnderline(t.src, start, lineEnd(t.src, start)) > 0:
+		row = rowDefinitionUnderline
+	case strings.IndexByte(`"'(`, t.src[start]) >= 0 && !slices.ContainsFunc(t.nodes[def:t.nodes[def].link], func(m Node) bool { return m.kind == TitleQuote }):
+		row = rowFailedTitle
+	default:
+		return
+	}
+	f.add(def, row)
+	f.add(id, row)
+}
+
 // addInterrupted adds HTML block id to row, with the paragraph or the table
 // that the block's first line closes, in any container. GitHub can continue
 // that block on the line.
@@ -209,10 +298,7 @@ func (f *spanFinder) line(id uint32, n Node) {
 	if t.src[n.start] != '<' {
 		return
 	}
-	end := int(n.start)
-	for end < len(t.src) && t.src[end] != '\n' && t.src[end] != '\r' {
-		end++
-	}
+	end := lineEnd(t.src, n.start)
 	var block uint32
 	switch top, b := f.stack[len(f.stack)-1], t.nodes[f.block]; {
 	case t.nodes[top].kind == LinkReferenceDefinition:
@@ -227,10 +313,19 @@ func (f *spanFinder) line(id uint32, n Node) {
 	if tagNamed(t.src[n.start:end], "source") {
 		f.add(block, rowSource)
 	}
-	if t.nodes[block].kind != Table && htmlBlockStart(t.src, n.start, count(end)) == 7 &&
+	if t.nodes[block].kind != Table && htmlBlockStart(t.src, n.start, end) == 7 &&
 		f.walk.matched(f.lineFirst) < len(f.walk.chain) {
 		f.add(block, rowLazyKind7)
 	}
+}
+
+// lineEnd returns the offset of the first line ending at or after offset i,
+// or the end of src.
+func lineEnd(src []byte, i uint32) uint32 {
+	if j := bytes.IndexAny(src[i:], "\n\r"); j >= 0 {
+		return i + count(j)
+	}
+	return count(len(src))
 }
 
 // htmlBlockLine returns the first line of HTML block id after its
