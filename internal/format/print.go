@@ -43,10 +43,10 @@ type printer struct {
 	afterBox  bool          // the last leaf written is a task box
 	replace   []byte        // bytes that content writes in place of the next leaf's bytes
 
-	// The last paragraph, heading or table cell that a strikethrough read,
-	// and whether its text has a '~'.
-	tildeScope markdown.NodeID
-	tildeText  bool
+	// The last paragraph, heading or table cell that a delimiter check read,
+	// and whether its text has '*', '_' and '~'.
+	delimScope markdown.NodeID
+	delimText  [3]bool
 
 	// The heading that is open: how it prints, its level, where its content
 	// starts in out, and whether its line is written.
@@ -885,44 +885,47 @@ func (p *printer) delimiter(id markdown.NodeID, k markdown.Kind) []byte {
 	before, after := t.Around(id)
 	switch k {
 	case markdown.Emphasis:
-		if bytes.ContainsAny(content, "*_") || !flanksLikeSpace(before) || !flanksLikeSpace(after) {
+		if bytes.ContainsAny(content, "*_") || !flanksLikeSpace(before) || !flanksLikeSpace(after) || p.inText('_') {
 			return nil
 		}
 		return []byte{'_'}
 	case markdown.Strong:
 		// Next to '*' or '_', which can be the unused part of a delimiter run
 		// (design 6.4), "**" could pair differently.
-		if bytes.ContainsAny(content, "*_") || before == '*' || before == '_' || after == '*' || after == '_' {
+		if bytes.ContainsAny(content, "*_") || before == '*' || before == '_' || after == '*' || after == '_' || p.inText('*') {
 			return nil
 		}
 		return []byte("**")
 	default:
-		// No '~' goes next to a "~~" delimiter (appendix B, trap 13), and
-		// "~~" could pair with a run of '~' that is text.
-		if bytes.IndexByte(content, '~') >= 0 || before == '~' || after == '~' || p.tildeInText() {
+		// No '~' goes next to a "~~" delimiter (appendix B, trap 13).
+		if bytes.IndexByte(content, '~') >= 0 || before == '~' || after == '~' || p.inText('~') {
 			return nil
 		}
 		return []byte("~~")
 	}
 }
 
-// tildeInText reports whether the innermost open paragraph, heading or table
-// cell has a text leaf with a '~'.
-func (p *printer) tildeInText() bool {
+// inText reports whether the innermost open paragraph, heading or table cell
+// has a text leaf with c, which is '*', '_' or '~'. A delimiter could pair
+// with a run of c that is text, where the input's delimiter does not.
+func (p *printer) inText(c byte) bool {
 	t := p.tree
 	i := len(p.stack) - 1
 	for i > 0 && p.stack[i].kind != markdown.Paragraph && p.stack[i].kind != markdown.Heading && p.stack[i].kind != markdown.TableCell {
 		i--
 	}
-	scope := p.stack[i].id
-	if scope != p.tildeScope {
-		p.tildeScope, p.tildeText = scope, false
+	if scope := p.stack[i].id; scope != p.delimScope {
+		p.delimScope, p.delimText = scope, [3]bool{}
 		end, _ := t.Next(scope)
-		for j := scope + 1; j < end && !p.tildeText; j++ {
-			p.tildeText = t.Kind(j) == markdown.Text && bytes.IndexByte(t.Raw(j), '~') >= 0
+		for j := scope + 1; j < end; j++ {
+			if t.Kind(j) == markdown.Text {
+				for k, d := range []byte("*_~") {
+					p.delimText[k] = p.delimText[k] || bytes.IndexByte(t.Raw(j), d) >= 0
+				}
+			}
 		}
 	}
-	return p.tildeText
+	return p.delimText[strings.IndexByte("*_~", c)]
 }
 
 // flanksLikeSpace reports whether c, the byte next to an emphasis
