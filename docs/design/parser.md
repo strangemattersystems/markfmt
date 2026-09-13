@@ -1071,8 +1071,8 @@ adds its set of `Dialect(row)` values to its Enter event. `Equal` requires:
   passes: 250 of 296. CM 96
   and 98 are front matter (section 8.1). Link reference definitions get unit tests on the tree. The
   classification is deleted in the commit that passes the stage 3 gate.
-- `internal/format/testdata/spec` (goldmark's `spec.json`) stays until stage 6
-  deletes the goldmark-based formatter.
+- `internal/format/testdata/spec` (goldmark's `spec.json`) stays as data for
+  the idempotence subtest of `TestSource`.
 
 ### 11.3 Test HTML renderer
 

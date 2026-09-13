@@ -54,6 +54,11 @@ tasks:
     cmds:
       - "{{.GOLANGCI_LINT}} fmt ./..."
 
+  deps:
+    desc: Fail when the markfmt binary imports goldmark, which only tests may use
+    cmds:
+      - test -z "$(go list -deps ./cmd/markfmt | grep goldmark)"
+
   ci:
     desc: Run the full CI suite
     cmds:
@@ -62,4 +67,5 @@ tasks:
           rc=0
           task test || rc=1
           task lint || rc=1
+          task deps || rc=1
           exit $rc

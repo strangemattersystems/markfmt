@@ -2,26 +2,38 @@
 package markfmt
 
 import (
+	"fmt"
 	"io"
+	"runtime/debug"
 
 	"github.com/strangemattersystems/markfmt/internal/format"
 )
 
 // Format reads Markdown from r and writes it to w in the canonical style.
 //
-// Format writes nothing and returns an error if the formatted document would
-// render differently from the input.
+// Format writes nothing and returns an error if the input is larger than
+// 8 MiB, or if markfmt cannot show that the output has the meaning of the
+// input. A panic while formatting is returned as an error with its stack.
 func Format(w io.Writer, r io.Reader) error {
-	// ponytail: reads the whole document into memory. Replace with a
-	// two-pass parser if very large inputs matter.
-	src, err := io.ReadAll(r)
-	if err != nil {
-		return err
-	}
-	out, err := format.Source(src)
+	out, err := source(r)
 	if err != nil {
 		return err
 	}
 	_, err = w.Write(out)
 	return err
+}
+
+// source reads r and formats it. It recovers a panic, so that a parser or
+// printer bug fails one input and not the whole run of the CLI.
+func source(r io.Reader) (out []byte, err error) {
+	defer func() {
+		if v := recover(); v != nil {
+			out, err = nil, fmt.Errorf("internal error: %v\n%s", v, debug.Stack())
+		}
+	}()
+	src, err := io.ReadAll(io.LimitReader(r, format.MaxInput+1))
+	if err != nil {
+		return nil, err
+	}
+	return format.Source(src)
 }

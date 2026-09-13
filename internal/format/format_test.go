@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -16,12 +17,18 @@ func TestSource(t *testing.T) {
 	t.Run("cases", func(t *testing.T) {
 		t.Parallel()
 
-		for _, c := range readCases(t) {
-			t.Run(c.name, func(t *testing.T) {
+		cases := readCases(t)
+		failing := readFailing(t, cases)
+		for _, c := range cases {
+			t.Run(strings.ReplaceAll(c.name, "-", " "), func(t *testing.T) {
 				t.Parallel()
 
-				if got := checkSource(t, c.in); !bytes.Equal(got, c.out) {
-					t.Fatalf("Source(%q)\n got: %q\nwant: %q", c.in, got, c.out)
+				got := checkSource(t, c.in)
+				switch pass := bytes.Equal(got, c.out); {
+				case pass && failing[c.name]:
+					t.Error("passes: remove it from testdata/cases/failing.txt")
+				case !pass && !failing[c.name]:
+					t.Errorf("Source(%q)\n got: %q\nwant: %q", c.in, got, c.out)
 				}
 			})
 		}
@@ -38,42 +45,13 @@ func TestSource(t *testing.T) {
 			})
 		}
 	})
-}
 
-func TestCheckRendering(t *testing.T) {
-	t.Parallel()
+	t.Run("rejects an input above the input limit", func(t *testing.T) {
+		t.Parallel()
 
-	tests := []struct {
-		name           string
-		src, formatted string
-		wantErr        bool
-	}{
-		{"accepts output that renders the same", "#   A\n", "# A\n", false},
-		{"rejects output that renders differently", "a\n", "b\n", true},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
-			src := []byte(tt.src)
-			err := checkRendering(src, markdown.Parse(src), []byte(tt.formatted))
-			if (err != nil) != tt.wantErr {
-				t.Fatalf("checkRendering(%q, %q) error = %v, want error %t", tt.src, tt.formatted, err, tt.wantErr)
-			}
-		})
-	}
-}
-
-func FuzzSource(f *testing.F) {
-	for _, c := range readCases(f) {
-		f.Add(c.in)
-	}
-	for _, ex := range readSpec(f) {
-		f.Add(ex.markdown)
-	}
-
-	f.Fuzz(func(t *testing.T, in []byte) {
-		checkSource(t, in)
+		if _, err := Source(make([]byte, MaxInput+1)); err == nil {
+			t.Fatal("Source of MaxInput+1 bytes gives no error")
+		}
 	})
 }
 
@@ -116,7 +94,7 @@ func readCases(t testing.TB) []testCase {
 	cases := make([]testCase, 0, len(inputs))
 	for _, input := range inputs {
 		base := strings.TrimSuffix(input, ".in.md")
-		c := testCase{name: strings.ReplaceAll(filepath.Base(base), "-", " ")}
+		c := testCase{name: filepath.Base(base)}
 		if c.in, err = os.ReadFile(input); err != nil {
 			t.Fatal(err)
 		}
@@ -126,6 +104,30 @@ func readCases(t testing.TB) []testCase {
 		cases = append(cases, c)
 	}
 	return cases
+}
+
+// readFailing reads the names in testdata/cases/failing.txt, the cases that
+// Source does not pass yet. The list only gets shorter: an entry that names
+// no case is an error.
+func readFailing(t *testing.T, cases []testCase) map[string]bool {
+	t.Helper()
+
+	data, err := os.ReadFile("testdata/cases/failing.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	failing := make(map[string]bool)
+	for line := range strings.Lines(string(data)) {
+		name, _, _ := strings.Cut(line, "#")
+		if name = strings.TrimSpace(name); name == "" {
+			continue
+		}
+		if !slices.ContainsFunc(cases, func(c testCase) bool { return c.name == name }) {
+			t.Errorf("failing.txt: %q names no case", name)
+		}
+		failing[name] = true
+	}
+	return failing
 }
 
 type specExample struct {

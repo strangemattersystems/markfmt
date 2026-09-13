@@ -87,12 +87,13 @@ Layout:
   generated full case folding table.
 - `internal/markdown/testdata/entities/entities.json`: the source of the
   generated entity table.
-- `internal/format`: the goldmark-based formatter. It formats headings (ATX)
-  and paragraphs, copies other blocks from source, passes front matter
-  through, and compares goldmark HTML of input and output.
-- `internal/format/testdata/cases`: 26 `NAME.in.md` and `NAME.out.md` pairs.
+- `internal/format`: the formatter on the new parser. `Source` parses the
+  input, prints it, parses the output and calls `Equal`. The printer is
+  stage 6 work.
+- `internal/format/testdata/cases`: 26 `NAME.in.md` and `NAME.out.md` pairs,
+  and `failing.txt`, the cases that the printer does not pass yet.
 - `internal/format/testdata/spec`: CommonMark 0.31.2 examples (goldmark's
-  `spec.json`) and goldmark's extra and GFM case files.
+  `spec.json`) and goldmark's extra and GFM case files, as idempotence data.
 - `internal/format/testdata/fuzz/FuzzSource`: 9 inputs that the fuzzer found.
 - `tools/go.mod`: golangci-lint v2.13.2, kept out of the root `go.mod`.
 - `docs/design/parser.md`: the parser design.
