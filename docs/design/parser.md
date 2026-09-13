@@ -979,9 +979,12 @@ adds its set of `Dialect(row)` values to its Enter event. `Equal` requires:
 
 - equal row sets at every event, in both directions, so the printer can neither
   create nor remove a place where GitHub and CommonMark disagree;
-- for each span, equal non-prefix bytes, and for each of its lines the same
-  number of matched containers, so a lazy line stays lazy. The cost is
-  O(span bytes).
+- for each span, equal non-prefix bytes, with a split tab read as its `virt`
+  spaces (section 4.3) and each line ending as LF (product rule 7), and for
+  each of its lines after the first that is not blank the same number of
+  matched containers, so a lazy line stays lazy. The prefix leaves of a line
+  do not give that number: a container that consumes columns only inside a
+  split tab has no leaf. The cost is O(span bytes).
 
 ### 10.5 Tests of the check
 
@@ -1217,7 +1220,8 @@ internal/markdown/
   codespan.go  autolink.go  rawhtml.go  entity.go  escape.go  task.go
   entities.go     generated
   chars.go        decoding, character classes, labels
-  compare.go      Equal, keys, groups
+  compare.go      Equal, keys, groups, dialect spans
+  dialect.go      dialect predicates (section 2.1)
   testdata/       corpora, failing and grammar-differs lists, pairs, dialect.md, entities/entities.json, unicode/CaseFolding.txt
 ```
 

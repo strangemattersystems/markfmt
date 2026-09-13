@@ -2,6 +2,7 @@ package markdown
 
 import (
 	"bytes"
+	"fmt"
 	"os"
 	"path/filepath"
 	"slices"
@@ -42,7 +43,7 @@ func TestEqual(t *testing.T) {
 				if err == nil {
 					t.Errorf("Equal = nil, want a difference: %s", reason)
 				}
-				if htmlA == htmlB {
+				if htmlA == htmlB && !strings.Contains(reason, "(github ") {
 					t.Errorf("the pair renders equal test HTML %q, so it needs a GitHub fixture to be different", htmlA)
 				}
 			default:
@@ -104,6 +105,30 @@ func TestEqual(t *testing.T) {
 		// count, but such cells are content (design 8.4).
 		if err := Equal(Parse([]byte("| a |\n| - |\n| b | c |")), Parse([]byte("| a |\n| - |\n| b |"))); err == nil {
 			t.Fatal("Equal = nil, want a difference")
+		}
+	})
+
+	t.Run("compares the bytes and the lines of dialect spans", func(t *testing.T) {
+		t.Parallel()
+
+		// No pair holds these cases: the paragraph that an HTML block named
+		// search interrupts is a dialect span (github 17), which renders equal
+		// test HTML in both forms.
+		for _, pair := range [][2]string{
+			{"a  \n<search>", "a\n<search>"},
+			{"> a\n> b\n<search>", "> a\nb\n<search>"},
+		} {
+			if err := Equal(Parse([]byte(pair[0])), Parse([]byte(pair[1]))); err == nil {
+				t.Errorf("Equal of %q and %q = nil, want a difference", pair[0], pair[1])
+			}
+		}
+		for _, pair := range [][2]string{
+			{"> a\r\n> b\r\n<search>", "> a\n> b\n<search>"},
+			{"- a\n\tb\n<search>", "- a\n    b\n<search>"},
+		} {
+			if err := Equal(Parse([]byte(pair[0])), Parse([]byte(pair[1]))); err != nil {
+				t.Errorf("Equal of %q and %q = %v, want nil", pair[0], pair[1], err)
+			}
 		}
 	})
 
@@ -350,6 +375,7 @@ func TestKept(t *testing.T) {
 		{"gives the raw labels of footnote references and definitions", "a[^B]\n\n[^B]: x", []string{"label B", "label B"}},
 		{"gives each nul and invalid utf-8 sequence in content", "a\x00b\xa6\xe0\xa0c", []string{"invalid \x00", "invalid \xa6", "invalid \xe0\xa0"}},
 		{"gives an ordered list that starts at 1 and whose second item is 1", "1. a\n1. b\n\n- c\n\n3) d\n1) e\n\n1. f\n2. g", []string{"lazy numbering"}},
+		{"gives the rows and the blank lines around each dialect span", "a\n<search>\n\n\nb", []string{"span 1, blank lines 0 and 0", "span 1, blank lines 0 and 2"}},
 		{"gives nothing for text, emphasis and an inline link", "a *b* [c](/u)", nil},
 	}
 	for _, tt := range tests {
@@ -364,14 +390,20 @@ func TestKept(t *testing.T) {
 }
 
 // kept returns the kept syntax of tree in document order (design 12): the
+// rows of each dialect span and the blank lines before and after it, the
 // bytes of each Escape, EntityRef and CellPipeEscape leaf, the raw bytes of
 // each label, each NUL and invalid UTF-8 sequence in a content leaf, and each
 // ordered list with lazy numbering.
 func kept(tree *Tree) []string {
 	var events []string
+	spans := tree.dialectSpans()
 	for i, n := range tree.nodes {
 		id := NodeID(i)
 		b := tree.src[n.start:n.end]
+		if len(spans) > 0 && spans[0].id == uint32(i) {
+			events = append(events, fmt.Sprintf("span %b, blank lines %d and %d", spans[0].rows, blankLines(tree, i-1, -1), blankLines(tree, int(n.link), 1)))
+			spans = spans[1:]
+		}
 		switch n.kind {
 		case Escape, EntityRef, CellPipeEscape:
 			events = append(events, n.kind.String()+" "+string(b))
@@ -446,4 +478,19 @@ func lazyNumbering(tree *Tree, id NodeID) bool {
 		return m.start == 1
 	}
 	return false
+}
+
+// blankLines counts the BlankLine leaves from node i in direction dir, -1 or
+// 1, across prefix leaves, up to another node.
+func blankLines(tree *Tree, i, dir int) int {
+	n := 0
+	for ; i >= 0 && i < len(tree.nodes); i += dir {
+		m := tree.nodes[i]
+		if _, prefix := m.kind.owner(); m.kind == BlankLine {
+			n++
+		} else if !prefix {
+			break
+		}
+	}
+	return n
 }

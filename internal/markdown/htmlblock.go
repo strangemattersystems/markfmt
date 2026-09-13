@@ -50,15 +50,8 @@ func htmlBlockStart(src []byte, i, end uint32) uint8 {
 	case bytes.HasPrefix(s, []byte("<![CDATA[")):
 		return 5
 	}
-	j := 1
-	if s[1] == '/' {
-		j = 2
-	}
-	k := j
-	for k < len(s) && k-j <= 10 && (isASCIILetter(s[k]) || '0' <= s[k] && s[k] <= '9') {
-		k++
-	}
-	if kind6Names[strings.ToLower(string(s[j:k]))] &&
+	name, k := htmlTagName(s)
+	if kind6Names[strings.ToLower(string(name))] &&
 		(k == len(s) || isTagSpace(s[k]) || s[k] == '>' || bytes.HasPrefix(s[k:], []byte("/>"))) {
 		return 6
 	}
@@ -68,6 +61,20 @@ func htmlBlockStart(src []byte, i, end uint32) uint8 {
 		return 7
 	}
 	return 0
+}
+
+// htmlTagName returns the tag name that the kind 6 start condition reads after
+// '<' or "</" at the start of s, and the offset after it.
+func htmlTagName(s []byte) ([]byte, int) {
+	j := 1
+	if len(s) > 1 && s[1] == '/' {
+		j = 2
+	}
+	k := j
+	for k < len(s) && k-j <= 10 && (isASCIILetter(s[k]) || '0' <= s[k] && s[k] <= '9') {
+		k++
+	}
+	return s[j:k], k
 }
 
 // htmlTagLen returns the length of the open tag or closing tag at the start

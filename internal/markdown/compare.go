@@ -3,6 +3,7 @@ package markdown
 import (
 	"bytes"
 	"fmt"
+	"slices"
 )
 
 // Equal reports the first difference between the event projections of a and
@@ -12,7 +13,7 @@ import (
 // structure node.
 func Equal(a, b *Tree) error {
 	c := comparer{a: a, b: b}
-	pa, pb := projection{t: a}, projection{t: b}
+	pa, pb := newProjection(a), newProjection(b)
 	for {
 		ea, okA := pa.next()
 		eb, okB := pb.next()
@@ -33,6 +34,9 @@ func Equal(a, b *Tree) error {
 		if err := c.compare(ea, okA, eb, okB); err != nil {
 			return err
 		}
+		if ea.op == enterEvent && ea.rows != 0 && !equalSpans(&pa, ea.id, &pb, eb.id) {
+			return fmt.Errorf("markdown: different dialect spans: %s against %s", describe(a, ea, okA), describe(b, eb, okB))
+		}
 	}
 }
 
@@ -52,6 +56,8 @@ func (c *comparer) compare(ea event, okA bool, eb event, okB bool) error {
 		what = "different events"
 	case ea.op == enterEvent && c.a.nodes[ea.id].kind != c.b.nodes[eb.id].kind:
 		what = "different kinds"
+	case ea.op == enterEvent && ea.rows != eb.rows:
+		what = "different dialect rows"
 	case ea.op == enterEvent && !c.equalKeys(ea.id, eb.id):
 		what = "different keys"
 	case ea.op == contentEvent && ea.group != eb.group:
@@ -156,6 +162,7 @@ type event struct {
 	id    NodeID // the node of an Enter or Exit event, or the first leaf of a content run
 	end   NodeID // one past the last leaf of a content run
 	group Kind   // the group of a content run (design 10.3)
+	rows  dialectRows
 }
 
 // projection yields the events of a tree in order. Its stack is explicit
@@ -168,6 +175,17 @@ type projection struct {
 
 	columns int // the columns of the last table entered
 	cell    int // the cells entered in the last table row entered
+
+	spans    []dialectSpan // the dialect spans after the walk, in node order
+	dialect  bool          // the tree has dialect spans, so walk follows the walk
+	walk     containerWalk
+	spanWalk containerWalk // walk at the last dialect span entered
+}
+
+func newProjection(t *Tree) projection {
+	p := projection{t: t, spans: t.dialectSpans()}
+	p.dialect, p.walk.t = len(p.spans) > 0, t
+	return p
 }
 
 func (p *projection) next() (event, bool) {
@@ -183,6 +201,7 @@ func (p *projection) next() (event, bool) {
 		}
 		i, n := p.i, nodes[p.i]
 		p.i++
+		p.visit(i)
 		if n.kind.class() == classStructure {
 			p.stack = append(p.stack, i)
 			p.label = false
@@ -194,11 +213,20 @@ func (p *projection) next() (event, bool) {
 			case TableCell:
 				p.cell++
 			}
-			if n.kind == CodeBlock || n.kind == HTMLBlock || n.kind == CodeSpan {
-				// All their content is in their key.
-				p.i = n.link
+			e := event{op: enterEvent, id: NodeID(i)}
+			for len(p.spans) > 0 && p.spans[0].id <= i {
+				if p.spans[0].id == i {
+					e.rows = p.spans[0].rows
+					p.spanWalk = containerWalk{t: p.t, col: p.walk.col, chain: slices.Clone(p.walk.chain)}
+				}
+				p.spans = p.spans[1:]
 			}
-			return event{op: enterEvent, id: NodeID(i)}, true
+			if n.kind == CodeBlock || n.kind == HTMLBlock || n.kind == CodeSpan {
+				// All their content is in their key. A block ends at the end of a
+				// line, and no container starts later on the line of a code span.
+				p.i, p.walk.col = n.link, 0
+			}
+			return e, true
 		}
 		parent := nodes[p.stack[len(p.stack)-1]]
 		p.observe(n)
@@ -215,6 +243,7 @@ func (p *projection) next() (event, bool) {
 				break
 			}
 			p.observe(m)
+			p.visit(p.i)
 			p.i++
 		}
 		return event{op: contentEvent, id: NodeID(i), end: NodeID(p.i), group: group}, true
@@ -238,6 +267,13 @@ func (p *projection) skipEmptyCell(e event, other Kind) bool {
 	p.stack = p.stack[:len(p.stack)-1]
 	p.i = n.link
 	return true
+}
+
+// visit follows the walk to node i when the tree has dialect spans.
+func (p *projection) visit(i uint32) {
+	if p.dialect {
+		p.walk.visit(i)
+	}
 }
 
 func (p *projection) observe(m Node) {
@@ -331,4 +367,120 @@ func (r *runReader) next() []byte {
 		}
 		r.i++
 	}
+}
+
+// equalSpans reports whether the dialect spans ia of pa's tree and ib of pb's
+// tree, which the projections entered last, have equal bytes outside prefix
+// leaves, and the same number of matched containers on each line after the
+// first that is not blank (design 10.4).
+func equalSpans(pa *projection, ia NodeID, pb *projection, ib NodeID) bool {
+	a, b := pa.t, pb.t
+	ra := spanReader{t: a, i: uint32(ia) + 1, end: a.nodes[ia].link}
+	rb := spanReader{t: b, i: uint32(ib) + 1, end: b.nodes[ib].link}
+	if !equalPieces(&ra, &rb) {
+		return false
+	}
+	la := spanLines{w: pa.spanWalk, i: uint32(ia) + 1, end: a.nodes[ia].link}
+	lb := spanLines{w: pb.spanWalk, i: uint32(ib) + 1, end: b.nodes[ib].link}
+	for {
+		ma, okA := la.next()
+		mb, okB := lb.next()
+		if okA != okB || ma != mb {
+			return false
+		}
+		if !okA {
+			return true
+		}
+	}
+}
+
+// spanReader reads the bytes of the leaves of a dialect span that are not
+// prefix leaves, with a split tab as its virt spaces (design 4.3) and each
+// line ending as a line feed.
+type spanReader struct {
+	t      *Tree
+	i, end uint32
+	b      []byte // the rest of the last leaf
+}
+
+func (r *spanReader) next() []byte {
+	for len(r.b) == 0 {
+		if r.i == r.end {
+			return nil
+		}
+		m := r.t.nodes[r.i]
+		r.i++
+		if _, prefix := m.kind.owner(); prefix || m.kind.class() == classStructure {
+			continue
+		}
+		r.b = r.t.src[m.start:m.end]
+		if m.virt > 0 {
+			r.b = r.b[1:]
+			return spaces[:m.virt:m.virt]
+		}
+	}
+	b := r.b
+	switch i := bytes.IndexByte(b, '\r'); {
+	case i < 0:
+		r.b = nil
+		return b
+	case i > 0:
+		r.b = b[i:]
+		return b[:i]
+	}
+	r.b = bytes.TrimPrefix(b[1:], lineFeed)
+	return lineFeed[:1:1]
+}
+
+// spanLines yields the number of containers that each line of a dialect span
+// matched, for the lines after its first line that are not blank.
+type spanLines struct {
+	w         containerWalk // at the span node
+	i, end    uint32
+	lineStart bool
+}
+
+func (s *spanLines) next() (int, bool) {
+	t := s.w.t
+	for s.i < s.end {
+		i := s.i
+		s.i++
+		n := t.nodes[i]
+		matched, found := 0, false
+		if s.lineStart && n.kind.class() != classStructure {
+			s.lineStart = false
+			if !t.blankRest(i, s.end) {
+				matched, found = s.w.matched(i), true
+			}
+		}
+		s.w.visit(i)
+		if c := t.src[n.end-1]; n.kind.class() != classStructure && (c == '\n' || c == '\r') {
+			s.lineStart = true
+		}
+		if found {
+			return matched, true
+		}
+	}
+	return 0, false
+}
+
+// blankRest reports whether the line from leaf i, before node end, has only
+// prefix leaves, spaces and tabs before its line ending.
+func (t *Tree) blankRest(i, end uint32) bool {
+	for ; i < end; i++ {
+		m := t.nodes[i]
+		if _, prefix := m.kind.owner(); prefix || m.kind.class() == classStructure {
+			continue
+		}
+		for _, c := range t.src[m.start:m.end] {
+			switch c {
+			case '\n', '\r':
+				return true
+			case ' ', '\t':
+			default:
+				return false
+			}
+		}
+	}
+	return true
 }

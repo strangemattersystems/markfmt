@@ -55,3 +55,4 @@ task-box-whitespace equal the spaces and tabs after a task box are not content (
 task-checked different a task is checked or not (cmark-gfm extensions 28)
 footnote-reference-label-case equal a footnote reference label matches after case folding (GitHub fixture footnotes/label-case)
 footnote-definition-label-case different GitHub writes the label of a definition as written into element ids (design 9.2)
+dialect-search-blank-line different a blank line before an HTML block named search ends the paragraph that GitHub continues (github 17)
