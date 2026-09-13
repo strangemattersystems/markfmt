@@ -1,0 +1,1124 @@
+# GitHub fixtures
+
+Captured 2026-09-13 with `gh api markdown -f mode=gfm -F text=@INPUT`.
+
+## autolinks/brackets
+
+```````````````````````````````` example
+[www.a.com] [a](www.b.com) [http://a.com](/u) ![www.a.com](/i)
+.
+<p>[www.a.com] <a href="www.b.com">a</a> <a href="/u">http://a.com</a> <a target="_blank" rel="noopener noreferrer" href="/i"><img src="/i" alt="www.a.com" style="max-width: 100%;"></a></p>
+````````````````````````````````
+
+## autolinks/code
+
+```````````````````````````````` example
+`www.a.com` `a@b.cd`
+.
+<p><code class="notranslate">www.a.com</code> <code class="notranslate">a@b.cd</code></p>
+````````````````````````````````
+
+## autolinks/context
+
+```````````````````````````````` example
+*www.a.com* _http://a.com_ ~www.a.com~ xwww.a.com a:www.a.com
+.
+<p><em><a href="http://www.a.com" rel="nofollow">www.a.com</a></em> <em>http://a.com</em> <del><a href="http://www.a.com" rel="nofollow">www.a.com</a></del> xwww.a.com a:www.a.com</p>
+````````````````````````````````
+
+## autolinks/email
+
+```````````````````````````````` example
+a@b.com a.b+c@d.e.f a@b.c. a@b.c- mailto:a@b.cc xmpp:a@b.cc/d
+.
+<p><a href="mailto:a@b.com">a@b.com</a> <a href="mailto:a.b+c@d.e.f">a.b+c@d.e.f</a> <a href="mailto:a@b.c">a@b.c</a>. a@b.c- <a href="mailto:a@b.cc">mailto:a@b.cc</a> <a href="xmpp:a@b.cc/d">xmpp:a@b.cc/d</a></p>
+````````````````````````````````
+
+## autolinks/escapes-and-entities
+
+```````````````````````````````` example
+a\_b@c.de &#97;@b.cd http://a.b/\_c
+.
+<p><a href="mailto:a_b@c.de">a_b@c.de</a> <a href="mailto:a@b.cd">a@b.cd</a> <a href="http://a.b/%5C_c" rel="nofollow">http://a.b/\_c</a></p>
+````````````````````````````````
+
+## autolinks/less-than
+
+```````````````````````````````` example
+www.a.com/b<c http://a.com<b>
+.
+<p><a href="http://www.a.com/b" rel="nofollow">www.a.com/b</a>&lt;c <a href="http://a.com" rel="nofollow">http://a.com</a><b></b></p>
+````````````````````````````````
+
+## autolinks/underscores
+
+```````````````````````````````` example
+www.a_b.c.d www.a.b_c.d www.a.b.c_d
+.
+<p><a href="http://www.a_b.c.d" rel="nofollow">www.a_b.c.d</a> www.a.b_c.d www.a.b.c_d</p>
+````````````````````````````````
+
+## autolinks/url
+
+```````````````````````````````` example
+http://a.com https://a.com/b ftp://a.com x http://a.com, http://a
+.
+<p><a href="http://a.com" rel="nofollow">http://a.com</a> <a href="https://a.com/b" rel="nofollow">https://a.com/b</a> ftp://a.com x <a href="http://a.com" rel="nofollow">http://a.com</a>, <a href="http://a" rel="nofollow">http://a</a></p>
+````````````````````````````````
+
+## autolinks/www
+
+```````````````````````````````` example
+www.a.com www.a.com/b?c=d&e=f www.a.com. (www.a.com) www.a.com/(b)) www.a.com/b&c;
+.
+<p><a href="http://www.a.com" rel="nofollow">www.a.com</a> <a href="http://www.a.com/b?c=d&amp;e=f" rel="nofollow">www.a.com/b?c=d&amp;e=f</a> <a href="http://www.a.com" rel="nofollow">www.a.com</a>. (<a href="http://www.a.com" rel="nofollow">www.a.com</a>) <a href="http://www.a.com/(b)" rel="nofollow">www.a.com/(b)</a>) <a href="http://www.a.com/b" rel="nofollow">www.a.com/b</a>&amp;c;</p>
+````````````````````````````````
+
+## dialect/definition-underline
+
+```````````````````````````````` example
+[foo]: /url
+---
+.
+<p>---</p>
+````````````````````````````````
+
+## dialect/flanking-symbol
+
+```````````````````````````````` example
+£_a_£
+.
+<p>£_a_£</p>
+````````````````````````````````
+
+## dialect/html-block-declaration
+
+```````````````````````````````` example
+<!doctype html>
+.
+<p>&lt;!doctype html&gt;</p>
+````````````````````````````````
+
+## dialect/html-block-lazy-line
+
+```````````````````````````````` example
+> a
+<del>
+*b*
+.
+<blockquote>
+<p>a</p>
+</blockquote>
+<del>
+*b*</del>
+````````````````````````````````
+
+## dialect/html-block-search
+
+```````````````````````````````` example
+a
+<search>
+*b*
+.
+<p>a<br>
+<br>
+<em>b</em></p>
+````````````````````````````````
+
+## dialect/html-block-source
+
+```````````````````````````````` example
+a
+<source>
+*b*
+.
+<p>a</p>
+<source>
+*b*
+````````````````````````````````
+
+## dialect/html-comment
+
+```````````````````````````````` example
+a <!--> b --> <!-- c -- d --->
+.
+<p>a  b --&gt; &lt;!-- c -- d ---&gt;</p>
+````````````````````````````````
+
+## footnotes/basic
+
+```````````````````````````````` example
+Text[^1] and more[^note].
+
+[^1]: One.
+[^note]: Two.
+.
+<p>Text<sup><a href="#user-content-fn-1-de90ebd0531c51c954f60ae85c2e7db9" id="user-content-fnref-1-de90ebd0531c51c954f60ae85c2e7db9" data-footnote-ref="" aria-describedby="footnote-label">1</a></sup> and more<sup><a href="#user-content-fn-note-de90ebd0531c51c954f60ae85c2e7db9" id="user-content-fnref-note-de90ebd0531c51c954f60ae85c2e7db9" data-footnote-ref="" aria-describedby="footnote-label">2</a></sup>.</p>
+<section data-footnotes="" class="footnotes"><h2 id="footnote-label" class="sr-only">Footnotes</h2>
+<ol>
+<li id="user-content-fn-1-de90ebd0531c51c954f60ae85c2e7db9">
+<p>One. <a href="#user-content-fnref-1-de90ebd0531c51c954f60ae85c2e7db9" data-footnote-backref="" aria-label="Back to reference 1" class="data-footnote-backref">↩</a></p>
+</li>
+<li id="user-content-fn-note-de90ebd0531c51c954f60ae85c2e7db9">
+<p>Two. <a href="#user-content-fnref-note-de90ebd0531c51c954f60ae85c2e7db9" data-footnote-backref="" aria-label="Back to reference 2" class="data-footnote-backref">↩</a></p>
+</li>
+</ol>
+</section>
+````````````````````````````````
+
+## footnotes/blank-first-line
+
+```````````````````````````````` example
+a[^1]
+
+[^1]:
+
+    para
+.
+<p>a<sup><a href="#user-content-fn-1-f91f37f2957fbff9162d6a30cdf24b93" id="user-content-fnref-1-f91f37f2957fbff9162d6a30cdf24b93" data-footnote-ref="" aria-describedby="footnote-label">1</a></sup></p>
+<section data-footnotes="" class="footnotes"><h2 id="footnote-label" class="sr-only">Footnotes</h2>
+<ol>
+<li id="user-content-fn-1-f91f37f2957fbff9162d6a30cdf24b93">
+<p>para <a href="#user-content-fnref-1-f91f37f2957fbff9162d6a30cdf24b93" data-footnote-backref="" aria-label="Back to reference 1" class="data-footnote-backref">↩</a></p>
+</li>
+</ol>
+</section>
+````````````````````````````````
+
+## footnotes/blocks
+
+```````````````````````````````` example
+a[^1]
+
+[^1]:
+    > quote
+
+        code
+
+    para
+.
+<p>a<sup><a href="#user-content-fn-1-0a04147faa4ea89caf868685fe1f47ad" id="user-content-fnref-1-0a04147faa4ea89caf868685fe1f47ad" data-footnote-ref="" aria-describedby="footnote-label">1</a></sup></p>
+<section data-footnotes="" class="footnotes"><h2 id="footnote-label" class="sr-only">Footnotes</h2>
+<ol>
+<li id="user-content-fn-1-0a04147faa4ea89caf868685fe1f47ad">
+<blockquote>
+<p>quote</p>
+</blockquote>
+<pre class="notranslate"><code class="notranslate">code
+</code></pre>
+<p>para <a href="#user-content-fnref-1-0a04147faa4ea89caf868685fe1f47ad" data-footnote-backref="" aria-label="Back to reference 1" class="data-footnote-backref">↩</a></p>
+</li>
+</ol>
+</section>
+````````````````````````````````
+
+## footnotes/docs-footnotes
+
+```````````````````````````````` example
+Here is a simple footnote[^1].
+
+A footnote can also have multiple lines[^2].
+
+[^1]: My reference.
+[^2]: To add line breaks within a footnote, add 2 spaces to the end of a line.  
+This is a second line.
+.
+<p>Here is a simple footnote<sup><a href="#user-content-fn-1-debfa8166a27878b1bfad8a642fb59e6" id="user-content-fnref-1-debfa8166a27878b1bfad8a642fb59e6" data-footnote-ref="" aria-describedby="footnote-label">1</a></sup>.</p>
+<p>A footnote can also have multiple lines<sup><a href="#user-content-fn-2-debfa8166a27878b1bfad8a642fb59e6" id="user-content-fnref-2-debfa8166a27878b1bfad8a642fb59e6" data-footnote-ref="" aria-describedby="footnote-label">2</a></sup>.</p>
+<section data-footnotes="" class="footnotes"><h2 id="footnote-label" class="sr-only">Footnotes</h2>
+<ol>
+<li id="user-content-fn-1-debfa8166a27878b1bfad8a642fb59e6">
+<p>My reference. <a href="#user-content-fnref-1-debfa8166a27878b1bfad8a642fb59e6" data-footnote-backref="" aria-label="Back to reference 1" class="data-footnote-backref">↩</a></p>
+</li>
+<li id="user-content-fn-2-debfa8166a27878b1bfad8a642fb59e6">
+<p>To add line breaks within a footnote, add 2 spaces to the end of a line.<br>
+This is a second line. <a href="#user-content-fnref-2-debfa8166a27878b1bfad8a642fb59e6" data-footnote-backref="" aria-label="Back to reference 2" class="data-footnote-backref">↩</a></p>
+</li>
+</ol>
+</section>
+````````````````````````````````
+
+## footnotes/emphasis
+
+```````````````````````````````` example
+a[^*b*] *c[^d]*
+
+[^*b*]: x
+[^d]: y
+.
+<p>a<sup><a href="#user-content-fn-*b*-1ef7f9898e126d2dbf71edddd4007f91" id="user-content-fnref-*b*-1ef7f9898e126d2dbf71edddd4007f91" data-footnote-ref="" aria-describedby="footnote-label">1</a></sup> <em>c<sup><a href="#user-content-fn-d-1ef7f9898e126d2dbf71edddd4007f91" id="user-content-fnref-d-1ef7f9898e126d2dbf71edddd4007f91" data-footnote-ref="" aria-describedby="footnote-label">2</a></sup></em></p>
+<section data-footnotes="" class="footnotes"><h2 id="footnote-label" class="sr-only">Footnotes</h2>
+<ol>
+<li id="user-content-fn-*b*-1ef7f9898e126d2dbf71edddd4007f91">
+<p>x <a href="#user-content-fnref-*b*-1ef7f9898e126d2dbf71edddd4007f91" data-footnote-backref="" aria-label="Back to reference 1" class="data-footnote-backref">↩</a></p>
+</li>
+<li id="user-content-fn-d-1ef7f9898e126d2dbf71edddd4007f91">
+<p>y <a href="#user-content-fnref-d-1ef7f9898e126d2dbf71edddd4007f91" data-footnote-backref="" aria-label="Back to reference 2" class="data-footnote-backref">↩</a></p>
+</li>
+</ol>
+</section>
+````````````````````````````````
+
+## footnotes/escaped-caret
+
+```````````````````````````````` example
+a[\^1] b[&#94;1]
+
+[^1]: x
+.
+<p>a[^1]] b[^</p>
+````````````````````````````````
+
+## footnotes/in-containers
+
+```````````````````````````````` example
+> a[^1]
+>
+> [^1]: quoted
+
+- b[^2]
+
+  [^2]: listed
+.
+<blockquote>
+<p>a<sup><a href="#user-content-fn-1-ed7a7421512eaca36dbf473d7f6773da" id="user-content-fnref-1-ed7a7421512eaca36dbf473d7f6773da" data-footnote-ref="" aria-describedby="footnote-label">1</a></sup></p>
+</blockquote>
+<ul>
+<li>
+<p>b<sup><a href="#user-content-fn-2-ed7a7421512eaca36dbf473d7f6773da" id="user-content-fnref-2-ed7a7421512eaca36dbf473d7f6773da" data-footnote-ref="" aria-describedby="footnote-label">2</a></sup></p>
+</li>
+</ul>
+<section data-footnotes="" class="footnotes"><h2 id="footnote-label" class="sr-only">Footnotes</h2>
+<ol>
+<li id="user-content-fn-1-ed7a7421512eaca36dbf473d7f6773da">
+<p>quoted <a href="#user-content-fnref-1-ed7a7421512eaca36dbf473d7f6773da" data-footnote-backref="" aria-label="Back to reference 1" class="data-footnote-backref">↩</a></p>
+</li>
+<li id="user-content-fn-2-ed7a7421512eaca36dbf473d7f6773da">
+<p>listed <a href="#user-content-fnref-2-ed7a7421512eaca36dbf473d7f6773da" data-footnote-backref="" aria-label="Back to reference 2" class="data-footnote-backref">↩</a></p>
+</li>
+</ol>
+</section>
+````````````````````````````````
+
+## footnotes/in-image
+
+```````````````````````````````` example
+![b [^1]](/i)
+
+[^1]: x
+.
+<p><a target="_blank" rel="noopener noreferrer" href="/i"><img src="/i" alt="b " style="max-width: 100%;"></a></p>
+<section data-footnotes="" class="footnotes"><h2 id="footnote-label" class="sr-only">Footnotes</h2>
+<ol>
+<li id="user-content-fn-1-1438e6799d298d647545c93bc976910b">
+<p>x <a href="#user-content-fnref-1-1438e6799d298d647545c93bc976910b" data-footnote-backref="" aria-label="Back to reference 1" class="data-footnote-backref">↩</a></p>
+</li>
+</ol>
+</section>
+````````````````````````````````
+
+## footnotes/in-table
+
+```````````````````````````````` example
+| a[^1] |
+| - |
+| b[^1] |
+
+[^1]: x
+.
+<markdown-accessiblity-table><table role="table">
+<thead>
+<tr>
+<th>a<sup><a href="#user-content-fn-1-507fe5763271064ea779ab1fbb4205bf" id="user-content-fnref-1-507fe5763271064ea779ab1fbb4205bf" data-footnote-ref="" aria-describedby="footnote-label">1</a></sup></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>b<sup><a href="#user-content-fn-1-507fe5763271064ea779ab1fbb4205bf" id="user-content-fnref-1-2-507fe5763271064ea779ab1fbb4205bf" data-footnote-ref="" aria-describedby="footnote-label">1</a></sup></td>
+</tr>
+</tbody>
+</table></markdown-accessiblity-table>
+<section data-footnotes="" class="footnotes"><h2 id="footnote-label" class="sr-only">Footnotes</h2>
+<ol>
+<li id="user-content-fn-1-507fe5763271064ea779ab1fbb4205bf">
+<p>x <a href="#user-content-fnref-1-507fe5763271064ea779ab1fbb4205bf" data-footnote-backref="" aria-label="Back to reference 1" class="data-footnote-backref">↩</a> <a href="#user-content-fnref-1-2-507fe5763271064ea779ab1fbb4205bf" data-footnote-backref="" aria-label="Back to reference 1-2" class="data-footnote-backref">↩<sup>2</sup></a></p>
+</li>
+</ol>
+</section>
+````````````````````````````````
+
+## footnotes/interrupt
+
+```````````````````````````````` example
+a[^1]
+[^1]: x
+.
+<p>a<sup><a href="#user-content-fn-1-da26837873bd78a6483b81e921bafafe" id="user-content-fnref-1-da26837873bd78a6483b81e921bafafe" data-footnote-ref="" aria-describedby="footnote-label">1</a></sup></p>
+<section data-footnotes="" class="footnotes"><h2 id="footnote-label" class="sr-only">Footnotes</h2>
+<ol>
+<li id="user-content-fn-1-da26837873bd78a6483b81e921bafafe">
+<p>x <a href="#user-content-fnref-1-da26837873bd78a6483b81e921bafafe" data-footnote-backref="" aria-label="Back to reference 1" class="data-footnote-backref">↩</a></p>
+</li>
+</ol>
+</section>
+````````````````````````````````
+
+## footnotes/label-1000-bytes
+
+```````````````````````````````` example
+a[^xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx]
+
+[^xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx]: y
+.
+<p>a<sup><a href="#user-content-fn-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx-08d923fb70a66d810d94a1cbb5bad307" id="user-content-fnref-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx-08d923fb70a66d810d94a1cbb5bad307" data-footnote-ref="" aria-describedby="footnote-label">1</a></sup></p>
+<section data-footnotes="" class="footnotes"><h2 id="footnote-label" class="sr-only">Footnotes</h2>
+<ol>
+<li id="user-content-fn-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx-08d923fb70a66d810d94a1cbb5bad307">
+<p>y <a href="#user-content-fnref-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx-08d923fb70a66d810d94a1cbb5bad307" data-footnote-backref="" aria-label="Back to reference 1" class="data-footnote-backref">↩</a></p>
+</li>
+</ol>
+</section>
+````````````````````````````````
+
+## footnotes/label-1001-bytes
+
+```````````````````````````````` example
+a[^xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx]
+
+[^xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx]: y
+.
+<p>a[^xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx]</p>
+````````````````````````````````
+
+## footnotes/label-case
+
+```````````````````````````````` example
+a[^Note]
+
+[^note]: N.
+.
+<p>a<sup><a href="#user-content-fn-note-8291944b0e356a311a1f26c4daab2a9f" id="user-content-fnref-note-8291944b0e356a311a1f26c4daab2a9f" data-footnote-ref="" aria-describedby="footnote-label">1</a></sup></p>
+<section data-footnotes="" class="footnotes"><h2 id="footnote-label" class="sr-only">Footnotes</h2>
+<ol>
+<li id="user-content-fn-note-8291944b0e356a311a1f26c4daab2a9f">
+<p>N. <a href="#user-content-fnref-note-8291944b0e356a311a1f26c4daab2a9f" data-footnote-backref="" aria-label="Back to reference 1" class="data-footnote-backref">↩</a></p>
+</li>
+</ol>
+</section>
+````````````````````````````````
+
+## footnotes/label-line-ending
+
+```````````````````````````````` example
+a[^b
+c]
+
+[^b]: x
+.
+<p>a[^]</p>
+````````````````````````````````
+
+## footnotes/label-space
+
+```````````````````````````````` example
+a[^a b]
+
+[^a b]: /u
+.
+<p>a<a href="/u">^a b</a></p>
+````````````````````````````````
+
+## footnotes/lazy
+
+```````````````````````````````` example
+a[^1]
+
+[^1]: one
+two
+.
+<p>a<sup><a href="#user-content-fn-1-da0333bea0ed420f3f082dc87cc3bc91" id="user-content-fnref-1-da0333bea0ed420f3f082dc87cc3bc91" data-footnote-ref="" aria-describedby="footnote-label">1</a></sup></p>
+<section data-footnotes="" class="footnotes"><h2 id="footnote-label" class="sr-only">Footnotes</h2>
+<ol>
+<li id="user-content-fn-1-da0333bea0ed420f3f082dc87cc3bc91">
+<p>one<br>
+two <a href="#user-content-fnref-1-da0333bea0ed420f3f082dc87cc3bc91" data-footnote-backref="" aria-label="Back to reference 1" class="data-footnote-backref">↩</a></p>
+</li>
+</ol>
+</section>
+````````````````````````````````
+
+## footnotes/nested-definition
+
+```````````````````````````````` example
+a[^1] b[^2]
+
+[^1]: one
+    [^2]: two
+.
+<p>a<sup><a href="#user-content-fn-1-7d9aae44cdc7bff4b0a5dc0b8d072990" id="user-content-fnref-1-7d9aae44cdc7bff4b0a5dc0b8d072990" data-footnote-ref="" aria-describedby="footnote-label">1</a></sup> b<sup><a href="#user-content-fn-2-7d9aae44cdc7bff4b0a5dc0b8d072990" id="user-content-fnref-2-7d9aae44cdc7bff4b0a5dc0b8d072990" data-footnote-ref="" aria-describedby="footnote-label">2</a></sup></p>
+<section data-footnotes="" class="footnotes"><h2 id="footnote-label" class="sr-only">Footnotes</h2>
+<ol>
+<li id="user-content-fn-1-7d9aae44cdc7bff4b0a5dc0b8d072990">
+<p>one <a href="#user-content-fnref-1-7d9aae44cdc7bff4b0a5dc0b8d072990" data-footnote-backref="" aria-label="Back to reference 1" class="data-footnote-backref">↩</a></p>
+</li>
+<li id="user-content-fn-2-7d9aae44cdc7bff4b0a5dc0b8d072990">
+<p>two <a href="#user-content-fnref-2-7d9aae44cdc7bff4b0a5dc0b8d072990" data-footnote-backref="" aria-label="Back to reference 2" class="data-footnote-backref">↩</a></p>
+</li>
+</ol>
+</section>
+````````````````````````````````
+
+## footnotes/nested-reference
+
+```````````````````````````````` example
+a[^[^1]]
+
+[^1]: x
+.
+<p>a[^[^1]]</p>
+````````````````````````````````
+
+## footnotes/order
+
+```````````````````````````````` example
+a[^b] c[^a]
+
+[^a]: A.
+
+[^b]: B.
+.
+<p>a<sup><a href="#user-content-fn-b-6704f30a23a194b542b998530c19607a" id="user-content-fnref-b-6704f30a23a194b542b998530c19607a" data-footnote-ref="" aria-describedby="footnote-label">1</a></sup> c<sup><a href="#user-content-fn-a-6704f30a23a194b542b998530c19607a" id="user-content-fnref-a-6704f30a23a194b542b998530c19607a" data-footnote-ref="" aria-describedby="footnote-label">2</a></sup></p>
+<section data-footnotes="" class="footnotes"><h2 id="footnote-label" class="sr-only">Footnotes</h2>
+<ol>
+<li id="user-content-fn-b-6704f30a23a194b542b998530c19607a">
+<p>B. <a href="#user-content-fnref-b-6704f30a23a194b542b998530c19607a" data-footnote-backref="" aria-label="Back to reference 1" class="data-footnote-backref">↩</a></p>
+</li>
+<li id="user-content-fn-a-6704f30a23a194b542b998530c19607a">
+<p>A. <a href="#user-content-fnref-a-6704f30a23a194b542b998530c19607a" data-footnote-backref="" aria-label="Back to reference 2" class="data-footnote-backref">↩</a></p>
+</li>
+</ol>
+</section>
+````````````````````````````````
+
+## footnotes/repeated
+
+```````````````````````````````` example
+a[^x] b[^x] c[^x]
+
+[^x]: Note.
+.
+<p>a<sup><a href="#user-content-fn-x-4b19fec5d14cecec29c340e4644cfb1a" id="user-content-fnref-x-4b19fec5d14cecec29c340e4644cfb1a" data-footnote-ref="" aria-describedby="footnote-label">1</a></sup> b<sup><a href="#user-content-fn-x-4b19fec5d14cecec29c340e4644cfb1a" id="user-content-fnref-x-2-4b19fec5d14cecec29c340e4644cfb1a" data-footnote-ref="" aria-describedby="footnote-label">1</a></sup> c<sup><a href="#user-content-fn-x-4b19fec5d14cecec29c340e4644cfb1a" id="user-content-fnref-x-3-4b19fec5d14cecec29c340e4644cfb1a" data-footnote-ref="" aria-describedby="footnote-label">1</a></sup></p>
+<section data-footnotes="" class="footnotes"><h2 id="footnote-label" class="sr-only">Footnotes</h2>
+<ol>
+<li id="user-content-fn-x-4b19fec5d14cecec29c340e4644cfb1a">
+<p>Note. <a href="#user-content-fnref-x-4b19fec5d14cecec29c340e4644cfb1a" data-footnote-backref="" aria-label="Back to reference 1" class="data-footnote-backref">↩</a> <a href="#user-content-fnref-x-2-4b19fec5d14cecec29c340e4644cfb1a" data-footnote-backref="" aria-label="Back to reference 1-2" class="data-footnote-backref">↩<sup>2</sup></a> <a href="#user-content-fnref-x-3-4b19fec5d14cecec29c340e4644cfb1a" data-footnote-backref="" aria-label="Back to reference 1-3" class="data-footnote-backref">↩<sup>3</sup></a></p>
+</li>
+</ol>
+</section>
+````````````````````````````````
+
+## footnotes/unused-and-undefined
+
+```````````````````````````````` example
+a[^missing]
+
+[^unused]: U.
+.
+<p>a[^missing]</p>
+````````````````````````````````
+
+## strikethrough/basic
+
+```````````````````````````````` example
+~a~ ~~b~~ ~~~c~~~
+.
+<p><del>a</del> <del>b</del> ~~~c~~~</p>
+````````````````````````````````
+
+## strikethrough/escapes
+
+```````````````````````````````` example
+\~a~ ~b\~
+.
+<p>~a~ ~b~</p>
+````````````````````````````````
+
+## strikethrough/flanking
+
+```````````````````````````````` example
+a~b~c ~ d ~ e~ f ~g
+.
+<p>a<del>b</del>c ~ d ~ e~ f ~g</p>
+````````````````````````````````
+
+## strikethrough/lines
+
+```````````````````````````````` example
+~~a
+b~~
+.
+<p><del>a<br>
+b</del></p>
+````````````````````````````````
+
+## strikethrough/links
+
+```````````````````````````````` example
+~~[a](/u)~~ [~b~](/v)
+.
+<p><del><a href="/u">a</a></del> <a href="/v"><del>b</del></a></p>
+````````````````````````````````
+
+## strikethrough/mismatch
+
+```````````````````````````````` example
+~a~~ ~~b~
+.
+<p>~a~~ ~~b~</p>
+````````````````````````````````
+
+## strikethrough/nesting
+
+```````````````````````````````` example
+~~*a*~~ *~~b~~* ~~a ~b~ c~~
+.
+<p><del><em>a</em></del> <em><del>b</del></em> <del>a <del>b</del> c</del></p>
+````````````````````````````````
+
+## tables/after-definition
+
+```````````````````````````````` example
+[a]: /u
+| a |
+| - |
+.
+<p>[a]: /u</p>
+<markdown-accessiblity-table><table role="table">
+<thead>
+<tr>
+<th>a</th>
+</tr>
+</thead>
+</table></markdown-accessiblity-table>
+````````````````````````````````
+
+## tables/alignment
+
+```````````````````````````````` example
+| a | b | c | d |
+| :- | :-: | -: | - |
+| e | f | g | h |
+.
+<markdown-accessiblity-table><table role="table">
+<thead>
+<tr>
+<th align="left">a</th>
+<th align="center">b</th>
+<th align="right">c</th>
+<th>d</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td align="left">e</td>
+<td align="center">f</td>
+<td align="right">g</td>
+<td>h</td>
+</tr>
+</tbody>
+</table></markdown-accessiblity-table>
+````````````````````````````````
+
+## tables/basic
+
+```````````````````````````````` example
+| a | b |
+| --- | --- |
+| c | d |
+.
+<markdown-accessiblity-table><table role="table">
+<thead>
+<tr>
+<th>a</th>
+<th>b</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>c</td>
+<td>d</td>
+</tr>
+</tbody>
+</table></markdown-accessiblity-table>
+````````````````````````````````
+
+## tables/empty-cells
+
+```````````````````````````````` example
+| | a |
+| - | - |
+|| b |
+.
+<markdown-accessiblity-table><table role="table">
+<thead>
+<tr>
+<th></th>
+<th>a</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td></td>
+<td>b</td>
+</tr>
+</tbody>
+</table></markdown-accessiblity-table>
+````````````````````````````````
+
+## tables/ends
+
+```````````````````````````````` example
+| a |
+| - |
+| b |
+> c
+
+| a |
+| - |
+| b |
+    c
+
+| a |
+| - |
+| b |
+
+d
+.
+<markdown-accessiblity-table><table role="table">
+<thead>
+<tr>
+<th>a</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>b</td>
+</tr>
+</tbody>
+</table></markdown-accessiblity-table>
+<blockquote>
+<p>c</p>
+</blockquote>
+<markdown-accessiblity-table><table role="table">
+<thead>
+<tr>
+<th>a</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>b</td>
+</tr>
+</tbody>
+</table></markdown-accessiblity-table>
+<pre class="notranslate"><code class="notranslate">c
+</code></pre>
+<markdown-accessiblity-table><table role="table">
+<thead>
+<tr>
+<th>a</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>b</td>
+</tr>
+</tbody>
+</table></markdown-accessiblity-table>
+<p>d</p>
+````````````````````````````````
+
+## tables/escaped-pipes
+
+```````````````````````````````` example
+| a | b |
+| - | - |
+| \| | `\|` |
+| \\| | [x](/u\|v) |
+.
+<markdown-accessiblity-table><table role="table">
+<thead>
+<tr>
+<th>a</th>
+<th>b</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>|</td>
+<td><code class="notranslate">|</code></td>
+</tr>
+<tr>
+<td>|</td>
+<td><a href="/u%7Cv">x</a></td>
+</tr>
+</tbody>
+</table></markdown-accessiblity-table>
+````````````````````````````````
+
+## tables/header-mismatch
+
+```````````````````````````````` example
+| a | b |
+| - |
+| c | d |
+| - | - |
+.
+<p>| a | b |<br>
+| - |<br>
+| c | d |<br>
+| - | - |</p>
+````````````````````````````````
+
+## tables/in-containers
+
+```````````````````````````````` example
+> | a |
+> | - |
+> | b |
+
+- | a |
+  | - |
+  | b |
+.
+<blockquote>
+<markdown-accessiblity-table><table role="table">
+<thead>
+<tr>
+<th>a</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>b</td>
+</tr>
+</tbody>
+</table></markdown-accessiblity-table>
+</blockquote>
+<ul>
+<li>
+<markdown-accessiblity-table><table role="table">
+<thead>
+<tr>
+<th>a</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>b</td>
+</tr>
+</tbody>
+</table></markdown-accessiblity-table>
+</li>
+</ul>
+````````````````````````````````
+
+## tables/inlines
+
+```````````````````````````````` example
+| *a* | [b](/u) |
+| - | - |
+| `c` | <https://d.e> |
+.
+<markdown-accessiblity-table><table role="table">
+<thead>
+<tr>
+<th><em>a</em></th>
+<th><a href="/u">b</a></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code class="notranslate">c</code></td>
+<td><a href="https://d.e" rel="nofollow">https://d.e</a></td>
+</tr>
+</tbody>
+</table></markdown-accessiblity-table>
+````````````````````````````````
+
+## tables/lazy-row
+
+```````````````````````````````` example
+> | a |
+> | - |
+| b |
+.
+<blockquote>
+<markdown-accessiblity-table><table role="table">
+<thead>
+<tr>
+<th>a</th>
+</tr>
+</thead>
+</table></markdown-accessiblity-table>
+</blockquote>
+<p>| b |</p>
+````````````````````````````````
+
+## tables/no-outer-pipes
+
+```````````````````````````````` example
+a | b
+:-:|--:
+c | d
+.
+<markdown-accessiblity-table><table role="table">
+<thead>
+<tr>
+<th align="center">a</th>
+<th align="right">b</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td align="center">c</td>
+<td align="right">d</td>
+</tr>
+</tbody>
+</table></markdown-accessiblity-table>
+````````````````````````````````
+
+## tables/paragraph-lines
+
+```````````````````````````````` example
+a
+b
+| c |
+| - |
+d
+.
+<p>a<br>
+b</p>
+<markdown-accessiblity-table><table role="table">
+<thead>
+<tr>
+<th>c</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>d</td>
+</tr>
+</tbody>
+</table></markdown-accessiblity-table>
+````````````````````````````````
+
+## tables/setext-underline
+
+```````````````````````````````` example
+| a |
+---
+
+| a |
+|---
+.
+<h2>| a |</h2>
+<markdown-accessiblity-table><table role="table">
+<thead>
+<tr>
+<th>a</th>
+</tr>
+</thead>
+</table></markdown-accessiblity-table>
+````````````````````````````````
+
+## tables/short-and-long-rows
+
+```````````````````````````````` example
+| a | b |
+| - | - |
+| c |
+| d | e | f |
+.
+<markdown-accessiblity-table><table role="table">
+<thead>
+<tr>
+<th>a</th>
+<th>b</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>c</td>
+<td></td>
+</tr>
+<tr>
+<td>d</td>
+<td>e</td>
+</tr>
+</tbody>
+</table></markdown-accessiblity-table>
+````````````````````````````````
+
+## tables/split-paragraph
+
+```````````````````````````````` example
+a\|b c\\|d `e\|f`
+| x |
+| - |
+.
+<p>a|b c|d <code class="notranslate">e|f</code></p>
+<markdown-accessiblity-table><table role="table">
+<thead>
+<tr>
+<th>x</th>
+</tr>
+</thead>
+</table></markdown-accessiblity-table>
+````````````````````````````````
+
+## tasks/basic
+
+```````````````````````````````` example
+- [ ] a
+- [x] b
+- [X] c
+.
+<ul class="contains-task-list">
+<li class="task-list-item"><input type="checkbox" id="" disabled="" class="task-list-item-checkbox" aria-label="Incomplete task"> a</li>
+<li class="task-list-item"><input type="checkbox" id="" disabled="" class="task-list-item-checkbox" aria-label="Completed task" checked=""> b</li>
+<li class="task-list-item"><input type="checkbox" id="" disabled="" class="task-list-item-checkbox" aria-label="Completed task" checked=""> c</li>
+</ul>
+````````````````````````````````
+
+## tasks/blank-first-line
+
+```````````````````````````````` example
+-
+  [ ] a
+.
+<ul class="contains-task-list">
+<li class="task-list-item"><input type="checkbox" id="" disabled="" class="task-list-item-checkbox" aria-label="Incomplete task"> a</li>
+</ul>
+````````````````````````````````
+
+## tasks/defined-label
+
+```````````````````````````````` example
+- [x] a
+
+[x]: /u
+.
+<ul>
+<li><a href="/u">x</a> a</li>
+</ul>
+````````````````````````````````
+
+## tasks/definition-first
+
+```````````````````````````````` example
+- [a]: /u
+  [ ] b
+.
+<ul class="contains-task-list">
+<li class="task-list-item"><input type="checkbox" id="" disabled="" class="task-list-item-checkbox" aria-label="Incomplete task"> b</li>
+</ul>
+````````````````````````````````
+
+## tasks/heading
+
+```````````````````````````````` example
+- # [ ] a
+.
+<ul>
+<li>
+<h1>[ ] a</h1>
+</li>
+</ul>
+````````````````````````````````
+
+## tasks/in-quote
+
+```````````````````````````````` example
+> - [ ] a
+.
+<blockquote>
+<ul class="contains-task-list">
+<li class="task-list-item"><input type="checkbox" id="" disabled="" class="task-list-item-checkbox" aria-label="Incomplete task"> a</li>
+</ul>
+</blockquote>
+````````````````````````````````
+
+## tasks/loose
+
+```````````````````````````````` example
+- [ ] a
+
+- [x] b
+.
+<ul class="contains-task-list">
+<li class="task-list-item">
+<p><input type="checkbox" id="" disabled="" class="task-list-item-checkbox" aria-label="Incomplete task"> a</p>
+</li>
+<li class="task-list-item">
+<p><input type="checkbox" id="" disabled="" class="task-list-item-checkbox" aria-label="Completed task" checked=""> b</p>
+</li>
+</ul>
+````````````````````````````````
+
+## tasks/not-tasks
+
+```````````````````````````````` example
+- [ ]
+- [ ]a
+- [y] a
+- [x]
+.
+<ul>
+<li>[ ]</li>
+<li>[ ]a</li>
+<li>[y] a</li>
+<li>[x]</li>
+</ul>
+````````````````````````````````
+
+## tasks/ordered-nested
+
+```````````````````````````````` example
+1. [ ] a
+   - [x] b
+.
+<ol class="contains-task-list">
+<li class="task-list-item"><input type="checkbox" id="" disabled="" class="task-list-item-checkbox" aria-label="Incomplete task"> a
+<ul class="contains-task-list">
+<li class="task-list-item"><input type="checkbox" id="" disabled="" class="task-list-item-checkbox" aria-label="Completed task" checked=""> b</li>
+</ul>
+</li>
+</ol>
+````````````````````````````````
+
+## tasks/second-line
+
+```````````````````````````````` example
+- a
+  [ ] b
+.
+<ul>
+<li>a<br>
+[ ] b</li>
+</ul>
+````````````````````````````````
+
+## tasks/whitespace
+
+```````````````````````````````` example
+- [	] a
+- [x]	b
+-  [ ] c
+.
+<ul class="contains-task-list">
+<li class="task-list-item"><input type="checkbox" id="" disabled="" class="task-list-item-checkbox" aria-label="Incomplete task"> a</li>
+<li class="task-list-item"><input type="checkbox" id="" disabled="" class="task-list-item-checkbox" aria-label="Completed task" checked="">	b</li>
+<li class="task-list-item"><input type="checkbox" id="" disabled="" class="task-list-item-checkbox" aria-label="Incomplete task"> c</li>
+</ul>
+````````````````````````````````

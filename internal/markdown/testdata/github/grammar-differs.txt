@@ -1,0 +1,13 @@
+# GitHub fixtures of the rows of ../dialect.md, where markfmt's grammar and
+# GitHub give a document a different meaning, one per line: the example ID,
+# the rule, a colon, and the section of ../markfmt/grammar.txt whose case gives
+# markfmt's expected HTML (design 2.1, 11.4). The test fails when an entry no
+# longer differs, when its case is missing or has another input, and when an
+# entry is also in failing.txt.
+10 dialect row, setext underline after link reference definitions alone: github 10
+11 dialect row, unicode punctuation for flanking: github 11
+12 dialect row, html block kind 4 start: github 12
+13 dialect row, html block kind 7 on a lazy candidate line: github 13
+14 dialect row, html block kind 6 tag list with search: github 14
+15 dialect row, html block kind 6 tag list without source: github 15
+16 dialect row, raw html comments: github 16

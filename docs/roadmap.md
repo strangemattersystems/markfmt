@@ -65,6 +65,10 @@ Layout:
   `commonmark-js-regression`, each with a README and `failing.txt`.
 - `internal/markdown/testdata/dialect.md`: the rules where GitHub and
   CommonMark 0.31.2 differ, one row each (design 2.1).
+- `internal/markdown/testdata/github`: GitHub Markdown API fixtures, their
+  inputs and the capture loop (design 11.4). `github.txt` runs as conformance
+  after the GitHub normalizer; `printer.txt` holds math, alert and plain text
+  fixtures for stage 6.
 - `internal/markdown/testdata/markfmt/grammar.txt`: markfmt's own cases, with
   the expected HTML of each example that a `grammar-differs.txt` lists
   (design 11.2). `testdata/commonmark/grammar-differs.txt` lists CM 96 and 98
@@ -271,11 +275,11 @@ The scope is what GitHub renders, because most users expect it.
 - [x] The test renderer applies the GFM tag filter (design 11.3).
 - [ ] `grammar-differs.txt` entries for regression examples that GFM rules
   change (design 11.2).
-- [ ] Capture math and alert fixtures for stage 6. Math and alerts are GitHub
+- [x] Capture math and alert fixtures for stage 6. Math and alerts are GitHub
   HTML filters, not grammar (design 9.1, 9.3).
-- [ ] Plain text that GitHub gives meaning to needs no grammar, but escaping
+- [x] Plain text that GitHub gives meaning to needs no grammar, but escaping
   must never change it: emoji shortcodes (`:+1:`), mentions (`@user`) and
-  issue references (`#1`).
+  issue references (`#1`). The filters read decoded text (design 9.4).
 
 Gates:
 
@@ -365,8 +369,8 @@ files can stay as data, with their MIT notice.
 | markdown-it fixtures | `markdown-it/markdown-it` `test/fixtures` | optional | MIT | Extra cases |
 | HTML entities | WHATWG `entities.json` | fetched 2026-09-13, `Last-Modified` 2025-11-12 | CC BY 4.0 | Generate the entity table |
 | Unicode case folding | Unicode `CaseFolding.txt` | 17.0.0, the version of Go 1.27's `unicode` package | Unicode License v3 | Generate the full case folding table for labels |
-| GitHub docs Markdown examples | `github/docs` `content/get-started/writing-on-github` | pin at import | CC BY 4.0 | Footnote, math and alert cases |
-| GitHub Markdown API output | `POST /markdown` with `mode=gfm` | capture date | GitHub API terms | Expected results for GitHub syntax, captured into fixtures; capture again before each release |
+| GitHub docs Markdown examples | `github/docs` `content/get-started/writing-on-github` | commits `6ed0ad8`, `5e4bf35` | CC BY 4.0 | Footnote, math and alert cases |
+| GitHub Markdown API output | `POST /markdown` with `mode=gfm` | captured 2026-09-13 | GitHub API terms | Expected results for GitHub syntax, captured into fixtures; capture again before each release |
 
 ## Licensing rules
 

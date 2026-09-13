@@ -430,6 +430,9 @@ func testConformance(t *testing.T, c corpus) {
 		}
 		got[i] = normalizeHTML(renderHTML(tree, c.tagFilter || slices.Contains(strings.Fields(ex.info), "tagfilter")))
 		want[i] = normalizeHTML(ex.html)
+		if c.gitHub {
+			got[i], want[i] = normalizeGitHub(got[i]), normalizeGitHub(want[i])
+		}
 		// cmark-gfm counts an example whose expected HTML is <IGNORE> as passing:
 		// it tests only that parsing does not crash.
 		pass[i] = got[i] == want[i] || strings.TrimSpace(ex.html) == "<IGNORE>"

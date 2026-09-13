@@ -162,3 +162,97 @@ follows cmark (design 2, 5.6). The expected HTML is the output of
 </li>
 </ul>
 ````````````````````````````````
+
+## github 10
+
+A setext underline after link reference definitions alone is dispatched
+again as if a paragraph were open, so `---` is a thematic break
+(`../dialect.md`). GitHub gives the paragraph `---`.
+
+```````````````````````````````` example
+[foo]: /url
+---
+.
+<hr />
+````````````````````````````````
+
+## github 11
+
+Unicode symbols count as punctuation for flanking (`../dialect.md`). GitHub
+counts only Unicode P and ASCII punctuation.
+
+```````````````````````````````` example
+£_a_£
+.
+<p>£<em>a</em>£</p>
+````````````````````````````````
+
+## github 12
+
+An HTML block of kind 4 starts with `<!` and any ASCII letter
+(`../dialect.md`). GitHub needs an uppercase letter.
+
+```````````````````````````````` example
+<!doctype html>
+.
+<!doctype html>
+````````````````````````````````
+
+## github 13
+
+An HTML block of kind 7 does not start on a lazy candidate line, so both
+lines continue the paragraph in the block quote (`../dialect.md`). GitHub
+closes the block quote and starts an HTML block.
+
+```````````````````````````````` example
+> a
+<del>
+*b*
+.
+<blockquote>
+<p>a
+<del>
+<em>b</em></p>
+</blockquote>
+````````````````````````````````
+
+## github 14
+
+`search` is in the tag list of HTML block kind 6, so it interrupts the
+paragraph (`../dialect.md`). GitHub reads it as kind 7, which does not.
+
+```````````````````````````````` example
+a
+<search>
+*b*
+.
+<p>a</p>
+<search>
+*b*
+````````````````````````````````
+
+## github 15
+
+`source` is not in the tag list of HTML block kind 6, so it does not
+interrupt the paragraph (`../dialect.md`). GitHub reads it as kind 6.
+
+```````````````````````````````` example
+a
+<source>
+*b*
+.
+<p>a
+<source>
+<em>b</em></p>
+````````````````````````````````
+
+## github 16
+
+`<!-- c -- d --->` is a raw HTML comment under CommonMark 0.31.2
+(`../dialect.md`). GitHub's older comment grammar reads it as text.
+
+```````````````````````````````` example
+a <!--> b --> <!-- c -- d --->
+.
+<p>a <!--> b --&gt; <!-- c -- d ---></p>
+````````````````````````````````

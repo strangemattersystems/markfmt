@@ -846,6 +846,16 @@ definition with label `!type` stops every alert of that type.
 
 Decision: no alert kind. The comparison sees every input the filter reads.
 
+### 9.4 Emoji, mentions and issue references: filters
+
+GitHub writes an emoji for `:+1:`, a link for `@user`, and, with a repository
+context, a link for `#1`. The filters read decoded text: an escape before `:`,
+`@` or `#` gives the same result, and a code span stops them (GitHub API,
+2026-09-13, `testdata/github/printer.txt`).
+
+Decision: no kinds and no printer rule. `Equal` compares decoded text by group,
+so the filters read the same text in input and output.
+
 ## 10. Runtime check
 
 `markfmt.Format` parses the input, prints it, parses the output, and calls
@@ -1028,11 +1038,14 @@ adds its set of `Dialect(row)` values to its Enter event. `Equal` requires:
   where upstream enables the filter: examples whose fence names `tagfilter`,
   every `cmark-gfm-extensions` example, and the GitHub fixtures. The filter is
   rendering, not grammar (section 2), so its examples need no grammar rule.
-- The GitHub normalizer lands at stage 4 with the fixtures. It removes a fixed
-  list of GitHub decorations, each with a unit test: `dir` attributes, heading
-  anchors, `user-content-` prefixes, footnote back references and hashes, task
-  list classes, `rel` attributes, and the other decorations that the fixtures
-  show.
+- The GitHub normalizer lands at stage 4 with the fixtures. It rewrites the
+  test HTML and the fixture with a fixed list, each with a unit test: `<br>` as
+  a space (mode `gfm` writes `<br>` for every soft break, so the fixtures do not
+  tell soft breaks from hard breaks), the table wrapper and `role`,
+  `notranslate` classes, `rel` attributes, the link and style around an image,
+  task list classes, empty ids and labels, the footnote heading, the footnote
+  classes and back reference index of GitHub and cmark-gfm, and the
+  `user-content-` prefix and hash of footnote ids.
 
 ### 11.4 GitHub fixtures
 
@@ -1043,8 +1056,7 @@ adds its set of `Dialect(row)` values to its Enter event. `Equal` requires:
   from stage 4.
 - Each `dialect.md` row names its fixture. A row where markfmt differs from
   GitHub is an entry in `testdata/github/grammar-differs.txt`, whose
-  `markfmt/grammar.txt` case holds markfmt's result (`cmark --unsafe` for core
-  rules). A row where markfmt follows GitHub is an ordinary fixture. GitHub
+  `markfmt/grammar.txt` case holds markfmt's result under the row's rule. A row where markfmt follows GitHub is an ordinary fixture. GitHub
   removes most raw HTML, so the input of a raw HTML row shows its rule in
   visible text.
 - Math and alert fixtures are printer cases at stage 6.

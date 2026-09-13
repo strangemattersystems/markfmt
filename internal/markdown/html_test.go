@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"cmp"
 	"html"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -105,6 +106,36 @@ func TestNormalizeHTML(t *testing.T) {
 
 			if got := normalizeHTML(tt.html); got != tt.want {
 				t.Fatalf("normalizeHTML(%q) = %q, want %q", tt.html, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestNormalizeGitHub(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		html string
+		want string
+	}{
+		{"writes a space for each br, which mode gfm writes for soft breaks", "<p>a<br>\nb<br />\nc</p>", "<p>a b c</p>"},
+		{"removes the table wrapper and role", `<markdown-accessiblity-table><table role="table"><tr><td>a</td></tr></table></markdown-accessiblity-table>`, "<table><tr><td>a</td></tr></table>"},
+		{"removes notranslate classes", `<pre class="notranslate"><code class="notranslate">a</code></pre>`, "<pre><code>a</code></pre>"},
+		{"removes rel attributes", `<a href="https://a.b" rel="nofollow">a</a>`, `<a href="https://a.b">a</a>`},
+		{"removes the link and style around an image", `<a target="_blank" rel="noopener noreferrer" href="/i"><img src="/i" alt="a" style="max-width: 100%;"></a>`, `<img alt="a" src="/i">`},
+		{"removes task list classes, ids and labels", `<ul class="contains-task-list"><li class="task-list-item"><input type="checkbox" id="" disabled="" class="task-list-item-checkbox" aria-label="Completed task" checked=""> a</li></ul>`, `<ul><li><input checked="" disabled="" type="checkbox"> a</li></ul>`},
+		{"removes the footnote heading and section class", `<section data-footnotes="" class="footnotes"><h2 id="footnote-label" class="sr-only">Footnotes</h2><ol></ol></section>`, "<section data-footnotes><ol></ol></section>"},
+		{"removes user-content- prefixes and hashes from footnote references", `<sup><a href="#user-content-fn-1-0f1e088e7177de600f1295d2090035f7" id="user-content-fnref-1-2-0f1e088e7177de600f1295d2090035f7" data-footnote-ref="" aria-describedby="footnote-label">1</a></sup>`, `<sup><a data-footnote-ref href="#fn-1" id="fnref-1-2">1</a></sup>`},
+		{"removes the footnote classes and back reference index that cmark-gfm writes", `<sup class="footnote-ref"><a href="#fn-1" id="fnref-1" data-footnote-ref>1</a></sup> <a href="#fnref-1" class="footnote-backref" data-footnote-backref data-footnote-backref-idx="1" aria-label="Back to reference 1">↩</a>`, `<sup><a data-footnote-ref href="#fn-1" id="fnref-1">1</a></sup> <a aria-label="Back to reference 1" data-footnote-backref href="#fnref-1">↩</a>`},
+		{"removes the class of a github footnote back reference", `<a href="#user-content-fnref-1-0f1e088e7177de600f1295d2090035f7" data-footnote-backref="" aria-label="Back to reference 1" class="data-footnote-backref">↩</a>`, `<a aria-label="Back to reference 1" data-footnote-backref href="#fnref-1">↩</a>`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			if got := normalizeGitHub(normalizeHTML(tt.html)); got != tt.want {
+				t.Fatalf("normalizeGitHub(%q) = %q, want %q", tt.html, got, tt.want)
 			}
 		})
 	}
@@ -337,6 +368,37 @@ func equalFoldASCII(b []byte, name string) bool {
 		}
 	}
 	return true
+}
+
+// normalizeGitHub returns html, in the normal form of [normalizeHTML], without
+// the decorations of the GitHub Markdown API and of cmark-gfm's footnotes
+// (design 11.3), so that a GitHub fixture compares with the test renderer.
+func normalizeGitHub(html string) string {
+	for _, d := range gitHubDecorations {
+		html = d.re.ReplaceAllString(html, d.with)
+	}
+	return normalizeHTML(html)
+}
+
+// gitHubDecorations are the rewrites of [normalizeGitHub], in order, on HTML in
+// the normal form of [normalizeHTML], where attributes are sorted.
+var gitHubDecorations = []struct {
+	re   *regexp.Regexp
+	with string
+}{
+	// mode=gfm writes <br> for every soft break, so no fixture tells a soft
+	// break from a hard break.
+	{regexp.MustCompile(`<br>`), " "},
+	{regexp.MustCompile(`</?markdown-accessiblity-table>`), ""},
+	{regexp.MustCompile(` (rel|role|style|aria-describedby|data-footnote-backref-idx)="[^"]*"`), ""},
+	{regexp.MustCompile(` aria-label="(Incomplete|Completed) task"`), ""},
+	{regexp.MustCompile(` class="(notranslate|contains-task-list|task-list-item|task-list-item-checkbox|footnotes|footnote-ref|footnote-backref|data-footnote-backref)"`), ""},
+	{regexp.MustCompile(` id=""`), ""},
+	{regexp.MustCompile(`<a href="[^"]*" target="_blank">(<img [^>]*>)</a>`), "$1"},
+	{regexp.MustCompile(`<h2 class="sr-only" id="footnote-label">Footnotes</h2>`), ""},
+	{regexp.MustCompile(` (data-footnote-ref|data-footnotes|data-footnote-backref)=""`), " $1"},
+	{regexp.MustCompile(`"(#?)user-content-`), `"$1`},
+	{regexp.MustCompile(`(fn(?:ref)?-[^"]*)-[0-9a-f]{32}"`), `$1"`},
 }
 
 // tag returns the start tag of an element, or its end tag and a line ending.

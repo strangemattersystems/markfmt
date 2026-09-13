@@ -22,15 +22,17 @@ type corpus struct {
 	examples  int    // in the file
 	sections  string // suffix of the names of the sections that run
 	tagFilter bool   // upstream renders every example with the GFM tag filter
+	gitHub    bool   // the expected HTML comes from the GitHub Markdown API
 }
 
 var corpora = []corpus{
-	{"commonmark", "testdata/commonmark/spec.txt", 652, "", false},
-	{"gfm", "testdata/gfm/spec.txt", 670, " (extension)", false},
-	{"cmark-gfm-extensions", "testdata/cmark-gfm-extensions/extensions.txt", 30, "", true},
-	{"cmark-gfm-regression", "testdata/cmark-gfm-regression/regression.txt", 26, "", false},
-	{"commonmark-js-regression", "testdata/commonmark-js-regression/regression.txt", 32, "", false},
-	{"markfmt", "testdata/markfmt/grammar.txt", 3, "", false},
+	{"commonmark", "testdata/commonmark/spec.txt", 652, "", false, false},
+	{"gfm", "testdata/gfm/spec.txt", 670, " (extension)", false, false},
+	{"cmark-gfm-extensions", "testdata/cmark-gfm-extensions/extensions.txt", 30, "", true, false},
+	{"cmark-gfm-regression", "testdata/cmark-gfm-regression/regression.txt", 26, "", false, false},
+	{"commonmark-js-regression", "testdata/commonmark-js-regression/regression.txt", 32, "", false, false},
+	{"markfmt", "testdata/markfmt/grammar.txt", 10, "", false, false},
+	{"github", "testdata/github/github.txt", 70, "", true, true},
 }
 
 func TestReadExamples(t *testing.T) {
