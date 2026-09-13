@@ -71,9 +71,14 @@ list item for `-`. markfmt follows cmark (`../dialect.md`).
 
 [bar]: /url
 -
+
+[baz]: /url
+-
+-
 .
 <p>---</p>
 <p>-</p>
+<h2>-</h2>
 ````````````````````````````````
 
 ## goldmark deviates, spec section 5.3: a blank line at the end of a code block in a list item leaves the list tight

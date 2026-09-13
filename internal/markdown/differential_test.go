@@ -95,6 +95,7 @@ func TestGoldmarkDiffers(t *testing.T) {
 		{"skips a single dash after definitions alone", "[0]:0\n-", "goldmark deviates, spec sections 4.3 and 4.7: a setext underline after link reference definitions alone is paragraph text"},
 		{"skips a nested list item after an empty one and a blank line", "* -\n \n  -", "goldmark deviates, spec section 5.2: a blank line after an empty nested list item continues the outer list item"},
 		{"skips an escape after punctuation on the line after a backslash and a hard break", "\\  \n*\\!", "goldmark deviates, spec sections 2.4 and 6.7: a backslash escape after a backslash, a hard line break of spaces and punctuation decodes"},
+		{"skips a setext heading of a dash after definitions alone", "[0]:0\n-\n-", "goldmark deviates, spec sections 4.3 and 4.7: a setext underline after link reference definitions alone is paragraph text"},
 		{"skips a tab in the indentation after a list item prefix", "* 0\n  \t -", "goldmark deviates, spec sections 2.2 and 5.2: a tab after the prefix of a list item line stops at a column counted from the start of the line"},
 	}
 	for _, tt := range tests {
@@ -216,10 +217,11 @@ var goldmarkDeviations = []struct {
 		return angleDestinationLT.Match(t.src)
 	}},
 	{"goldmark deviates, spec sections 4.3 and 4.7: a setext underline after link reference definitions alone is paragraph text", func(t *Tree) bool {
-		// Only this rule gives a paragraph whose first line is "-", which
-		// goldmark reads as an empty list item, or a thematic break of "-".
+		// Only this rule gives a paragraph or a setext heading whose first
+		// line is "-", which goldmark reads as an empty list item, or a
+		// thematic break of "-".
 		for i, n := range t.nodes {
-			if n.kind != Paragraph {
+			if n.kind != Paragraph && n.kind != Heading {
 				continue
 			}
 			line := t.Raw(NodeID(i))
