@@ -168,6 +168,12 @@ var goldmarkDeviations = []struct {
 	{"goldmark deviates, spec sections 4.6 and 6.6: a declaration starts with `<!` and an ASCII letter", func(t *Tree) bool {
 		return lowercaseDeclaration.Match(t.src)
 	}},
+	{"goldmark deviates, spec section 4.6: `meta` is not in the tag list of HTML block kind 6", func(t *Tree) bool {
+		return metaTag.Match(t.src)
+	}},
 }
 
-var lowercaseDeclaration = regexp.MustCompile(`<![a-z]`)
+var (
+	lowercaseDeclaration = regexp.MustCompile(`<![a-z]`)
+	metaTag              = regexp.MustCompile(`(?i)</?meta([ \t\r\n/>]|$)`)
+)

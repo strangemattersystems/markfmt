@@ -424,6 +424,7 @@ Use this list to triage stage 5 disagreements. The last column says how
 | `*\r\n` | A paragraph. | An empty list item. | goldmark reads LF line endings. |
 | `[0]:\n0\n''0` | The destination line also appears as paragraph text. | Paragraph `''0` only (compare example 210). | Not yet: design 15, commit 57. |
 | `x<!x>`, `<!doctype html>` | Text: a declaration needs an uppercase letter after `<!`, as on GitHub. | Raw HTML and an HTML block (spec 4.6, 6.6). | Predicate, differential case. |
+| `a\n<meta>` | `<meta>` interrupts the paragraph: goldmark's HTML block kind 6 tag list has `meta`. | Paragraph with raw HTML (spec 4.6). | Predicate, differential case. |
 
 ## How to resume
 

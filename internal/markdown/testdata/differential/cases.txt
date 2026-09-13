@@ -17,3 +17,15 @@ x<!x>
 <p>x<!x></p>
 <!doctype html>
 ````````````````````````````````
+
+## goldmark deviates, spec section 4.6: `meta` is not in the tag list of HTML block kind 6
+
+`<meta>` is an HTML block of kind 7, which cannot interrupt a paragraph.
+
+```````````````````````````````` example
+a
+<meta>
+.
+<p>a
+<meta></p>
+````````````````````````````````
