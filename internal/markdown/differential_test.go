@@ -219,6 +219,30 @@ var goldmarkDeviations = []struct {
 		}
 		return false
 	}},
+	{"goldmark deviates, spec section 4.7: a definition with its destination on a later line ends at the destination when the next line is not a title", func(t *Tree) bool {
+		for i, n := range t.nodes {
+			if n.kind != LinkReferenceDefinition {
+				continue
+			}
+			var lineEnding, destination, title bool
+			for _, m := range t.nodes[i+1 : n.link] {
+				lineEnding = lineEnding || m.kind == LineEnding && !destination
+				destination = destination || m.kind == Destination
+				title = title || m.kind == Title
+			}
+			next := int(n.link)
+			for next < len(t.nodes) && (t.nodes[next].kind == QuoteMarker || t.nodes[next].kind == ListMarker || t.nodes[next].kind == ItemIndent || t.nodes[next].kind == FootnoteIndent) {
+				next++
+			}
+			if !lineEnding || !destination || title || next == len(t.nodes) || t.nodes[next].kind != Paragraph {
+				continue
+			}
+			if rest := bytes.TrimLeft(t.src[t.nodes[next].start:], " \t"); len(rest) > 0 && strings.IndexByte(`"'(`, rest[0]) >= 0 {
+				return true
+			}
+		}
+		return false
+	}},
 }
 
 var (
