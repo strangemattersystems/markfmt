@@ -546,3 +546,17 @@ goldmark reads `</ A0>` as a closing tag and starts an HTML block.
 <p>&lt;/ A0&gt;
 0</p>
 ````````````````````````````````
+
+## goldmark deviates, spec section 4.6: a tab after the tag name starts HTML block kind 6
+
+goldmark gives a paragraph when only tabs, `/` or `>` follow the tab on the
+line.
+
+```````````````````````````````` example
+<p→
+
+</div→>
+.
+<p	
+</div	>
+````````````````````````````````

@@ -528,6 +528,9 @@ var goldmarkDeviations = []struct {
 	{"goldmark deviates, spec section 6.6: a closing tag has no whitespace after `</`", func(t *Tree) bool {
 		return spacedClosingTag.Match(t.src)
 	}},
+	{"goldmark deviates, spec section 4.6: a tab after the tag name starts HTML block kind 6", func(t *Tree) bool {
+		return tabAfterTagName.Match(t.src)
+	}},
 	{"goldmark deviates, spec section 4.7: a definition with its destination on a later line ends at the destination when the next line is not a title", func(t *Tree) bool {
 		for i, n := range t.nodes {
 			if n.kind != LinkReferenceDefinition {
@@ -565,4 +568,5 @@ var (
 	emptyInstruction     = regexp.MustCompile(`<\?>`)
 	unquotedControl      = regexp.MustCompile(`<[A-Za-z][^<>]*=[ \t\r\n]*[^ \t\r\n"'=<>\x60]*[\x01-\x08\x0b\x0c\x0e-\x1f\x7f]`)
 	spacedClosingTag     = regexp.MustCompile(`</[ \t\r\n]+[A-Za-z]`)
+	tabAfterTagName      = regexp.MustCompile(`</?[A-Za-z][A-Za-z0-9]*\t[\t />]*(?:\r|\n|$)`)
 )
