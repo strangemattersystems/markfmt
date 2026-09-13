@@ -20,6 +20,7 @@ const (
 	LinkReferenceDefinition
 	SoftBreak
 	HardBreak
+	CodeSpan
 	Text
 	CodeText
 	VerbatimLineEnding
@@ -52,6 +53,7 @@ const (
 	FrontMatterFence
 	TrailingSpace
 	HardBreakMarker
+	CodeFence
 )
 
 type class uint8
@@ -69,12 +71,12 @@ func (k Kind) class() class {
 	//exhaustive:enforce
 	switch k {
 	case Document, FrontMatter, BlockQuote, List, ListItem, Paragraph, ThematicBreak, Heading, CodeBlock, HTMLBlock, LinkReferenceDefinition,
-		SoftBreak, HardBreak:
+		SoftBreak, HardBreak, CodeSpan:
 		return classStructure
 	case Text, CodeText, VerbatimLineEnding, InfoString, HTMLText, LinkLabel, Destination, Title, FrontMatterText, Escape, EntityRef:
 		return classContent
 	case BOM, LineEnding, BlankLine, Indent, ThematicRun, ATXMarker, ATXClose, Whitespace, CodeIndent, FenceMarker, SetextUnderline, QuoteMarker, ListMarker, ItemIndent, Bracket, Colon, AngleBracket, TitleQuote, FrontMatterFence,
-		TrailingSpace, HardBreakMarker:
+		TrailingSpace, HardBreakMarker, CodeFence:
 		return classSyntax
 	}
 	return classInvalid
@@ -196,6 +198,10 @@ func (k Kind) String() string {
 		return "TrailingSpace"
 	case HardBreakMarker:
 		return "HardBreakMarker"
+	case CodeSpan:
+		return "CodeSpan"
+	case CodeFence:
+		return "CodeFence"
 	}
 	return "Kind(" + strconv.Itoa(int(k)) + ")"
 }

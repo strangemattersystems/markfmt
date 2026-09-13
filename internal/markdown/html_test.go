@@ -34,6 +34,7 @@ func TestRenderHTML(t *testing.T) {
 		{"writes escapes", "\\*\\<\\a", "<p>*&lt;\\a</p>\n"},
 		{"writes u+fffd for nul and invalid utf-8", "a\x00\xffb\xe2\x82", "<p>a\ufffd\ufffdb\ufffd</p>\n"},
 		{"writes entity references", "&ouml;&NotEqualTilde;&#0;&#xD800;&#1114112;&#x10FFFF;&amp;", "<p>ö\u2242\u0338\ufffd\ufffd\ufffd\U0010ffff&amp;</p>\n"},
+		{"writes code spans", "` a `` `\n``\nb\n`` ` ` `  `", "<p><code>a ``</code>\n<code>b</code> <code> </code> <code>  </code></p>\n"},
 		{"writes line breaks", "a\\\nb  \nc \nd  ", "<p>a<br />\nb<br />\nc\nd</p>\n"},
 		{"writes paragraphs", "\xEF\xBB\xBFa\r\n b\n \nc", "<p>a\nb</p>\n<p>c</p>\n"},
 	}
@@ -103,7 +104,7 @@ func renderHTML(tree *Tree) string {
 		}
 		//exhaustive:enforce
 		switch n.kind {
-		case Document, BOM, BlankLine, Indent, LineEnding, TrailingSpace, HardBreakMarker, ThematicRun, ATXMarker, ATXClose, Whitespace,
+		case Document, BOM, BlankLine, Indent, LineEnding, TrailingSpace, HardBreakMarker, CodeFence, ThematicRun, ATXMarker, ATXClose, Whitespace,
 			CodeIndent, CodeText, VerbatimLineEnding, FenceMarker, InfoString, SetextUnderline, HTMLText, QuoteMarker, ListMarker, ItemIndent,
 			LinkReferenceDefinition, LinkLabel, Destination, Title, Bracket, Colon, AngleBracket, TitleQuote,
 			FrontMatter, FrontMatterFence, FrontMatterText:
@@ -158,6 +159,10 @@ func renderHTML(tree *Tree) string {
 			}
 		case Text, Escape, EntityRef:
 			b.WriteString(htmlEscaper.Replace(string(tree.AppendValue(nil, e.ID))))
+		case CodeSpan:
+			if !e.Exit {
+				b.WriteString("<code>" + htmlEscaper.Replace(string(tree.AppendCodeSpan(nil, e.ID))) + "</code>")
+			}
 		case SoftBreak:
 			if !e.Exit {
 				b.WriteByte('\n')

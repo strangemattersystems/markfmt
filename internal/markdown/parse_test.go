@@ -33,6 +33,9 @@ func TestParse(t *testing.T) {
 		{"gives a hard break for a backslash before a line ending", "a \\\nb", `Document{Paragraph{Text "a ", HardBreak{HardBreakMarker "\\", LineEnding "\n"}, Text "b"}}`},
 		{"gives escape leaves for ascii punctuation", "\\*a\\b\\\\\nc\\", `Document{Paragraph{Escape "\\*", Text "a\\b", Escape "\\\\", SoftBreak{LineEnding "\n"}, Text "c\\"}}`},
 		{"gives entity references", "&amp; &#35;&#X22;&CounterClockwiseContourIntegral; &nope; &#12345678; &#xabcdefa; &#;", `Document{Paragraph{EntityRef "&amp;", Text " ", EntityRef "&#35;", EntityRef "&#X22;", EntityRef "&CounterClockwiseContourIntegral;", Text " &nope; &#12345678; &#xabcdefa; &#;"}}`},
+		{"gives a code span", "`` a ` b ``c", "Document{Paragraph{CodeSpan{CodeFence \"``\", CodeText \" a ` b \", CodeFence \"``\"}, Text \"c\"}}"},
+		{"gives a code span over lines with their prefix and indent leaves", "> `a  \n>   b\\`", "Document{BlockQuote{QuoteMarker@1 \"> \", Paragraph{CodeSpan{CodeFence \"`\", CodeText \"a  \", VerbatimLineEnding \"\\n\", QuoteMarker@1 \"> \", Indent \"  \", CodeText \"b\\\\\", CodeFence \"`\"}}}}"},
+		{"gives a backtick run with no closer of its length as text", "``a`b\n```c`", "Document{Paragraph{Text \"``a\", CodeSpan{CodeFence \"`\", CodeText \"b\", VerbatimLineEnding \"\\n\", CodeText \"```c\", CodeFence \"`\"}}}"},
 		{"gives no break at the end of a block", "a\\\n\n# b\\", `Document{Paragraph{Text "a\\", LineEnding "\n"}, BlankLine "\n", Heading{ATXMarker "#", Whitespace " ", Text "b\\"}}`},
 		{"gives breaks between setext heading lines", "a  \nb \n==", `Document{Heading{Text "a", HardBreak{HardBreakMarker "  ", LineEnding "\n"}, Text "b", TrailingSpace " ", LineEnding "\n", SetextUnderline "=="}}`},
 		{"gives the indentation of a first line", "   a", `Document{Paragraph{Indent "   ", Text "a"}}`},
@@ -274,7 +277,7 @@ func longChild(t *testing.T, spec string) {
 	fmt.Printf("markfmt-long %d %d %d\n", d, nodes, len(src))
 }
 
-// pathologicalInputs are the block inputs of design 6.8. Each builds an input
+// pathologicalInputs are the inputs of design 6.8. Each builds an input
 // of about n bytes.
 var pathologicalInputs = []struct {
 	name  string
@@ -291,6 +294,13 @@ var pathologicalInputs = []struct {
 	}},
 	{"definitions with unclosed titles", func(n int) []byte {
 		return []byte(strings.Repeat("[a]: b 'c\n", n/10))
+	}},
+	{"backtick runs of every length", func(n int) []byte {
+		var b []byte
+		for i := 1; len(b) < n; i++ {
+			b = append(append(b, 'e'), strings.Repeat("`", i)...)
+		}
+		return b
 	}},
 }
 

@@ -12,6 +12,9 @@ type inlineParser struct {
 	pieces []piece
 	k      int    // the line being scanned
 	start  uint32 // start of the first piece
+
+	ticks    []uint32 // one past the start of the last backtick run of each length that a search passed
+	ticksAll bool     // a backtick search reached the end of the block
 }
 
 // piece is a leaf in the scratch buffer. It starts at the end of the piece
@@ -32,29 +35,13 @@ type piece struct {
 func (s *inlineParser) inlines(lines []pendingLine) {
 	s.lines, s.pieces, s.k = lines, s.pieces[:0], 0
 	s.start = lines[0].rest.start
+	s.ticks, s.ticksAll = s.ticks[:0], false
 	s.startLine()
 	for {
 		l := s.lines[s.k].rest
-		for i := s.end(); i < l.end; i = s.end() {
-			switch s.src[i] {
-			case '\\':
-				switch {
-				case i+1 == l.end && s.k+1 < len(s.lines):
-					s.push(piece{kind: HardBreakMarker, open: HardBreak, end: i + 1})
-				case i+1 < l.end && isASCIIPunct(s.src[i+1]):
-					s.push(piece{kind: Escape, end: i + 2})
-				default:
-					s.text(i + 1)
-				}
-			case '&':
-				if j := entityEnd(s.src, i, l.end); j > 0 {
-					s.push(piece{kind: EntityRef, end: j})
-				} else {
-					s.text(i + 1)
-				}
-			default:
-				s.text(s.textEnd(i, l.end))
-			}
+		if i := s.end(); i < l.end {
+			s.scan(i, l.end)
+			continue
 		}
 		s.trailingSpace()
 		if s.k+1 == len(s.lines) {
@@ -69,6 +56,32 @@ func (s *inlineParser) inlines(lines []pendingLine) {
 		s.startLine()
 	}
 	s.emit()
+}
+
+// scan pushes the pieces of the inline that starts at i, on a line that ends
+// at end. A construct can end on a later line.
+func (s *inlineParser) scan(i, end uint32) {
+	switch s.src[i] {
+	case '\\':
+		switch {
+		case i+1 == end && s.k+1 < len(s.lines):
+			s.push(piece{kind: HardBreakMarker, open: HardBreak, end: i + 1})
+		case i+1 < end && isASCIIPunct(s.src[i+1]):
+			s.push(piece{kind: Escape, end: i + 2})
+		default:
+			s.text(i + 1)
+		}
+	case '&':
+		if j := entityEnd(s.src, i, end); j > 0 {
+			s.push(piece{kind: EntityRef, end: j})
+		} else {
+			s.text(i + 1)
+		}
+	case '`':
+		s.codeSpan(i, end)
+	default:
+		s.text(s.textEnd(i, end))
+	}
 }
 
 // startLine pushes the prefix leaves of the line after the first, and the
@@ -117,10 +130,13 @@ func (s *inlineParser) trailingSpace() {
 	s.push(piece{kind: TrailingSpace, end: l.end})
 }
 
+// inlineTriggers holds the bytes that can start an inline construct.
+var inlineTriggers = [256]bool{'\\': true, '&': true, '`': true}
+
 // textEnd returns the end of the run of bytes from i that no inline construct
 // starts in, before end.
 func (s *inlineParser) textEnd(i, end uint32) uint32 {
-	for i++; i < end && s.src[i] != '\\' && s.src[i] != '&'; i++ {
+	for i++; i < end && !inlineTriggers[s.src[i]]; i++ {
 	}
 	return i
 }
@@ -136,6 +152,13 @@ func (s *inlineParser) text(end uint32) {
 
 func (s *inlineParser) push(x piece) {
 	s.pieces = append(s.pieces, x)
+}
+
+// pushIf pushes a piece of kind k to end, unless the last piece ends there.
+func (s *inlineParser) pushIf(k Kind, end uint32) {
+	if end > s.end() {
+		s.push(piece{kind: k, end: end})
+	}
 }
 
 // end returns the end of the last piece.

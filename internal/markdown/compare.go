@@ -86,13 +86,16 @@ func (c *comparer) equalKeys(ia, ib NodeID) bool {
 	case HTMLBlock:
 		ra, rb := newVerbatimReader(a, ia, HTMLText), newVerbatimReader(b, ib, HTMLText)
 		return equalPieces(&ra, &rb)
+	case CodeSpan:
+		ra, rb := newCodeSpanReader(a, ia), newCodeSpanReader(b, ib)
+		return equalPieces(&ra, &rb)
 	case LinkReferenceDefinition:
 		c.labelA, c.labelB = a.AppendLabel(c.labelA[:0], ia), b.AppendLabel(c.labelB[:0], ib)
 		return bytes.Equal(c.labelA, c.labelB)
 	case Text, CodeText, VerbatimLineEnding, InfoString, HTMLText, LinkLabel, Destination, Title,
 		FrontMatterText, BOM, LineEnding, BlankLine, Indent, ThematicRun, ATXMarker, ATXClose,
 		Whitespace, CodeIndent, FenceMarker, SetextUnderline, QuoteMarker, ListMarker, ItemIndent,
-		Bracket, Colon, AngleBracket, TitleQuote, FrontMatterFence, TrailingSpace, HardBreakMarker, Escape, EntityRef:
+		Bracket, Colon, AngleBracket, TitleQuote, FrontMatterFence, TrailingSpace, HardBreakMarker, Escape, EntityRef, CodeFence:
 	}
 	panic(fmt.Sprintf("markdown: key of node %d of kind %v, which is not a structure kind", ia, a.nodes[ia].kind))
 }
@@ -138,7 +141,7 @@ func (p *projection) next() (event, bool) {
 		if n.kind.class() == classStructure {
 			p.stack = append(p.stack, i)
 			p.label = false
-			if n.kind == CodeBlock || n.kind == HTMLBlock {
+			if n.kind == CodeBlock || n.kind == HTMLBlock || n.kind == CodeSpan {
 				// All their content is in their key.
 				p.i = n.link
 			}
