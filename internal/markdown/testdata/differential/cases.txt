@@ -468,8 +468,8 @@ b</p>
 
 ## goldmark deviates, spec section 5.2: a blank line after an empty nested list item continues the outer list item
 
-goldmark ends the outer item when a child list ends with an empty item, and
-the content after the blank line leaves the list.
+goldmark ends the outer item when a child list ends with an empty item, at
+any depth, and the content after the blank line leaves the list.
 
 ```````````````````````````````` example
 - -
@@ -481,6 +481,10 @@ the content after the blank line leaves the list.
    1)
 
    b
+
++ 1)   +
+
+  c
 .
 <ul>
 <li>
@@ -499,6 +503,18 @@ the content after the blank line leaves the list.
 <p>b</p>
 </li>
 </ol>
+<ul>
+<li>
+<ol>
+<li>
+<ul>
+<li></li>
+</ul>
+</li>
+</ol>
+<p>c</p>
+</li>
+</ul>
 ````````````````````````````````
 
 ## fixed in markfmt, spec section 6.1: every later backtick run of the same length can close a code span

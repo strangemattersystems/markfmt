@@ -89,6 +89,7 @@ func TestGoldmarkDiffers(t *testing.T) {
 		{"skips a tab and text after a kind 6 tag name", "</td\t0", "goldmark deviates, spec section 4.6: a tab after the tag name starts HTML block kind 6"},
 		{"skips a definition whose label spans lines and whose title fails", "[0\n]:0\n\"\"0", "goldmark deviates, spec section 4.7: a definition over several lines ends at its destination when the next line is not a title"},
 		{"skips a code block of one blank line at the end of a list item", "- 00000\n  ```\n\n-", "goldmark deviates, spec section 5.3: a blank line at the end of a code block in a list item leaves the list tight"},
+		{"skips a paragraph after lists that end in an empty item two levels down", "* 0)   *  \n\n  0", "goldmark deviates, spec section 5.2: a blank line after an empty nested list item continues the outer list item"},
 		{"skips a tab in the indentation after a list item prefix", "* 0\n  \t -", "goldmark deviates, spec sections 2.2 and 5.2: a tab after the prefix of a list item line stops at a column counted from the start of the line"},
 	}
 	for _, tt := range tests {
@@ -498,6 +499,37 @@ var goldmarkDeviations = []struct {
 			}
 			return -1
 		}
+		// lastChild returns the last structure child of node id, or -1.
+		lastChild := func(id int) int {
+			last := -1
+			for j := id + 1; j < int(t.nodes[id].link); {
+				if m := t.nodes[j]; m.kind.class() == classStructure {
+					last = j
+					j = int(m.link)
+				} else {
+					j++
+				}
+			}
+			return last
+		}
+		// endsEmpty reports whether the last item of list, or of the list that
+		// its last item ends with, and so on, is empty.
+		endsEmpty := func(list int) bool {
+			for {
+				item := lastChild(list)
+				if item < 0 {
+					return false
+				}
+				child := lastChild(item)
+				if child < 0 {
+					return true
+				}
+				if t.nodes[child].kind != List {
+					return false
+				}
+				list = child
+			}
+		}
 		for i, n := range t.nodes {
 			if n.kind != ListItem {
 				continue
@@ -508,14 +540,7 @@ var goldmarkDeviations = []struct {
 				if t.nodes[c].kind != List || firstChild(int(t.nodes[c].link), int(n.link)) < 0 {
 					continue
 				}
-				empty := false
-				for j := c + 1; j < int(t.nodes[c].link); j++ {
-					if m := t.nodes[j]; m.kind == ListItem {
-						empty = firstChild(j+1, int(m.link)) < 0
-						j = int(m.link) - 1
-					}
-				}
-				if empty {
+				if endsEmpty(c) {
 					return true
 				}
 			}
