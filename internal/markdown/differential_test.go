@@ -700,6 +700,9 @@ var goldmarkDeviations = []struct {
 	{"goldmark deviates, spec section 6.3: whitespace separates a link title from an angle destination", func(t *Tree) bool {
 		return angleTitle.Match(t.src)
 	}},
+	{"goldmark deviates, spec section 6.6: a closing tag has no `/` before its `>`", func(t *Tree) bool {
+		return slashClosingTag.Match(t.src)
+	}},
 }
 
 var (
@@ -716,4 +719,5 @@ var (
 	tabAfterTagName      = regexp.MustCompile(`</?[A-Za-z][A-Za-z0-9]*\t`)
 	tabAfterTag          = regexp.MustCompile(`<[A-Za-z/][^<>\r\n]*>[ \t]*\t[ \t]*(?:\r|\n|$)`)
 	angleTitle           = regexp.MustCompile(`\]\([ \t\r\n]*<[^<>\r\n]*>["'(]`)
+	slashClosingTag      = regexp.MustCompile(`</[A-Za-z][A-Za-z0-9-]*[ \t\r\n]*/`)
 )

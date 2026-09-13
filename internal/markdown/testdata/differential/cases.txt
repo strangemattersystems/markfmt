@@ -741,3 +741,16 @@ goldmark takes a title right after the `>` of an angle destination.
 <p>[a](<b>&quot;t&quot;)</p>
 <p>[c](&lt;&gt;())</p>
 ````````````````````````````````
+
+## goldmark deviates, spec section 6.6: a closing tag has no `/` before its `>`
+
+goldmark reads `</A/>` as a closing tag and starts an HTML block.
+
+```````````````````````````````` example
+</A/>
+
+a </b/>
+.
+<p>&lt;/A/&gt;</p>
+<p>a &lt;/b/&gt;</p>
+````````````````````````````````
