@@ -921,3 +921,16 @@ The scheme has 33 letters. goldmark gives an autolink.
 .
 <p>&lt;abcdefghijklmnopqrstuvwxyzabcdefg:h&gt;</p>
 ````````````````````````````````
+
+## goldmark deviates, spec section 6.6: a tab before the `>` of the tag that starts an HTML block is whitespace
+
+goldmark gives a paragraph when a tab comes right before `>` or `/>`.
+
+```````````````````````````````` example
+<a b→>
+
+<c d="e"→/>
+.
+<a b	>
+<c d="e"	/>
+````````````````````````````````

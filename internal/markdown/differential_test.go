@@ -847,6 +847,9 @@ var goldmarkDeviations = []struct {
 	{"goldmark deviates, spec section 6.5: the scheme of an absolute URI has at most 32 characters", func(t *Tree) bool {
 		return longScheme.Match(t.src)
 	}},
+	{"goldmark deviates, spec section 6.6: a tab before the `>` of the tag that starts an HTML block is whitespace", func(t *Tree) bool {
+		return tabBeforeTagEnd.Match(t.src)
+	}},
 }
 
 var (
@@ -865,4 +868,5 @@ var (
 	angleTitle           = regexp.MustCompile(`\]\([ \t\r\n]*<[^<>\r\n]*>["'(]`)
 	slashClosingTag      = regexp.MustCompile(`</[A-Za-z][A-Za-z0-9-]*[ \t\r\n]*/`)
 	longScheme           = regexp.MustCompile(`<[A-Za-z][A-Za-z0-9+.-]{32,}:`)
+	tabBeforeTagEnd      = regexp.MustCompile(`<[/]?[A-Za-z][^<>\r\n]*\t[ \t]*/?>`)
 )
