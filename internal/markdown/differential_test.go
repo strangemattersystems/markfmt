@@ -318,6 +318,27 @@ var goldmarkDeviations = []struct {
 		}
 		return false
 	}},
+	{"goldmark deviates, spec sections 2.2 and 5.2: a tab after a nested list marker stops at a column counted from the start of the line", func(t *Tree) bool {
+		src := t.src
+		for _, n := range t.nodes {
+			if n.kind != ListMarker || n.start == 0 || src[n.start-1] == '\n' || src[n.start-1] == '\r' {
+				continue
+			}
+			j := n.start
+			for j < n.end && (src[j] == ' ' || src[j] == '\t') {
+				j++
+			}
+			for j < n.end && '0' <= src[j] && src[j] <= '9' {
+				j++
+			}
+			for j++; int(j) < len(src) && (src[j] == ' ' || src[j] == '\t'); j++ {
+				if src[j] == '\t' {
+					return true
+				}
+			}
+		}
+		return false
+	}},
 	{"goldmark deviates, spec section 4.7: a definition with its destination on a later line ends at the destination when the next line is not a title", func(t *Tree) bool {
 		for i, n := range t.nodes {
 			if n.kind != LinkReferenceDefinition {

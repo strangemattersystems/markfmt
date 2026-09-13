@@ -424,6 +424,7 @@ Use this list to triage stage 5 disagreements. The last column says how
 | `a *`, a vertical tab, `a*` | Text: a vertical tab, U+0085, U+2028 and U+2029 are whitespace for flanking, as for Go's `unicode.IsSpace`. | Emphasis (spec 2.1, 6.2). | Predicate, differential case. |
 | `[](a(b )` | A link to `a(b`: a destination can end inside an open parenthesis. | Text (spec 4.7, 6.3). | Predicate, differential case. |
 | A fence indented 2 spaces, then a line of 1 space | The code is the space: a line of spaces keeps what the fence indentation should remove. | Empty code (spec 4.5). | Predicate, differential case. |
+| `* a`, then a tab, `*`, two tabs and `0` | The code `0`: the tabs after a nested list marker stop at columns counted from the outer item's content. | The code `  0` (spec 2.2, 5.2). | Predicate, differential case. |
 | `[0]:\n0\n''0` | The destination line also appears as paragraph text. | Paragraph `''0` only (compare example 210). | Predicate, differential case. |
 | `x<!x>`, `<!doctype html>` | Text: a declaration needs an uppercase letter after `<!`, as on GitHub. | Raw HTML and an HTML block (spec 4.6, 6.6). | Predicate, differential case. |
 | `a\n<meta>` | `<meta>` interrupts the paragraph: goldmark's HTML block kind 6 tag list has `meta`. | Paragraph with raw HTML (spec 4.6). | Predicate, differential case. |
