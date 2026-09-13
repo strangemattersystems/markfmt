@@ -46,10 +46,7 @@ type piece struct {
 // prefix leaves of the first line and the line ending of the last line are
 // the caller's.
 func (s *inlineParser) inlines(lines []pendingLine) {
-	s.lines, s.pieces, s.delims, s.k = lines, s.pieces[:0], s.delims[:0], 0
-	s.start = lines[0].rest.start
-	s.ticks, s.ticksAll, s.failed = s.ticks[:0], false, [len(closers)]uint32{}
-	s.startLine()
+	s.begin(lines)
 	for {
 		l := s.lines[s.k].rest
 		if i := s.end(); i < l.end {
@@ -70,6 +67,41 @@ func (s *inlineParser) inlines(lines []pendingLine) {
 	}
 	s.processEmphasis(-1)
 	s.emit()
+}
+
+// begin starts the pieces of lines at the Indent leaf of the first line.
+func (s *inlineParser) begin(lines []pendingLine) {
+	s.lines, s.pieces, s.delims, s.k = lines, s.pieces[:0], s.delims[:0], 0
+	s.start = lines[0].rest.start
+	s.ticks, s.ticksAll, s.failed = s.ticks[:0], false, [len(closers)]uint32{}
+	s.startLine()
+}
+
+// mark is a position in the pieces that a failed construct rewinds to.
+type mark struct {
+	pieces, k int
+	lineStart uint32
+}
+
+func (s *inlineParser) mark() mark {
+	return mark{len(s.pieces), s.k, s.lineStart}
+}
+
+func (s *inlineParser) reset(m mark) {
+	s.pieces, s.k, s.lineStart = s.pieces[:m.pieces], m.k, m.lineStart
+}
+
+// nextLine pushes the line ending of the line as a piece of kind k, and the
+// prefix and Indent leaves of the next line. It reports false on the last
+// line.
+func (s *inlineParser) nextLine(k Kind) bool {
+	if s.k+1 == len(s.lines) {
+		return false
+	}
+	s.push(piece{kind: k, end: s.lines[s.k].rest.eol})
+	s.k++
+	s.startLine()
+	return true
 }
 
 // scan pushes the pieces of the inline that starts at i, on a line that ends
@@ -158,11 +190,8 @@ var inlineTriggers = [256]bool{'\\': true, '&': true, '`': true, '<': true, '*':
 // the prefix leaves and the Indent leaf at each line boundary.
 func (s *inlineParser) verbatim(p pos, text Kind) {
 	for s.k < p.k {
-		l := s.lines[s.k].rest
-		s.pushIf(text, l.end)
-		s.push(piece{kind: VerbatimLineEnding, end: l.eol})
-		s.k++
-		s.startLine()
+		s.pushIf(text, s.lines[s.k].rest.end)
+		s.nextLine(VerbatimLineEnding)
 	}
 	s.pushIf(text, p.i)
 }
