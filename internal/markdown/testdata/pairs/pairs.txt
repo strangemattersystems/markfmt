@@ -1,0 +1,23 @@
+# Pairs of Markdown files for TestEqual, one per line: the name of the pair,
+# whose files are NAME.a.md and NAME.b.md, "equal" or "different", and the
+# reason. An equal pair renders equal test HTML, and a different pair renders
+# different test HTML (design 10.5).
+block-quote-blank-line different CM 242 is two block quotes, and CM 244 is one
+block-quote-lazy-line equal a lazy line continues the paragraph (CM 233)
+code-blank-line-inside different a blank line inside code is content (CM 111)
+code-blank-line-after equal trailing blank lines are not code (CM 117)
+code-end-of-input equal the last code line gets a line feed (design 8.2)
+html-end-of-input equal the last HTML line gets a line feed (design 8.2)
+fenced-and-indented-code equal code has no fenced key (design 8.2)
+math-fence-info different GitHub renders a math fence as math (design 9.1)
+list-start different the start number is in the list key (design 10.2)
+list-bullet equal the bullet character is not in the list key (design 10.2)
+list-delimiter equal the ordered delimiter is not in the list key (design 10.2)
+list-looseness different a blank line between items makes the list loose (CM 314)
+line-ending-kind equal the kind of line ending is not meaning (product rule 7)
+heading-style equal the key of a heading is its level (design 10.2)
+heading-level different the key of a heading is its level (design 10.2)
+thematic-break-marker equal a thematic break has no key (design 10.2)
+blank-line-count equal blank lines between blocks are syntax (design 4.2)
+definition-label-case equal the key of a definition is its normalized label (CM 205)
+html-block-blank-line different a blank line ends an HTML block of kind 6 (CM 148)

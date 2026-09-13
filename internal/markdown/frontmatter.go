@@ -15,6 +15,12 @@ func frontMatterFence(src []byte, l line) (uint32, byte) {
 	return l.start + 3, c
 }
 
+// FrontMatterTOML reports whether front matter id is TOML: its fences are
+// "+++", not "---".
+func (t *Tree) FrontMatterTOML(id NodeID) bool {
+	return t.src[t.nodes[id+1].start] == '+'
+}
+
 // frontMatter appends the front matter at the start of the lines of it, if
 // there is one, and returns the lines after it (design 8.1).
 func (p *blockParser) frontMatter(it lines) lines {

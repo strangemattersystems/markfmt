@@ -66,49 +66,94 @@ func (t *Tree) AppendCode(dst []byte, id NodeID) []byte {
 	return t.appendVerbatim(dst, id, CodeText)
 }
 
-// appendVerbatim appends the value of code or HTML block id to dst: its text
-// leaves of kind text, and a line feed for each VerbatimLineEnding and after
-// a last content line without one. A fence line is not a content line.
+// appendVerbatim appends the value of code or HTML block id to dst, as
+// verbatimReader reads it.
 func (t *Tree) appendVerbatim(dst []byte, id NodeID, text Kind) []byte {
-	leaves := t.nodes[id+1 : t.nodes[id].link]
-	for _, m := range leaves {
-		switch m.kind {
-		case text:
-			b := t.src[m.start:m.end]
-			if m.virt > 0 {
-				// The columns left of a split tab are spaces.
-				dst = append(dst, "   "[:m.virt]...)
-				b = b[1:]
-			}
-			dst = append(dst, b...)
-		case VerbatimLineEnding:
-			dst = append(dst, '\n')
-		}
+	r := newVerbatimReader(t, id, text)
+	for b := r.next(); b != nil; b = r.next() {
+		dst = append(dst, b...)
 	}
+	return dst
+}
+
+var (
+	spaces   = []byte("   ")
+	lineFeed = []byte{'\n'}
+)
+
+// verbatimReader reads the value of a code or HTML block one piece at a time:
+// its leaves of kind text, with virt spaces for a split tab, a line feed for
+// each VerbatimLineEnding, and a line feed after a last content line without
+// one (design 8.2). A fence line is not a content line.
+type verbatimReader struct {
+	t      *Tree
+	i, end uint32 // the next leaf, and the end of the block
+	text   Kind
+	rest   []byte // the rest of a leaf after the spaces of its split tab
+	final  bool   // a line feed is due after the last leaf
+}
+
+func newVerbatimReader(t *Tree, id NodeID, text Kind) verbatimReader {
+	r := verbatimReader{t: t, i: uint32(id) + 1, end: t.nodes[id].link, text: text, final: true}
+	leaves := t.nodes[r.i:r.end]
 	for i, m := range slices.Backward(leaves) {
-		switch m.kind {
-		case FenceMarker:
-			return dst
-		case LineEnding, VerbatimLineEnding:
-			if i == len(leaves)-1 {
-				return dst
-			}
-			return append(dst, '\n')
+		if m.kind == FenceMarker {
+			r.final = false
+			break
+		}
+		if m.kind == LineEnding || m.kind == VerbatimLineEnding {
+			r.final = i < len(leaves)-1
+			break
 		}
 	}
-	return append(dst, '\n')
+	return r
+}
+
+func (r *verbatimReader) next() []byte {
+	if len(r.rest) > 0 {
+		b := r.rest
+		r.rest = nil
+		return b
+	}
+	for r.i < r.end {
+		m := r.t.nodes[r.i]
+		r.i++
+		switch m.kind {
+		case r.text:
+			b := r.t.src[m.start:m.end:m.end]
+			if m.virt == 0 {
+				return b
+			}
+			// The columns left of a split tab are spaces.
+			r.rest = b[1:]
+			return spaces[:m.virt:m.virt]
+		case VerbatimLineEnding:
+			return lineFeed[:1:1]
+		}
+	}
+	if r.final {
+		r.final = false
+		return lineFeed[:1:1]
+	}
+	return nil
 }
 
 // AppendInfo appends the info string of code block id to dst.
 func (t *Tree) AppendInfo(dst []byte, id NodeID) []byte {
+	return append(dst, t.infoString(id)...)
+}
+
+// infoString returns the source bytes of the info string of code block id,
+// or nil when it has none.
+func (t *Tree) infoString(id NodeID) []byte {
 	for _, m := range t.nodes[id+1 : t.nodes[id].link] {
 		switch m.kind {
 		case Indent, FenceMarker, Whitespace:
 		case InfoString:
-			return append(dst, t.src[m.start:m.end]...)
+			return t.src[m.start:m.end:m.end]
 		default:
-			return dst
+			return nil
 		}
 	}
-	return dst
+	return nil
 }
