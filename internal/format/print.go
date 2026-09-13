@@ -1189,6 +1189,11 @@ func (p *printer) codeLeaf(f *frame, id markdown.NodeID, k markdown.Kind, start 
 	switch {
 	case f.opening && k == markdown.InfoString:
 		p.indent = -1
+		if p.tree.Raw(id)[0] == f.fence[0] {
+			// Without a space, the fence would take the info string's first
+			// characters.
+			p.write(spaces[:1])
+		}
 		p.content(id, start)
 	case f.opening && k == markdown.LineEnding:
 		f.opening = false
