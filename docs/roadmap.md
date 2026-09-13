@@ -451,6 +451,7 @@ Use this list to triage stage 5 disagreements. The last column says how
 | `[a](<b>"t")` | A link with the title `t`: no whitespace is needed after an angle destination. | Text (spec 6.3). | Predicate, differential case. |
 | `</A/>` | An HTML block: a closing tag can end with `/>`. | Paragraph (spec 6.6). | Predicate, differential case. |
 | `<div`, then a form feed | A paragraph: FF is not whitespace in a tag, except after a kind 1 tag name. | An HTML block, as cmark reads FF (spec 6.6, design 8.4). | Predicate, differential case. |
+| `[a b]`, then `[a`, a form feed, `b]: /u` | Text: FF inside a label is a label character. A label of FF alone is a label. | A link, and a blank label, as cmark reads FF (spec 4.7, design 8.4). | Predicate, differential case. |
 | `[0]:\n0\n''0` | The destination line also appears as paragraph text. | Paragraph `''0` only (compare example 210). | Predicate, differential case. |
 | `x<!x>`, `<!doctype html>` | Text: a declaration needs an uppercase letter after `<!`, as on GitHub. | Raw HTML and an HTML block (spec 4.6, 6.6). | Predicate, differential case. |
 | `a\n<meta>` | `<meta>` interrupts the paragraph: goldmark's HTML block kind 6 tag list has `meta`. | Paragraph with raw HTML (spec 4.6). | Predicate, differential case. |

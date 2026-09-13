@@ -736,6 +736,27 @@ var goldmarkDeviations = []struct {
 		}
 		return false
 	}},
+	{"goldmark deviates, spec section 4.7: FF inside a link label is whitespace, and a label of FF alone is blank, as cmark reads them", func(t *Tree) bool {
+		// A bracket text with FF inside its trimmed bytes, or with FF and
+		// nothing but whitespace.
+		start := -1
+		for i, c := range t.src {
+			switch c {
+			case '[':
+				start = i
+			case ']':
+				if start >= 0 {
+					text := t.src[start+1 : i]
+					trimmed := bytes.Trim(text, " \t\r\n\v\f")
+					if bytes.IndexByte(trimmed, '\f') >= 0 || len(trimmed) == 0 && bytes.IndexByte(text, '\f') >= 0 {
+						return true
+					}
+				}
+				start = -1
+			}
+		}
+		return false
+	}},
 }
 
 var (

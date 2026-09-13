@@ -807,3 +807,19 @@ markfmt kept the form feed in the label, so `[ref]` matched no definition
 .
 <p><a href="/u">ref</a></p>
 ````````````````````````````````
+
+## goldmark deviates, spec section 4.7: FF inside a link label is whitespace, and a label of FF alone is blank, as cmark reads them
+
+goldmark keeps a form feed inside a label, and reads a label of a form feed
+as a label (design 6.7, 8.4).
+
+```````````````````````````````` example
+[a b]
+
+[ab]: /u
+
+[]: /v
+.
+<p><a href="/u">a b</a></p>
+<p>[]: /v</p>
+````````````````````````````````
