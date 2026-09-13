@@ -414,9 +414,11 @@ Link reference definition details:
 
 - A failed title rewinds to the end of the destination. The definition holds
   only if nothing but spaces and tabs follows on that line (CM 209, 210).
-- The title search keeps a memo per paragraph: "no closing quote of kind Q in
-  pending lines up to line L". Pending lines only grow, so the memo stays
-  valid.
+- The title search needs no memo. The definition parse stops at the first
+  definition that fails, so at most one title scan per paragraph reads past
+  its own line. When a title fails and its definition holds, the next line
+  starts with that title's quote, so no definition starts there. Pass 1 runs
+  the same parse, so the bound holds for both passes.
 - Label length is checked against the cap before any scan (section 6.8).
 
 ### 5.5 Containers
@@ -601,7 +603,7 @@ preorder. The scratch buffer never inserts:
 | `[a](<b` repeated | Angle destination stops at the next unescaped `<` (CM 494) |
 | `[a](b` repeated | Parenthesis depth limit of 32 |
 | `[ (](` repeated | Parenthesized title stops at an unescaped `(` |
-| `[a]: b 'c` lines | Title memo per paragraph |
+| `[a]: b 'c` lines | Definition parse stops at the first failure (section 5.4); an inline title opener closes the scan of the title before it |
 | `<a x="1"` lines | Tag scan bounded by one line ending per attribute gap |
 | Extended autolinks | Domain scan stops at whitespace, `<` and `@`; scheme rewind stops at a non-letter |
 | `***a*** ` × n, `a@b.cc ` × n | Side records; spans indexed by opener piece |
@@ -1029,9 +1031,12 @@ adds its set of `Dialect(row)` values to its Enter event. `Equal` requires:
 
 ### 11.6 Performance
 
-Benchmarks on the corpora and a real document set. A manual gate at stage 3,
-recorded with `benchstat` output in the roadmap: parse throughput within 2
-times goldmark's, with pass 1 included.
+`BenchmarkParse` parses three inputs with markfmt and with goldmark v2.0.2
+with no extensions: CommonMark `spec.txt` as one document, the inputs of every
+corpus joined, and `docs/design/parser.md`. A manual gate at stage 3, recorded
+with `benchstat` output in the roadmap: parse throughput within 2 times
+goldmark's, with pass 1 included. `benchstat` runs with `go run
+golang.org/x/perf/cmd/benchstat@VERSION`, not from `tools/go.mod`.
 
 ## 12. Printer interface
 
@@ -1137,10 +1142,40 @@ Stage 2, blocks:
     has only simple folding, and CM 540 needs `ẞ` to match `SS`.
 20. The pathological block inputs, the long test and `task long`.
 
-Stage 3 adds inlines kind by kind (with the comment row and the flanking
-row), pass 1 with reference links, and extends `Equal`, the
-pairs and the `FuzzEqual` mutations with each construct. Stage 4 adds GFM,
-footnotes, their `dialect.md` rows and the GitHub fixtures.
+Stage 3, inlines. Each commit extends `Equal`, the pairs, the pathological
+inputs and the `FuzzEqual` mutations with its constructs:
+
+21. The inline phase and line breaks: the scan at paragraph and heading close
+    over the block's lines, with prefix and Indent leaves in place; Text,
+    TrailingSpace, SoftBreak, HardBreak and HardBreakMarker. Remove the
+    `compare.go` stand-in rule for line endings. Line breaks come first
+    because the scan classifies spaces before a line ending from its first
+    version (section 6.1).
+22. Backslash escapes. Text group values decode in `Equal` and the test
+    renderer, with NUL and invalid UTF-8 as U+FFFD (section 8.4).
+23. Entity and numeric character references, with the table generated from
+    the pinned WHATWG `entities.json` (section 13).
+24. Decoded Destination, Title and InfoString values (sections 8.4, 10.3).
+25. Code spans, with the per-block index of backtick runs.
+26. Angle autolinks.
+27. Raw HTML, with the per-block memo of failed closer searches and the inline
+    part of the comment row.
+28. Emphasis and strong emphasis, with `openers_bottom`, side records and the
+    flanking row.
+29. Inline links and images, with the bracket stack and `linkFormedAfter`.
+    One destination and title reader serves `link.go` and `linkref.go`.
+    Between destination and title, spaces are Whitespace leaves and a line
+    ending is a LineEnding leaf, as in a definition.
+30. Pass 1, the pass label check, and full, collapsed and shortcut
+    references.
+31. `BenchmarkParse` against goldmark (section 11.6).
+32. The stage 3 gate: the last corpus fixes, delete the "needs inlines"
+    classification, record `benchstat` output.
+
+Strikethrough, extended and email autolinks, footnote references,
+CellPipeEscape and task list items are stage 4, with their section 6.8
+inputs. Stage 4 adds GFM, footnotes, their `dialect.md` rows and the GitHub
+fixtures.
 
 ## 16. Roadmap changes
 

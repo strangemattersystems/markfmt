@@ -142,7 +142,7 @@ CommonMark example 210. Our own parser makes this finding obsolete.
 
 Each stage has gates. A stage is done only when its gates pass. Mark the
 checkbox in the same commit that passes the gates. Design 15 sketches the
-commits for stages 1 and 2.
+commits for stages 1 to 3.
 
 ### Stage 0: design
 
