@@ -76,17 +76,23 @@ pre::after { content: "```"; content: "```" / ""; display: block; color: var(--m
 }
 
 /* Radio inputs switch the install tabs, so they work without JavaScript. */
-.tabs { display: flex; flex-wrap: wrap; align-items: baseline; margin-top: 2rem; }
-.tabs > a { margin-left: auto; }
+.tabs { display: flex; flex-wrap: wrap; align-items: baseline; }
 .tabs input { position: absolute; opacity: 0; }
 .tabs label { display: inline-block; padding: 0 1ch; color: var(--mark); cursor: pointer; }
 .tabs label:hover { color: var(--fg); }
 .tabs input:checked + label { background: var(--fg); color: var(--bg); }
 .tabs input:focus-visible + label { outline: 2px solid var(--fg); outline-offset: 2px; }
-.panel { display: none; flex-basis: 100%; min-width: 0; margin-top: 0.5rem; }
+.panel { display: none; flex-basis: 100%; min-width: 0; margin: 0; }
 #brew:checked ~ .brew, #download:checked ~ .download,
-#docker:checked ~ .docker, #go:checked ~ .go { display: block; }
-.download p { margin: 0; padding: 0.75rem 2ch; background: var(--code-bg); }
+#docker:checked ~ .docker, #go:checked ~ .go,
+#macos:checked ~ .macos, #linux:checked ~ .linux, #windows:checked ~ .windows { display: block; }
+main > .tabs { margin-top: 2rem; }
+main > .tabs > a { margin-left: auto; }
+main > .tabs > .panel { margin-top: 0.5rem; }
+/* Three lines, as tall as a one-command code block, so switching tabs does not
+   move the page. */
+.os { padding: 0.75rem 1ch; background: var(--code-bg); }
+.os p { flex-basis: 100%; margin: 0; padding: 0 1ch; }
 
 footer { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0 2ch; margin-top: 4rem; color: var(--mark); }
 footer::before { content: "---"; content: "---" / ""; flex-basis: 100%; margin-bottom: 1rem; }
@@ -126,16 +132,18 @@ if (!matchMedia("(prefers-reduced-motion: reduce)").matches) {
   </div>
   <!-- These links need GoReleaser asset names without the version. -->
   <div class="panel download">
-    <p>
-      macOS <a href="https://github.com/strangemattersystems/markfmt/releases/latest/download/markfmt_darwin_arm64.tar.gz">arm64</a> <a href="https://github.com/strangemattersystems/markfmt/releases/latest/download/markfmt_darwin_amd64.tar.gz">amd64</a><br>
-      Linux <a href="https://github.com/strangemattersystems/markfmt/releases/latest/download/markfmt_linux_amd64.tar.gz">amd64</a> <a href="https://github.com/strangemattersystems/markfmt/releases/latest/download/markfmt_linux_arm64.tar.gz">arm64</a><br>
-      Windows <a href="https://github.com/strangemattersystems/markfmt/releases/latest/download/markfmt_windows_amd64.zip">amd64</a> <a href="https://github.com/strangemattersystems/markfmt/releases/latest/download/markfmt_windows_arm64.zip">arm64</a><br>
-      <a href="https://github.com/strangemattersystems/markfmt/releases/latest/download/checksums.txt">checksums.txt</a> <a href="https://github.com/strangemattersystems/markfmt/releases">all releases</a>
-    </p>
+    <div class="tabs os">
+      <input type="radio" name="os" id="macos" checked><label for="macos">macos</label>
+      <input type="radio" name="os" id="linux"><label for="linux">linux</label>
+      <input type="radio" name="os" id="windows"><label for="windows">windows</label>
+      <p class="panel macos"><a href="https://github.com/strangemattersystems/markfmt/releases/latest/download/markfmt_darwin_arm64.tar.gz">arm64</a> <a href="https://github.com/strangemattersystems/markfmt/releases/latest/download/markfmt_darwin_amd64.tar.gz">amd64</a></p>
+      <p class="panel linux"><a href="https://github.com/strangemattersystems/markfmt/releases/latest/download/markfmt_linux_amd64.tar.gz">amd64</a> <a href="https://github.com/strangemattersystems/markfmt/releases/latest/download/markfmt_linux_arm64.tar.gz">arm64</a></p>
+      <p class="panel windows"><a href="https://github.com/strangemattersystems/markfmt/releases/latest/download/markfmt_windows_amd64.zip">amd64</a> <a href="https://github.com/strangemattersystems/markfmt/releases/latest/download/markfmt_windows_arm64.zip">arm64</a></p>
+      <p><a href="https://github.com/strangemattersystems/markfmt/releases/latest/download/checksums.txt">checksums.txt</a> <a href="https://github.com/strangemattersystems/markfmt/releases">all releases</a></p>
+    </div>
   </div>
   <div class="panel docker">
-    <pre data-lang="sh"><code>docker run --rm -v "$PWD:/work" -w /work \
-  ghcr.io/strangemattersystems/markfmt README.md</code></pre>
+    <pre data-lang="sh"><code>docker run --rm -v "$PWD:/work" -w /work ghcr.io/strangemattersystems/markfmt README.md</code></pre>
   </div>
   <div class="panel go">
     <pre data-lang="sh"><code>go install github.com/strangemattersystems/markfmt/cmd/markfmt@latest</code></pre>
