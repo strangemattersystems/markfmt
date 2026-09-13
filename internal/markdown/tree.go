@@ -33,6 +33,16 @@ func (t *Tree) Kind(id NodeID) Kind {
 	return t.nodes[id].kind
 }
 
+// Next returns the node after node id and its subtree, and false after the
+// last node.
+func (t *Tree) Next(id NodeID) (NodeID, bool) {
+	next := uint32(id) + 1
+	if n := t.nodes[id]; n.kind.class() == classStructure {
+		next = n.link
+	}
+	return NodeID(next), int(next) < len(t.nodes)
+}
+
 // RestOfLine returns the bytes from the start of leaf id to the end of its
 // line, without the line ending.
 func (t *Tree) RestOfLine(id NodeID) []byte {

@@ -147,6 +147,9 @@ Layout:
 | No byte order mark in the output | A BOM is not meaning: cmark and GitHub strip it (design 4.1), and UTF-8 needs no byte order. |
 | No blank line between adjacent link reference definitions | Prettier writes them this way (`print/children.js`). A blank line between them is not meaning. |
 | A table stays directly below a paragraph that it split off when the paragraph starts with `[` | After a blank line, the paragraph would start with a link reference definition (design 5.4). Other paragraphs get a blank line before the table. |
+| Task boxes `[ ]` and `[x]`, with one space after them | GitHub reads `x` and `X` as checked, and its docs write `[x]`. |
+| A list item's content starts on its marker line, unless the content starts with columns that padding would take | Padding takes up to 4 columns, so such content keeps a blank first line (spec 5.2). A block quote writes its content on its marker line. |
+| A list's padding grows past the indentation of an HTML block or code block after the list | Otherwise the block would continue the last item. When more than 4 columns of padding would be needed, the list keeps its input layout. |
 | The printer keeps each NUL and invalid UTF-8 byte | cmark writes an invalid byte in a destination as `%A6`, where markfmt's value is U+FFFD, so `Equal` cannot see the byte. `Kept` checks it (design 12). |
 | One blank line between blocks, one final newline, line breaks as written | Prettier (`proseWrap: "preserve"`), dprint (`TextWrap::Maintain`), mdformat (`wrap: keep`). markdownlint MD012 and MD047 agree. |
 

@@ -10,7 +10,6 @@ closes-a-fence-after-its-blank-lines
 closes-a-list-item-fence-after-its-blank-lines
 closes-an-empty-list-item-fence
 fences-an-indented-code-block-of-a-form-feed
-formats-a-list-and-a-fence
 keeps-an-indented-line-of-a-multi-line-setext-heading
 keeps-front-matter
 rewrites-a-setext-heading

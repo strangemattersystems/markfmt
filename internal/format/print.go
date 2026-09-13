@@ -2,6 +2,7 @@ package format
 
 import (
 	"bytes"
+	"strconv"
 
 	"github.com/strangemattersystems/markfmt/internal/markdown"
 )
@@ -31,6 +32,8 @@ type printer struct {
 	leafKind  markdown.Kind // the kind of the last leaf block that started
 	pad       int           // spaces to write after the prefix of the next line
 	backslash bool          // the last byte written is a backslash that is not an escape
+	lead      bool          // the next leaf starts with columns that list item padding would take
+	afterBox  bool          // the last leaf written is a task box
 
 	// The blocks that ended last, for the blank lines before the next block.
 	blanks      int           // the input's blank lines after the last leaf block
@@ -52,13 +55,22 @@ type frame struct {
 	tight     bool          // a list that is not loose, or an item of one
 	fences    int           // the fence markers of a code block
 
+	// A list numbers its items from start, and uses its second marker with
+	// alt. Its second item decides lazy numbering.
+	ordered, alt, lazy bool
+	start              int
+	minIndent          int // the columns that the list's items must continue on at least
+	indent             int // the columns that a list item of the input continues on
+
+	// The last list that ended in the node.
+	listOrdered, listAlt bool
+
 	// A block quote, list item or footnote definition writes marker on its
 	// first line and rest on its other lines. With blankFirst, its first
 	// line has only the marker, as in the input.
 	container    bool
 	started      bool
 	blankFirst   bool
-	indent       int // the columns that a list item continues on
 	marker, rest []byte
 }
 
@@ -158,8 +170,12 @@ func (p *printer) enter(id markdown.NodeID, k markdown.Kind) {
 	t := p.tree
 	parent := len(p.stack) - 1
 	f := frame{id: id, kind: k, span: p.spanAt(id)}
-	if parent >= 0 && isBlock(k) {
-		p.separate(parent, id, k, f.span)
+	var prev frame
+	if parent >= 0 {
+		prev = p.stack[parent]
+		if isBlock(k) {
+			p.separate(parent, id, k, f.span)
+		}
 	}
 	switch k {
 	case markdown.BlockQuote:
@@ -173,6 +189,12 @@ func (p *printer) enter(id markdown.NodeID, k markdown.Kind) {
 		f.rest = spaces[:4]
 	case markdown.List:
 		f.tight = !t.ListLoose(id)
+		f.start, f.ordered = t.ListStart(id)
+		// Adjacent sibling lists of one type alternate their markers
+		// (appendix B, trap 3).
+		f.alt = prev.children > 0 && prev.lastChild == markdown.List && prev.listOrdered == f.ordered && !prev.listAlt
+		// The block after the list must not continue its last item.
+		f.minIndent = p.indentAfter(id) + 1
 	}
 	if isLeafBlock(k) {
 		p.written, p.leafKind = false, k
@@ -263,7 +285,8 @@ prefixes:
 		case !f.started:
 			p.write(f.marker)
 			f.started = true
-			if f.blankFirst {
+			// Padding would take the columns that the content starts with.
+			if f.blankFirst && f.kind != markdown.BlockQuote && p.lead {
 				p.trimSpaces(start)
 				p.write(lineFeed)
 				start = len(p.out)
@@ -299,8 +322,12 @@ func (p *printer) leaf(id markdown.NodeID, k markdown.Kind, start, end int) {
 		} else {
 			p.blanks++
 		}
-	case k == markdown.BOM, k == markdown.QuoteMarker, k == markdown.ItemIndent, k == markdown.FootnoteIndent,
-		top.kind == markdown.Document, top.kind == markdown.List:
+	case k == markdown.QuoteMarker, k == markdown.ItemIndent, k == markdown.FootnoteIndent:
+		// A container that starts on the line after its first leaf.
+		if p.indent >= 0 {
+			p.indent = max(p.indent, end)
+		}
+	case k == markdown.BOM, top.kind == markdown.Document, top.kind == markdown.List:
 		// The printer writes container syntax from its stack.
 	case top.container:
 		// The start of a footnote definition.
@@ -316,6 +343,8 @@ func (p *printer) leaf(id markdown.NodeID, k markdown.Kind, start, end int) {
 	case (k == markdown.Indent || k == markdown.CodeIndent) && p.inSpan == 0:
 		// Indentation is its columns, whatever tabs it holds (design 4.3):
 		// content writes them.
+	case k == markdown.Whitespace && p.afterBox && p.inSpan == 0:
+		p.write(spaces[:1])
 	case k == markdown.TrailingSpace && p.inSpan == 0:
 	case k == markdown.HardBreakMarker && p.inSpan == 0 && t.Raw(id)[0] != '\\':
 		// A hard break is a backslash, except after a backslash that is not
@@ -325,11 +354,12 @@ func (p *printer) leaf(id markdown.NodeID, k markdown.Kind, start, end int) {
 		} else {
 			p.write([]byte{'\\'})
 		}
-	case len(p.out) == 0 && k == markdown.ThematicRun && string(t.Raw(id)) == "---":
+	case len(p.out) == 0 && len(p.stack) == 2 && k == markdown.ThematicRun && string(t.Raw(id)) == "---":
 		// The first block never looks like front matter (appendix B, trap 7).
-		p.lineStart = false
+		p.indent = -1
 		p.write([]byte("***"))
-	case len(p.out) == 0 && k == markdown.Text && string(t.Raw(id)) == "+++":
+		p.lineStart = false
+	case len(p.out) == 0 && len(p.stack) == 2 && k == markdown.Text && string(t.Raw(id)) == "+++":
 		p.indent = -1
 		p.write(spaces[:1])
 		p.content(id, start)
@@ -341,10 +371,50 @@ func (p *printer) leaf(id markdown.NodeID, k markdown.Kind, start, end int) {
 	}
 }
 
-// listMarker sets the marker and the rest of list item f from its ListMarker
-// leaf id, whose own columns start at column start, so that the item keeps
-// its indentation, marker and padding.
+// listMarker sets the marker and the rest of list item f, whose ListMarker
+// leaf id starts at column start: '-' or '*' in a bullet list, and in an
+// ordered list the item's number and '.' or ')' (roadmap Decisions), with
+// the padding that the list's minimum indentation needs.
 func (p *printer) listMarker(f *frame, id markdown.NodeID, start int) {
+	list := &p.stack[len(p.stack)-2]
+	i := list.children - 1
+	switch {
+	case !list.ordered && list.alt:
+		f.marker = []byte("*")
+	case !list.ordered:
+		f.marker = []byte("-")
+	default:
+		if i == 1 && list.start == 1 {
+			raw := bytes.TrimLeft(p.tree.Raw(id), " \t")
+			digits := raw[:len(raw)-len(bytes.TrimLeft(raw, "0123456789"))]
+			n, _ := strconv.Atoi(string(digits))
+			list.lazy = n == 1
+		}
+		n := list.start + i
+		if list.lazy {
+			n = 1
+		}
+		// A marker has at most 9 digits (appendix B, trap 11).
+		delim := byte('.')
+		if list.alt {
+			delim = ')'
+		}
+		f.marker = append(strconv.AppendInt(nil, int64(min(n, 999999999)), 10), delim)
+	}
+	padding := max(list.minIndent-len(f.marker), 1)
+	if padding > 4 {
+		// No padding lets the item continue on so many columns: the item keeps
+		// its indentation, marker and padding.
+		f.marker = p.sourceMarker(f, id, start)
+	} else {
+		f.marker = append(f.marker, spaces[:padding]...)
+	}
+	f.rest = spaces[:len(f.marker)]
+}
+
+// sourceMarker returns the indentation, marker and padding of list item f of
+// the input, whose ListMarker leaf id starts at column start.
+func (p *printer) sourceMarker(f *frame, id markdown.NodeID, start int) []byte {
 	raw := p.tree.Raw(id)
 	lead, i := start, 0
 	if p.tree.SplitTab(id) > 0 {
@@ -358,19 +428,67 @@ func (p *printer) listMarker(f *frame, id markdown.NodeID, start int) {
 		}
 	}
 	chars := bytes.TrimRight(raw[i:], " \t")
-	f.marker = append(append(bytes.Clone(spaces[:lead-start]), chars...), spaces[:max(f.indent-(lead-start)-len(chars), 1)]...)
-	f.rest = bytes.Repeat(spaces[:1], len(f.marker))
+	return append(append(bytes.Clone(spaces[:lead-start]), chars...), spaces[:max(f.indent-(lead-start)-len(chars), 1)]...)
+}
+
+// indentAfter returns the columns of indentation of the first line of the
+// block after node id, when that block is an HTML block or a code block,
+// whose indentation the printer keeps. Otherwise it returns 0.
+func (p *printer) indentAfter(id markdown.NodeID) int {
+	t := p.tree
+	next, ok := t.Next(id)
+	for ok && (t.Kind(next) == markdown.BlankLine || isPrefix(t.Kind(next))) {
+		next, ok = t.Next(next)
+	}
+	if !ok || t.Kind(next) != markdown.HTMLBlock && t.Kind(next) != markdown.CodeBlock {
+		return 0
+	}
+	leaf := next + 1
+	cols := t.SplitTab(leaf)
+	for _, c := range t.RestOfLine(leaf)[min(cols, 1):] {
+		switch c {
+		case ' ':
+			cols++
+		case '\t':
+			cols += 4 - cols%4
+		default:
+			return cols
+		}
+	}
+	return cols
 }
 
 // content writes leaf id, whose own columns start at input column start,
 // after the line's prefix and the columns between the prefix and the leaf.
 func (p *printer) content(id markdown.NodeID, start int) {
 	t := p.tree
+	k, b := t.Kind(id), t.Raw(id)
+	if k == markdown.ThematicRun && p.inSpan == 0 {
+		// A thematic break on the marker line of a bullet list item never uses
+		// the bullet, which would make one longer break (appendix B, trap 4).
+		for i := len(p.stack) - 1; i >= 0; i-- {
+			if f := &p.stack[i]; f.container {
+				if f.kind == markdown.ListItem && !f.started && f.marker[0] == b[0] {
+					b = bytes.Map(func(r rune) rune {
+						switch r {
+						case '-':
+							return '*'
+						case '*':
+							return '-'
+						}
+						return r
+					}, b)
+				}
+				break
+			}
+		}
+	}
 	if p.lineStart {
 		if p.written && p.inSpan == 0 && (p.leafKind == markdown.Paragraph || p.leafKind == markdown.Heading) &&
-			t.Kind(id) != markdown.SetextUnderline {
+			k != markdown.SetextUnderline {
 			p.continuation(id)
 		}
+		p.lead = p.pad > 0 || p.indent >= 0 && start > p.indent || t.SplitTab(id) > 0 || b[0] == ' ' || b[0] == '\t'
 		p.writePrefix(false)
 		p.lineStart = false
 		p.writeSpaces(p.pad)
@@ -380,14 +498,19 @@ func (p *printer) content(id markdown.NodeID, start int) {
 		p.writeSpaces(start - p.indent)
 		p.indent = -1
 	}
-	b := t.Raw(id)
 	if v := t.SplitTab(id); v > 0 {
 		p.writeSpaces(v)
 		b = b[1:]
 	}
+	if k == markdown.TaskBox && p.inSpan == 0 {
+		b = []byte("[ ]")
+		if t.Raw(id)[1]|0x20 == 'x' {
+			b = []byte("[x]")
+		}
+	}
 	p.writeLF(b)
-	p.written = true
-	p.backslash = len(b) > 0 && b[len(b)-1] == '\\' && t.Kind(id) != markdown.Escape
+	p.written, p.afterBox = true, k == markdown.TaskBox
+	p.backslash = len(b) > 0 && b[len(b)-1] == '\\' && k != markdown.Escape
 }
 
 // continuation sets the prefix and the indentation of a paragraph line whose
@@ -481,6 +604,10 @@ func (p *printer) exit() {
 	case g.kind == markdown.BlockQuote:
 		p.open, p.span = false, p.span || g.span
 		p.quoteGap, p.quoteParent = gap, len(p.stack)-1
+	case g.kind == markdown.List:
+		p.span = p.span || g.span
+		parent := &p.stack[len(p.stack)-1]
+		parent.listOrdered, parent.listAlt = g.ordered, g.alt
 	case isBlock(g.kind):
 		p.span = p.span || g.span
 	case g.kind == markdown.Document:
@@ -488,6 +615,10 @@ func (p *printer) exit() {
 			p.endLine()
 		}
 	}
+}
+
+func isPrefix(k markdown.Kind) bool {
+	return k == markdown.QuoteMarker || k == markdown.ListMarker || k == markdown.ItemIndent || k == markdown.FootnoteIndent
 }
 
 func isLeafBlock(k markdown.Kind) bool {
