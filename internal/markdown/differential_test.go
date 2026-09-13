@@ -520,6 +520,9 @@ var goldmarkDeviations = []struct {
 	{"goldmark deviates, spec section 6.6: an unquoted attribute value takes ASCII control characters", func(t *Tree) bool {
 		return unquotedControl.Match(t.src)
 	}},
+	{"goldmark deviates, spec section 6.6: a closing tag has no whitespace after `</`", func(t *Tree) bool {
+		return spacedClosingTag.Match(t.src)
+	}},
 	{"goldmark deviates, spec section 4.7: a definition with its destination on a later line ends at the destination when the next line is not a title", func(t *Tree) bool {
 		for i, n := range t.nodes {
 			if n.kind != LinkReferenceDefinition {
@@ -556,4 +559,5 @@ var (
 	quoteMarkerDelimiter = regexp.MustCompile(`>[*_]`)
 	emptyInstruction     = regexp.MustCompile(`<\?>`)
 	unquotedControl      = regexp.MustCompile(`<[A-Za-z][^<>]*=[^ \t\r\n"'=<>\x60]*[\x01-\x08\x0b\x0c\x0e-\x1f\x7f]`)
+	spacedClosingTag     = regexp.MustCompile(`</[ \t\r\n]+[A-Za-z]`)
 )

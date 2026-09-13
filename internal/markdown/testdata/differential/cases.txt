@@ -516,3 +516,15 @@ of an unquoted value, and the spec text and cmark do not.
 .
 <A A=>
 ````````````````````````````````
+
+## goldmark deviates, spec section 6.6: a closing tag has no whitespace after `</`
+
+goldmark reads `</ A0>` as a closing tag and starts an HTML block.
+
+```````````````````````````````` example
+</ A0>
+0
+.
+<p>&lt;/ A0&gt;
+0</p>
+````````````````````````````````
