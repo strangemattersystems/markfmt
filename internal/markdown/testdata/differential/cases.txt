@@ -865,7 +865,8 @@ x
 ## goldmark deviates, spec section 6.6: FF is whitespace in an HTML tag, as cmark reads it
 
 goldmark reads a form feed in a tag as a character of the tag, and gives
-text, except right after a kind 1 tag name (design 8.4).
+text, except right after a kind 1 tag name that starts an HTML block
+(design 8.4).
 
 ```````````````````````````````` example
 <div
@@ -879,6 +880,8 @@ z <a
 >
 
 z <j k=">">
+
+z <stYle>
 .
 <div
 x
@@ -887,6 +890,7 @@ x
 <p>z <a
 ></p>
 <p>z <j k=">"></p>
+<p>z <stYle></p>
 ````````````````````````````````
 
 ## fixed in markfmt, spec section 4.7: VT and FF are whitespace in a link label, as cmark reads them

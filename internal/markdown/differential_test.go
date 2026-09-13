@@ -116,6 +116,7 @@ func TestGoldmarkDiffers(t *testing.T) {
 		{"skips a tab in the indentation of an html block after a list item prefix", "*\n  \t<!A", "goldmark deviates, spec sections 2.2 and 5.2: a tab after the prefix of a list item line stops at a column counted from the start of the line"},
 		{"skips a code block that ends blank in a loose list in a tight list", "* * 0\n\n    ```\n\n  0", "goldmark deviates, spec section 5.3: a blank line at the end of a code block in a list item leaves the list tight"},
 		{"skips a label of a line ending and ff in a block quote", ">[\n>\f]:0", "goldmark deviates, spec section 4.7: FF inside a link label is whitespace, and a label of FF alone is blank, as cmark reads them"},
+		{"skips a form feed after a kind 1 tag name in inline raw html", "0<stYle\f>", "goldmark deviates, spec section 6.6: FF is whitespace in an HTML tag, as cmark reads it"},
 		{"skips a tab in the indentation after a list item prefix", "* 0\n  \t -", "goldmark deviates, spec sections 2.2 and 5.2: a tab after the prefix of a list item line stops at a column counted from the start of the line"},
 	}
 	for _, tt := range tests {
@@ -773,8 +774,10 @@ var goldmarkDeviations = []struct {
 			if k == j || !isASCIILetter(src[j]) {
 				continue
 			}
-			// goldmark takes FF right after a kind 1 tag name.
-			if k < len(src) && src[k] == '\f' && slices.Contains(kind1Names, strings.ToLower(string(src[j:k]))) {
+			// goldmark takes FF right after a kind 1 tag name that starts an HTML
+			// block.
+			if (i == 0 || src[i-1] == '\n' || src[i-1] == '\r') && k < len(src) && src[k] == '\f' &&
+				slices.Contains(kind1Names, strings.ToLower(string(src[j:k]))) {
 				continue
 			}
 			// Whitespace in a tag holds at most one line ending.
