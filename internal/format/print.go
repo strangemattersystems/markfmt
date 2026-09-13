@@ -33,6 +33,7 @@ type printer struct {
 	pad       int           // spaces to write after the prefix of the next line
 	backslash bool          // the last byte written is a backslash that is not an escape
 	bracket0  bool          // the open paragraph starts with '[', so it could start with a link reference definition
+	afterText bool          // the open block follows a paragraph or definition line without a blank line
 	lead      bool          // the next leaf starts with columns that list item padding would take
 	afterBox  bool          // the last leaf written is a task box
 	replace   []byte        // bytes that content writes in place of the next leaf's bytes
@@ -236,6 +237,7 @@ func (p *printer) spanAt(id markdown.NodeID) bool {
 // span.
 func (p *printer) separate(parent int, id markdown.NodeID, k markdown.Kind, span bool) {
 	f := &p.stack[parent]
+	p.afterText = false
 	if f.children > 0 {
 		n := 1
 		switch {
@@ -268,6 +270,7 @@ func (p *printer) separate(parent int, id markdown.NodeID, k markdown.Kind, span
 			p.writePrefix(true)
 			p.write(lineFeed)
 		}
+		p.afterText = n == 0 && (f.lastChild == markdown.Paragraph || f.lastChild == markdown.LinkReferenceDefinition)
 	}
 	f.children++
 	f.lastChild = k
@@ -369,8 +372,9 @@ func (p *printer) leaf(id markdown.NodeID, k markdown.Kind, start, end int) {
 		p.content(id, start)
 	case k == markdown.LineEnding, k == markdown.VerbatimLineEnding:
 		p.endLine()
-	case k == markdown.Indent && (top.kind == markdown.Paragraph || top.kind == markdown.Heading) && !p.written && p.inSpan == 0:
-		// Indentation before a paragraph or a heading is not meaning.
+	case k == markdown.Indent && (top.kind == markdown.Paragraph || top.kind == markdown.Heading || top.kind == markdown.ThematicBreak) && !p.written && p.inSpan == 0:
+		// Indentation before a paragraph, a heading or a thematic break is not
+		// meaning.
 		p.indent = -1
 	case (k == markdown.Indent || k == markdown.CodeIndent) && p.inSpan == 0:
 		// Indentation is its columns, whatever tabs it holds (design 4.3):
@@ -388,12 +392,8 @@ func (p *printer) leaf(id markdown.NodeID, k markdown.Kind, start, end int) {
 		} else {
 			p.write([]byte{'\\'})
 		}
-	case len(p.out) == 0 && len(p.stack) == 2 && k == markdown.ThematicRun && string(t.Raw(id)) == "---":
-		// The first block never looks like front matter (appendix B, trap 7).
-		p.indent = -1
-		p.write([]byte("***"))
-		p.lineStart = false
 	case len(p.out) == 0 && len(p.stack) == 2 && k == markdown.Text && string(t.Raw(id)) == "+++":
+		// The first block never looks like front matter (appendix B, trap 7).
 		p.indent = -1
 		p.write(spaces[:1])
 		p.content(id, start)
@@ -501,24 +501,7 @@ func (p *printer) content(id markdown.NodeID, start int) {
 		b, p.replace = p.replace, nil
 	}
 	if k == markdown.ThematicRun && p.inSpan == 0 {
-		// A thematic break on the marker line of a bullet list item never uses
-		// the bullet, which would make one longer break (appendix B, trap 4).
-		for i := len(p.stack) - 1; i >= 0; i-- {
-			if f := &p.stack[i]; f.container {
-				if f.kind == markdown.ListItem && !f.started && f.marker[0] == b[0] {
-					b = bytes.Map(func(r rune) rune {
-						switch r {
-						case '-':
-							return '*'
-						case '*':
-							return '-'
-						}
-						return r
-					}, b)
-				}
-				break
-			}
-		}
+		b = p.thematicRun()
 	}
 	if p.lineStart {
 		if p.written && p.inSpan == 0 && (p.leafKind == markdown.Paragraph || p.leafKind == markdown.Heading) &&
@@ -554,6 +537,26 @@ func (p *printer) content(id markdown.NodeID, start int) {
 	p.writeLF(b)
 	p.written, p.afterBox = true, k == markdown.TaskBox
 	p.backslash = len(b) > 0 && b[len(b)-1] == '\\' && k != markdown.Escape
+}
+
+// thematicRun returns the thematic break to write before the prefix of its
+// line: "---", or "***" where "---" would be a setext underline after a
+// paragraph line or text after a definition line, the opener of front matter
+// (appendix B, trap 7), or a longer break with the bullet of the list item
+// whose marker line it is on (trap 4).
+func (p *printer) thematicRun() []byte {
+	if p.afterText || len(p.out) == 0 && len(p.stack) == 2 {
+		return []byte("***")
+	}
+	for i := len(p.stack) - 1; i >= 0; i-- {
+		if f := &p.stack[i]; f.container {
+			if f.kind == markdown.ListItem && !f.started && f.marker[0] == '-' {
+				return []byte("***")
+			}
+			break
+		}
+	}
+	return []byte("---")
 }
 
 // continuation sets the prefix and the indentation of a paragraph line whose
