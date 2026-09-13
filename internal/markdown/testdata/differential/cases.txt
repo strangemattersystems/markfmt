@@ -372,3 +372,19 @@ y
 <pre><code>y
 </code></pre>
 ````````````````````````````````
+
+## goldmark deviates, spec section 5.2: a blank line indented to the content of an empty list item continues it
+
+cmark tests the indentation of the line before it tests for a blank line
+(design 5.1). goldmark tests for a blank line first, as commonmark.js does,
+and ends the empty item (compare CM 280).
+
+```````````````````````````````` example
+*
+→
+  0
+.
+<ul>
+<li>0</li>
+</ul>
+````````````````````````````````

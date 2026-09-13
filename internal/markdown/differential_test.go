@@ -407,6 +407,28 @@ var goldmarkDeviations = []struct {
 		}
 		return false
 	}},
+	{"goldmark deviates, spec section 5.2: a blank line indented to the content of an empty list item continues it", func(t *Tree) bool {
+		// An empty item keeps a second blank line only when the line has
+		// its indentation.
+		for i, n := range t.nodes {
+			if n.kind != ListItem {
+				continue
+			}
+			blanks := 0
+			for _, m := range t.nodes[i+1 : n.link] {
+				if m.kind.class() == classStructure {
+					break
+				}
+				if m.kind == BlankLine {
+					blanks++
+				}
+			}
+			if blanks >= 2 {
+				return true
+			}
+		}
+		return false
+	}},
 	{"goldmark deviates, spec section 4.7: a definition with its destination on a later line ends at the destination when the next line is not a title", func(t *Tree) bool {
 		for i, n := range t.nodes {
 			if n.kind != LinkReferenceDefinition {
