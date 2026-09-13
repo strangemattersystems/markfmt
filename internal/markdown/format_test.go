@@ -11,6 +11,42 @@ import (
 	"github.com/strangemattersystems/markfmt/internal/markdown"
 )
 
+func TestFormatSource(t *testing.T) {
+	t.Parallel()
+
+	t.Run("keeps each corpus output within 3 times the size of its input", func(t *testing.T) {
+		t.Parallel()
+
+		inputs := markdown.CorpusInputs(t)
+		cases, err := filepath.Glob("../format/testdata/cases/*.in.md")
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, path := range cases {
+			src, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			inputs = append(inputs, src)
+		}
+		// The largest output-to-input ratio is a stage 6 gate (design 12).
+		largest, largestIn := 0.0, []byte(nil)
+		for _, src := range inputs {
+			out, err := format.Source(src)
+			if err != nil {
+				t.Fatalf("Source(%q) error: %v", src, err)
+			}
+			if ratio := float64(len(out)) / float64(max(len(src), 1)); ratio > largest {
+				largest, largestIn = ratio, src
+			}
+		}
+		t.Logf("largest output-to-input ratio: %.2f, for %q", largest, largestIn)
+		if largest > 3 {
+			t.Errorf("Source(%q) gives %.2f times its size, want at most 3", largestIn, largest)
+		}
+	})
+}
+
 // FuzzFormat checks the formatter against the test HTML, so that Equal is not
 // its own oracle (design 10.5).
 func FuzzFormat(f *testing.F) {
