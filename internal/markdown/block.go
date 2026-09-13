@@ -681,6 +681,13 @@ func InterruptsParagraph(line []byte, lazy bool) bool {
 	return row || setextUnderline(line, 0, end) > 0
 }
 
+// StartsBlock reports whether line, without indentation, would start a block
+// outside a paragraph: a block that interrupts a paragraph on a lazy line, or
+// an HTML block of kind 7 (design 5.1).
+func StartsBlock(line []byte) bool {
+	return InterruptsParagraph(line, true) || htmlBlockStart(line, 0, count(len(line))) == 7
+}
+
 // A Layout follows a walk over the nodes of a tree in order. It gives the
 // columns of each leaf, and the containers that each line matched (design
 // 4.3, 12).

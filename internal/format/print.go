@@ -317,10 +317,14 @@ func (p *printer) separate(parent int, id markdown.NodeID, k markdown.Kind, span
 			// would start with a link reference definition.
 			n = 0
 		case k == markdown.Paragraph && f.lastChild == markdown.LinkReferenceDefinition && p.blanks == 0 &&
-			markdown.InterruptsParagraph(p.firstLine(id), false):
+			(markdown.InterruptsParagraph(p.firstLine(id), false) || markdown.StartsBlock(p.firstLine(id))):
 			// The paragraph continues the definition's lines: after a blank
-			// line its first line would start a block.
-			n, p.pad = 0, 4
+			// line its first line would start a block. A line that would
+			// interrupt the paragraph gets padding.
+			n = 0
+			if markdown.InterruptsParagraph(p.firstLine(id), false) {
+				p.pad = 4
+			}
 		case (f.kind == markdown.List || f.kind == markdown.ListItem) && f.tight:
 			// A blank line would make the list loose.
 			n = 0

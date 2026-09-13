@@ -159,3 +159,30 @@ func TestInterruptsParagraph(t *testing.T) {
 		})
 	}
 }
+
+func TestStartsBlock(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		line string
+		want bool
+	}{
+		{"starts an atx heading", "# a", true},
+		{"starts an html block of kind 7", "<del>", true},
+		{"starts an ordered list item that does not start at 1", "2. a", true},
+		{"starts an empty list item", "-", true},
+		{"is no setext underline", "===", false},
+		{"is no table delimiter row", "| - |", false},
+		{"is text", "a <del>", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			if got := StartsBlock([]byte(tt.line)); got != tt.want {
+				t.Fatalf("StartsBlock(%q) = %t, want %t", tt.line, got, tt.want)
+			}
+		})
+	}
+}
