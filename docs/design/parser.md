@@ -94,6 +94,8 @@ Known divergences at draft 3:
 | Paragraph split off above a table | `\|` is an escaped pipe | backslash removed |
 | List items that start on one line | every item opens | at most 99 blocks start on a line |
 | Code span after an unmatched backtick run (`a `` b `c` d `e``) | `c` and `e` are code spans (spec text, commonmark.js) | `e` stays text (cmark and cmark-gfm) |
+| VT and FF in a link destination | end the destination (cmark, section 8.4) | part of the destination |
+| VT and FF at the ends of an info string | trimmed (cmark, section 8.4) | kept |
 
 markfmt follows the CommonMark column, and cmark where cmark and commonmark.js
 disagree, but not where cmark contradicts the spec text (the code span row),
