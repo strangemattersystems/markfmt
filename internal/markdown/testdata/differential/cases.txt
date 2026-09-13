@@ -823,3 +823,25 @@ as a label (design 6.7, 8.4).
 <p><a href="/u">a b</a></p>
 <p>[]: /v</p>
 ````````````````````````````````
+
+## goldmark deviates, spec sections 2.2 and 5.2: a tab after the space of a block quote marker stops at a column counted from the start of the line
+
+goldmark counts the columns of the tab from the content of the block quote,
+so the list marker after it is too far in to start a list item.
+
+```````````````````````````````` example
+> →*
+
+>  →1. a
+.
+<blockquote>
+<ul>
+<li></li>
+</ul>
+</blockquote>
+<blockquote>
+<ol>
+<li>a</li>
+</ol>
+</blockquote>
+````````````````````````````````

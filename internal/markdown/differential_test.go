@@ -757,6 +757,28 @@ var goldmarkDeviations = []struct {
 		}
 		return false
 	}},
+	{"goldmark deviates, spec sections 2.2 and 5.2: a tab after the space of a block quote marker stops at a column counted from the start of the line", func(t *Tree) bool {
+		for i, n := range t.nodes {
+			if n.kind != ListMarker {
+				continue
+			}
+			lead := t.src[n.start:n.end]
+			lead = lead[:len(lead)-len(bytes.TrimLeft(lead, " \t"))]
+			if bytes.IndexByte(lead, '\t') < 0 {
+				continue
+			}
+			// The leaf before the marker on its line.
+			for p := i - 1; p >= 0; p-- {
+				if m := t.nodes[p]; m.kind.class() != classStructure {
+					if m.kind == QuoteMarker && bytes.HasSuffix(t.Raw(NodeID(p)), []byte(" ")) {
+						return true
+					}
+					break
+				}
+			}
+		}
+		return false
+	}},
 }
 
 var (
