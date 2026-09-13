@@ -76,6 +76,9 @@ Layout:
   (front matter). `testdata/commonmark-js-regression/grammar-differs.txt`
   lists regression example 25, where cmark and commonmark.js disagree on list
   looseness and markfmt follows cmark.
+- `internal/markdown/testdata/differential/cases.txt`: the disagreements that
+  `FuzzDifferential` found, each marked "fixed in markfmt" or "goldmark
+  deviates" (design 11.5).
 - `internal/markdown/testdata/pairs`: the pair corpus of `TestEqual`, each
   pair equal or different with a reason, checked against the test HTML
   (design 10.5).
@@ -420,6 +423,7 @@ Use this list to triage stage 5 disagreements. The last column says how
 | Lone CR | Not a line ending. | A line ending (CommonMark). | goldmark reads LF line endings. |
 | `*\r\n` | A paragraph. | An empty list item. | goldmark reads LF line endings. |
 | `[0]:\n0\n''0` | The destination line also appears as paragraph text. | Paragraph `''0` only (compare example 210). | Not yet: design 15, commit 57. |
+| `x<!x>`, `<!doctype html>` | Text: a declaration needs an uppercase letter after `<!`, as on GitHub. | Raw HTML and an HTML block (spec 4.6, 6.6). | Predicate, differential case. |
 
 ## How to resume
 

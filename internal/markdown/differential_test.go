@@ -2,6 +2,9 @@ package markdown
 
 import (
 	"bytes"
+	"regexp"
+	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/yuin/goldmark/v2/parser"
@@ -80,6 +83,31 @@ func TestGoldmarkDiffers(t *testing.T) {
 			}
 		})
 	}
+
+	for _, ex := range readExamples(t, "testdata/differential/cases.txt") {
+		t.Run("checks the verdict of differential case "+strconv.Itoa(ex.id), func(t *testing.T) {
+			t.Parallel()
+
+			tree := Parse([]byte(ex.markdown))
+			reason := goldmarkDiffers(tree)
+			agrees := normalizeHTML(renderHTML(tree, false)) == normalizeHTML(goldmarkHTML(t, []byte(ex.markdown)))
+			switch {
+			case strings.HasPrefix(ex.section, "goldmark deviates"):
+				if agrees {
+					t.Errorf("goldmark agrees on %q: remove the case, its predicate and its roadmap row", ex.markdown)
+				}
+				if reason != ex.section {
+					t.Errorf("goldmarkDiffers of %q = %q, want %q", ex.markdown, reason, ex.section)
+				}
+			case strings.HasPrefix(ex.section, "fixed in markfmt"):
+				if !agrees || reason != "" {
+					t.Errorf("goldmark disagrees on %q, or goldmarkDiffers gives the reason %q", ex.markdown, reason)
+				}
+			default:
+				t.Errorf("section %q gives no verdict", ex.section)
+			}
+		})
+	}
 }
 
 // goldmarkHTML returns goldmark's HTML for src. goldmark reads src with LF
@@ -122,5 +150,24 @@ func goldmarkDiffers(tree *Tree) string {
 			}
 		}
 	}
+	for _, d := range goldmarkDeviations {
+		if d.match(tree) {
+			return d.section
+		}
+	}
 	return ""
 }
+
+// goldmarkDeviations are the rows of the roadmap's Known goldmark deviations
+// that show in HTML, each with the section of its case in
+// testdata/differential/cases.txt.
+var goldmarkDeviations = []struct {
+	section string
+	match   func(*Tree) bool
+}{
+	{"goldmark deviates, spec sections 4.6 and 6.6: a declaration starts with `<!` and an ASCII letter", func(t *Tree) bool {
+		return lowercaseDeclaration.Match(t.src)
+	}},
+}
+
+var lowercaseDeclaration = regexp.MustCompile(`<![a-z]`)

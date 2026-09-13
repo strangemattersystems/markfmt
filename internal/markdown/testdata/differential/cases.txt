@@ -1,0 +1,19 @@
+# Differential cases
+
+Each case is a disagreement between markfmt and goldmark v2.0.2 that
+`FuzzDifferential` found (design 11.5). The section of a case gives its
+verdict and its rule: "fixed in markfmt", or "goldmark deviates" with the spec
+section. The expected HTML is the output of `cmark --unsafe` 0.31.1.
+
+## goldmark deviates, spec sections 4.6 and 6.6: a declaration starts with `<!` and an ASCII letter
+
+goldmark needs an uppercase letter, as GitHub does (`../dialect.md`).
+
+```````````````````````````````` example
+x<!x>
+
+<!doctype html>
+.
+<p>x<!x></p>
+<!doctype html>
+````````````````````````````````
