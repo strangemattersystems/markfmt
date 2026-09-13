@@ -447,7 +447,7 @@ Use this list to triage stage 5 disagreements. The last column says how
 | `* [a]: /u`, then `  b` | A loose list: a definition and a paragraph are two blocks. | A tight list (spec 5.3). | Predicate, differential case. |
 | `a`, a backslash, two spaces, then `\!` | The escape `\!` as written. | `!` (spec 2.4, 6.7). | Predicate, differential case. |
 | `<A>`, then a tab | A paragraph: a tab or FF after the tag is not whitespace for kind 7. | HTML block (spec 4.6). | Predicate, differential case. |
-| 1000 `[`, then `a](b)` | Text: no link forms after 1000 open brackets. | A link (spec 6.3). | Predicate, differential case. |
+| 1000 `[`, then `a](b)` | Text: no link forms when about 1000 bytes lie between the first and the last open bracket before it. | A link (spec 6.3). | Predicate, differential case. |
 | `[a](<b>"t")` | A link with the title `t`: no whitespace is needed after an angle destination. | Text (spec 6.3). | Predicate, differential case. |
 | `</A/>` | An HTML block: a closing tag can end with `/>`. | Paragraph (spec 6.6). | Predicate, differential case. |
 | `<div`, then a form feed | A paragraph: FF is not whitespace in a tag, except after a kind 1 tag name. | An HTML block, as cmark reads FF (spec 6.6, design 8.4). | Predicate, differential case. |

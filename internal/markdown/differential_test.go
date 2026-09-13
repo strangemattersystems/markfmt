@@ -100,6 +100,7 @@ func TestGoldmarkDiffers(t *testing.T) {
 		{"skips raw html in an image description", "![<A>]()", "goldmark deviates, spec section 6.4: the alt text of an image is the plain text of its description, as cmark writes it"},
 		{"skips a form feed after a line ending in an html tag", "<A\n\f>", "goldmark deviates, spec section 6.6: FF is whitespace in an HTML tag, as cmark reads it"},
 		{"skips a form feed after the tag of an html block of kind 7", "<A>\f", "goldmark deviates, spec section 4.6: a tab or FF after the tag that starts HTML block kind 7 is whitespace"},
+		{"skips a link after open brackets split by text", strings.Repeat("[", 500) + "dddd" + strings.Repeat("[", 496) + "a](b)", "goldmark deviates, spec section 6.3: a link forms after any number of open brackets"},
 		{"skips a tab in the indentation after a list item prefix", "* 0\n  \t -", "goldmark deviates, spec sections 2.2 and 5.2: a tab after the prefix of a list item line stops at a column counted from the start of the line"},
 	}
 	for _, tt := range tests {
@@ -702,7 +703,18 @@ var goldmarkDeviations = []struct {
 		return tabAfterTag.Match(t.src)
 	}},
 	{"goldmark deviates, spec section 6.3: a link forms after any number of open brackets", func(t *Tree) bool {
-		return bytes.Count(t.src, []byte("[")) >= 1000
+		// goldmark forms no link when about 1000 bytes lie between the first
+		// and the last open bracket of a block before it.
+		for i, n := range t.nodes {
+			if n.kind != Paragraph && n.kind != Heading {
+				continue
+			}
+			raw := t.Raw(NodeID(i))
+			if first := bytes.IndexByte(raw, '['); first >= 0 && bytes.LastIndexByte(raw, '[')-first >= 999 {
+				return true
+			}
+		}
+		return false
 	}},
 	{"goldmark deviates, spec section 6.3: whitespace separates a link title from an angle destination", func(t *Tree) bool {
 		return angleTitle.Match(t.src)
