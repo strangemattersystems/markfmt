@@ -42,7 +42,7 @@ func (p *blockParser) listItemStart(first uint32, allMatched bool) (listMarker, 
 	// A thematic break comes first. An item interrupts a paragraph that is a
 	// child of the last matched container only when it starts at 1 and has
 	// content (design 5.1).
-	para := allMatched && (p.leaf.kind == paragraphLeaf || p.interrupt)
+	para := allMatched && p.leaf.kind == paragraphLeaf
 	if p.isThematicBreak(first) {
 		return listMarker{}, false
 	}

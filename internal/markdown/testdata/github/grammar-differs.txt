@@ -4,7 +4,6 @@
 # markfmt's expected HTML (design 2.1, 11.4). The test fails when an entry no
 # longer differs, when its case is missing or has another input, and when an
 # entry is also in failing.txt.
-10 dialect row, setext underline after link reference definitions alone: github 10
 11 dialect row, unicode punctuation for flanking: github 11
 12 dialect row, html block kind 4 start: github 12
 13 dialect row, html block kind 7 on a lazy candidate line: github 13

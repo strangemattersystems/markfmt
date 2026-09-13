@@ -88,13 +88,14 @@ Known divergences at draft 3:
 | HTML comments | `<!-->` and `<!--->` are comments | older grammar |
 | HTML block kind 7 on a lazy candidate line (`> a` then `<del>`) | lazy paragraph text | block quote, then HTML block |
 | Unicode punctuation for flanking | P and S; U+FFFD is punctuation | P only; U+FFFD is not punctuation |
-| `[foo]: /url` then `---` | definition, thematic break | paragraph `---` |
+| `[foo]: /url` then `---` | cmark: definition, paragraph `---`; commonmark.js: definition, empty paragraph, thematic break | paragraph `---` |
 | Footnote reference whose `^` is an escape or an entity (`[\^1]`, `[&#94;1]`) | reference (decoded text starts with `^`, as cmark-gfm tests) | reference, rendered as garbled text |
 | Footnote reference label across a line ending | reference with a line ending in its label | rendered as garbled text |
 | Paragraph split off above a table | `\|` is an escaped pipe | backslash removed |
 | List items that start on one line | every item opens | at most 99 blocks start on a line |
 
-markfmt follows the CommonMark column, with two exceptions. The footnote rows
+markfmt follows the CommonMark column, and cmark where cmark and commonmark.js
+disagree, with two exceptions. The footnote rows
 have no CommonMark rule, so markfmt follows cmark-gfm's tests. The paragraph
 split off above a table follows GitHub: the table that splits it is GFM
 grammar, so section 5.4 gives the paragraph the cell pipe rule.
@@ -379,10 +380,6 @@ For each line, the builder appends in this order:
    ListMarker, or the footnote label leaves).
 4. The line's content.
 
-A line that is dispatched again after a setext decision (section 5.4) appends
-its prefix leaves directly after the last committed definition, then follows
-steps 3 and 4.
-
 So the prefix leaves of a leaf block's first line come before the leaf block's
 node, and the prefix leaves of its later lines are inside it. No consumer
 depends on the depth of a prefix leaf.
@@ -417,7 +414,7 @@ line by line.
 | Construct | Decided at | Rule |
 | --- | --- | --- |
 | Link reference definitions | Paragraph close; setext underline | Parse definitions from the first pending line. A definition found is committed. The paragraph keeps exactly the lines after the last definition token. |
-| Setext heading | Underline line, with every container matched and the paragraph as the tip | Parse definitions first (CM 215, 216). If content lines remain, they and the underline become the heading. If none remain, dispatch the underline line again as if an empty paragraph were still open: starts that cannot interrupt a paragraph stay blocked. `---` becomes a thematic break (`dialect.md`); `-` and `===` become paragraph text. |
+| Setext heading | Underline line, with every container matched and the paragraph as the tip | Parse definitions first (CM 215, 216). If content lines remain, they and the underline become the heading. If none remain, the underline line is the first line of the open paragraph, and no other block starts on it, as in cmark (`dialect.md`): `---`, `-` and `===` become paragraph text. |
 | GFM table | First delimiter row candidate in the paragraph, with every container matched | Split the last pending line into cells, as raw text, with no definition parse. If the cell count matches the delimiter row, the earlier pending lines become a Paragraph with no definition parse and with the cell pipe rule of section 8.2 (`dialect.md`), and the table opens. If not, mark the paragraph "table tried" and add the line as paragraph text. A paragraph tries at most once. |
 | Footnote definition | Its start line | It interrupts the paragraph like any block start. |
 

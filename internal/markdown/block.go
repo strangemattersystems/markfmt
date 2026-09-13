@@ -19,10 +19,6 @@ type blockParser struct {
 	used   int          // columns of a tab at pos that structures consumed (design 4.3)
 	prefix []prefixLeaf // prefix leaves of the line that are not appended yet
 
-	// interrupt blocks the starts that cannot interrupt a paragraph, on a
-	// setext underline after definitions that took every paragraph line.
-	interrupt bool
-
 	breakMemo uint32 // a thematic break scan from a marker of the line before this offset fails
 
 	// The last run of spaces and tabs that indentation scanned: from spaceFrom
@@ -102,7 +98,7 @@ type pendingLine struct {
 
 // parseLine adds one line to the tree (design 5.1 and 5.2).
 func (p *blockParser) parseLine(l line) {
-	p.l, p.pos, p.col, p.used, p.interrupt, p.breakMemo = l, l.start, 0, 0, false, 0
+	p.l, p.pos, p.col, p.used, p.breakMemo = l, l.start, 0, 0, 0
 	p.spaceFrom, p.spaceEnd = 1, 0
 
 	matched, passed, notes := 1, 0, 0
@@ -155,12 +151,11 @@ func (p *blockParser) parseLine(l line) {
 				p.leaf = leafBlock{}
 				return
 			}
-			// No paragraph line remains: dispatch the line again as if an
-			// empty paragraph were open (design 5.4).
-			p.definitionsOnly()
+			// No paragraph line remains: the line is paragraph text, and no
+			// other block starts on it, as in cmark (design 5.4).
 			p.clearPending()
-			p.leaf = leafBlock{}
-			p.interrupt = true
+			p.addPending()
+			return
 		}
 	}
 	// cmark-gfm starts a footnote definition only when fewer than 99 blocks
@@ -283,7 +278,7 @@ func (p *blockParser) continueLeaf() bool {
 // of indentation, and reports whether one started. matched is the number of
 // open containers that the line matched.
 func (p *blockParser) startLeaf(first uint32, indent, matched int) bool {
-	l, para := p.l, p.leaf.kind == paragraphLeaf || p.interrupt
+	l, para := p.l, p.leaf.kind == paragraphLeaf
 	if indent >= 4 {
 		// Indented code never starts while a paragraph is open, matched or
 		// not (design 5.1).
