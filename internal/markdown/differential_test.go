@@ -429,6 +429,15 @@ var goldmarkDeviations = []struct {
 		}
 		return false
 	}},
+	{"goldmark deviates, spec sections 2.4 and 6.7: a backslash after an escaped backslash at the end of a line is a hard line break", func(t *Tree) bool {
+		for i := 1; i+1 < len(t.nodes); i++ {
+			if t.nodes[i].kind == HardBreak && t.nodes[i-1].kind == Escape && t.nodes[i+1].kind == HardBreakMarker &&
+				string(t.Raw(NodeID(i-1))) == "\\\\" && string(t.Raw(NodeID(i+1))) == "\\" {
+				return true
+			}
+		}
+		return false
+	}},
 	{"goldmark deviates, spec section 4.7: a definition with its destination on a later line ends at the destination when the next line is not a title", func(t *Tree) bool {
 		for i, n := range t.nodes {
 			if n.kind != LinkReferenceDefinition {

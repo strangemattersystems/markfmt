@@ -433,6 +433,7 @@ Use this list to triage stage 5 disagreements. The last column says how
 | `~~~0`, a tab, `0` | The class `language-0`, a tab and `0`: the first word ends only at a space. | The class `language-0` (spec 4.5). | Predicate, differential case. |
 | `~~~ &#32;a&#32;` | The class `language-`: decoded whitespace stays in an info string. | The class `language-a`, as cmark trims after decoding (spec 4.5, design 8.4). | Predicate, differential case. |
 | `*`, a line of a tab, `  0` | An empty item, then paragraph `0`, as commonmark.js gives. | The item `0`, as cmark gives (spec 5.2, design 5.1). | Predicate, differential case. |
+| `a`, three backslashes, a line ending, `b` | `a`, two backslashes and a soft break. | `a`, a backslash and a hard line break (spec 2.4, 6.7). | Predicate, differential case. |
 | `[0]:\n0\n''0` | The destination line also appears as paragraph text. | Paragraph `''0` only (compare example 210). | Predicate, differential case. |
 | `x<!x>`, `<!doctype html>` | Text: a declaration needs an uppercase letter after `<!`, as on GitHub. | Raw HTML and an HTML block (spec 4.6, 6.6). | Predicate, differential case. |
 | `a\n<meta>` | `<meta>` interrupts the paragraph: goldmark's HTML block kind 6 tag list has `meta`. | Paragraph with raw HTML (spec 4.6). | Predicate, differential case. |

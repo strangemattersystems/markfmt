@@ -388,3 +388,16 @@ and ends the empty item (compare CM 280).
 <li>0</li>
 </ul>
 ````````````````````````````````
+
+## goldmark deviates, spec sections 2.4 and 6.7: a backslash after an escaped backslash at the end of a line is a hard line break
+
+goldmark writes the escaped backslash as two backslashes and gives no hard
+line break.
+
+```````````````````````````````` example
+a\\\
+b
+.
+<p>a\<br />
+b</p>
+````````````````````````````````
