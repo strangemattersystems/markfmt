@@ -80,15 +80,16 @@ var (
 )
 
 // verbatimReader reads the value of a code or HTML block one piece at a time:
-// its leaves of kind text, with virt spaces for a split tab, a line feed for
-// each VerbatimLineEnding, and a line feed after a last content line without
-// one (design 8.2). A fence line is not a content line.
+// its leaves of kind text, with virt spaces for a split tab and U+FFFD for
+// NUL and each maximal invalid UTF-8 subsequence, a line feed for each
+// VerbatimLineEnding, and a line feed after a last content line without one
+// (design 8.2, 8.4). A fence line is not a content line.
 type verbatimReader struct {
 	t      *Tree
 	i, end uint32 // the next leaf, and the end of the block
 	text   Kind
-	rest   []byte // the rest of a leaf after the spaces of its split tab
-	final  bool   // a line feed is due after the last leaf
+	leaf   valueReader // the rest of a leaf of kind text
+	final  bool        // a line feed is due after the last leaf
 }
 
 func newVerbatimReader(t *Tree, id NodeID, text Kind) verbatimReader {
@@ -108,9 +109,7 @@ func newVerbatimReader(t *Tree, id NodeID, text Kind) verbatimReader {
 }
 
 func (r *verbatimReader) next() []byte {
-	if len(r.rest) > 0 {
-		b := r.rest
-		r.rest = nil
+	if b := r.leaf.next(); b != nil {
 		return b
 	}
 	for r.i < r.end {
@@ -118,12 +117,12 @@ func (r *verbatimReader) next() []byte {
 		r.i++
 		switch m.kind {
 		case r.text:
-			b := r.t.src[m.start:m.end:m.end]
+			r.leaf = r.t.newValueReader(m)
 			if m.virt == 0 {
-				return b
+				return r.leaf.next()
 			}
 			// The columns left of a split tab are spaces.
-			r.rest = b[1:]
+			r.leaf.b = r.leaf.b[1:]
 			return spaces[:m.virt:m.virt]
 		case VerbatimLineEnding:
 			return lineFeed[:1:1]

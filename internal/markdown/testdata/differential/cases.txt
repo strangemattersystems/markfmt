@@ -118,3 +118,17 @@ destination on the label's line, goldmark agrees (CM 210).
 .
 <p>''0</p>
 ````````````````````````````````
+
+## fixed in markfmt, spec section 2.3: a NUL in a code block or an HTML block is U+FFFD
+
+markfmt wrote the NUL in the value of the block (design 8.4).
+
+```````````````````````````````` example
+    a␀b
+
+<div>␀
+.
+<pre><code>a�b
+</code></pre>
+<div>�
+````````````````````````````````

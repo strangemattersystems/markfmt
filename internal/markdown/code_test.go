@@ -19,6 +19,7 @@ func TestTree_AppendCode(t *testing.T) {
 		{"keeps spaces beyond the indentation of blank lines", "    a\n  \n      \n    b", "a\n\n  \nb\n"},
 		{"writes the columns left of a split tab as spaces", ">\t\tfoo\n", "  foo\n"},
 		{"keeps a split tab alone on the last line", "> ```\n>\t", "  \n"},
+		{"writes u+fffd for nul and each maximal invalid utf-8 subsequence", ">\t\t\x00a\xe1\x80b", "  \ufffda\ufffdb\n"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
