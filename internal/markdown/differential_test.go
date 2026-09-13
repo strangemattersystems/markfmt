@@ -83,6 +83,7 @@ func TestGoldmarkDiffers(t *testing.T) {
 		{"skips a tab after a nested list marker that a split tab starts", "* 0\n\t* \t*", "goldmark deviates, spec sections 2.2 and 5.2: a tab after the prefix of a list item line stops at a column counted from the start of the line"},
 		{"skips a thematic break that starts like a list item after an empty list item", "*\n  - --", "goldmark deviates, spec section 5.2: a list item that starts with a blank line takes a line indented to its content that starts like a bullet list item"},
 		{"skips an open parenthesis after a nul in a destination", "[0]:0\x00(", "goldmark deviates, spec sections 4.7 and 6.3: a parenthesis in a destination is escaped or in a balanced pair"},
+		{"skips a tab before a nested list marker after a list item prefix", "0) 0\n   \t* 0", "goldmark deviates, spec sections 2.2 and 5.2: a tab after the prefix of a list item line stops at a column counted from the start of the line"},
 		{"skips a tab in the indentation after a list item prefix", "* 0\n  \t -", "goldmark deviates, spec sections 2.2 and 5.2: a tab after the prefix of a list item line stops at a column counted from the start of the line"},
 	}
 	for _, tt := range tests {
@@ -340,10 +341,13 @@ var goldmarkDeviations = []struct {
 			case LineEnding, VerbatimLineEnding, BlankLine:
 				prefix, lead = false, true
 			case ListMarker:
-				// A tab after a nested marker is in the marker leaf.
+				// A tab before or after a nested marker is in the marker leaf.
 				j := n.start
 				for j < n.end && (src[j] == ' ' || src[j] == '\t') {
 					j++
+				}
+				if prefix && bytes.IndexByte(src[n.start:j], '\t') >= 0 {
+					return true
 				}
 				for j < n.end && '0' <= src[j] && src[j] <= '9' {
 					j++
