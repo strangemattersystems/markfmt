@@ -632,6 +632,11 @@ func (p *printer) breakItems(id markdown.NodeID) (dashes, stars bool) {
 			// The printer writes a thematic break without the bullet.
 			continue
 		}
+		if block := i - 1; t.Kind(i) == markdown.CodeIndent && !p.isSpan(item) && !p.isSpan(block) {
+			// The first line of indented code outside a dialect span is a
+			// fence line.
+			continue
+		}
 		line := bytes.Trim(t.RestOfLine(i), " \t")
 		dashes = dashes || len(bytes.Trim(line, "- \t")) == 0 && bytes.Count(line, []byte("-")) >= 2
 		stars = stars || len(bytes.Trim(line, "* \t")) == 0 && bytes.Count(line, []byte("*")) >= 2
@@ -705,6 +710,13 @@ func (p *printer) lazyItems() map[markdown.NodeID]bool {
 	return items
 }
 
+// isSpan reports whether node id, which the walk has not passed, is a
+// dialect span.
+func (p *printer) isSpan(id markdown.NodeID) bool {
+	_, ok := slices.BinarySearch(p.spans, id)
+	return ok
+}
+
 // indentAfter returns the columns of indentation of the first line of the
 // block after node id, when that block is an HTML block or a dialect span,
 // whose indentation stays. Otherwise it returns 0.
@@ -714,7 +726,7 @@ func (p *printer) indentAfter(id markdown.NodeID) int {
 	for ok && (t.Kind(next) == markdown.BlankLine || isPrefix(t.Kind(next))) {
 		next, ok = t.Next(next)
 	}
-	if _, span := slices.BinarySearch(p.spans, next); !ok || t.Kind(next) != markdown.HTMLBlock && !span {
+	if !ok || t.Kind(next) != markdown.HTMLBlock && !p.isSpan(next) {
 		return 0
 	}
 	leaf := next + 1
