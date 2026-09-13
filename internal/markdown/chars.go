@@ -49,12 +49,13 @@ func decodeRune(b []byte) (rune, int) {
 }
 
 // valueReader reads the value of content bytes one piece at a time: each
-// NUL and each maximal invalid UTF-8 subsequence is U+FFFD (design 6.7), and
-// with escapes, each backslash escape and entity reference is its characters.
+// NUL and each maximal invalid UTF-8 subsequence is U+FFFD (design 6.7). With
+// escapes, each backslash escape is its character, and with entities, each
+// entity reference is its characters.
 type valueReader struct {
-	b       []byte
-	escapes bool
-	char    [8]byte // the characters of the last entity reference
+	b                 []byte
+	escapes, entities bool
+	char              [8]byte // the characters of the last entity reference
 }
 
 func (r *valueReader) next() []byte {
@@ -77,13 +78,15 @@ func (r *valueReader) next() []byte {
 		r.b = b[i:]
 		return b[:i:i]
 	}
-	if r.escapes && b[0] == '\\' && len(b) > 1 && isASCIIPunct(b[1]) {
-		r.b = b[2:]
-		return b[1:2:2]
-	}
-	if j := entityEnd(b, 0, count(len(b))); r.escapes && b[0] == '&' && j > 0 {
+	if r.decodes(b) {
+		j := 2
+		if b[0] == '&' {
+			j = int(entityEnd(b, 0, count(len(b))))
+			r.b = b[j:]
+			return appendEntityValue(r.char[:0], b[:j])
+		}
 		r.b = b[j:]
-		return appendEntityValue(r.char[:0], b[:j])
+		return b[1:2:2]
 	}
 	_, n := decodeRune(b)
 	r.b = b[n:]
@@ -93,13 +96,11 @@ func (r *valueReader) next() []byte {
 // decodes reports whether b starts with a backslash escape or an entity
 // reference that the reader decodes.
 func (r *valueReader) decodes(b []byte) bool {
-	switch {
-	case !r.escapes:
-		return false
-	case b[0] == '\\':
-		return len(b) > 1 && isASCIIPunct(b[1])
-	case b[0] == '&':
-		return entityEnd(b, 0, count(len(b))) > 0
+	switch b[0] {
+	case '\\':
+		return r.escapes && len(b) > 1 && isASCIIPunct(b[1])
+	case '&':
+		return r.entities && entityEnd(b, 0, count(len(b))) > 0
 	}
 	return false
 }
@@ -108,11 +109,14 @@ var replacement = []byte("\uFFFD")
 
 // newValueReader returns a reader of the value of content leaf m. Escapes and
 // entity references decode in an Escape, an EntityRef, a Destination, a Title
-// and an InfoString (design 8.4). A VerbatimLineEnding is a line feed.
+// and an InfoString, and entity references in an AutolinkText, as cmark
+// decodes them (design 8.4). A VerbatimLineEnding is a line feed.
 func (t *Tree) newValueReader(m Node) valueReader {
 	switch m.kind {
 	case Escape, EntityRef, Destination, Title, InfoString:
-		return valueReader{b: t.src[m.start:m.end], escapes: true}
+		return valueReader{b: t.src[m.start:m.end], escapes: true, entities: true}
+	case AutolinkText:
+		return valueReader{b: t.src[m.start:m.end], entities: true}
 	case VerbatimLineEnding:
 		return valueReader{b: lineFeed}
 	}

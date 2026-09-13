@@ -86,6 +86,8 @@ func (c *comparer) equalKeys(ia, ib NodeID) bool {
 	case HTMLBlock:
 		ra, rb := newVerbatimReader(a, ia, HTMLText), newVerbatimReader(b, ib, HTMLText)
 		return equalPieces(&ra, &rb)
+	case Autolink:
+		return a.AutolinkEmail(ia) == b.AutolinkEmail(ib)
 	case CodeSpan:
 		ra, rb := newCodeSpanReader(a, ia), newCodeSpanReader(b, ib)
 		return equalPieces(&ra, &rb)
@@ -95,7 +97,7 @@ func (c *comparer) equalKeys(ia, ib NodeID) bool {
 	case Text, CodeText, VerbatimLineEnding, InfoString, HTMLText, LinkLabel, Destination, Title,
 		FrontMatterText, BOM, LineEnding, BlankLine, Indent, ThematicRun, ATXMarker, ATXClose,
 		Whitespace, CodeIndent, FenceMarker, SetextUnderline, QuoteMarker, ListMarker, ItemIndent,
-		Bracket, Colon, AngleBracket, TitleQuote, FrontMatterFence, TrailingSpace, HardBreakMarker, Escape, EntityRef, CodeFence:
+		Bracket, Colon, AngleBracket, TitleQuote, FrontMatterFence, TrailingSpace, HardBreakMarker, Escape, EntityRef, CodeFence, AutolinkText:
 	}
 	panic(fmt.Sprintf("markdown: key of node %d of kind %v, which is not a structure kind", ia, a.nodes[ia].kind))
 }

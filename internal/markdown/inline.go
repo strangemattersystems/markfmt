@@ -79,6 +79,8 @@ func (s *inlineParser) scan(i, end uint32) {
 		}
 	case '`':
 		s.codeSpan(i, end)
+	case '<':
+		s.autolink(i, end)
 	default:
 		s.text(s.textEnd(i, end))
 	}
@@ -131,7 +133,7 @@ func (s *inlineParser) trailingSpace() {
 }
 
 // inlineTriggers holds the bytes that can start an inline construct.
-var inlineTriggers = [256]bool{'\\': true, '&': true, '`': true}
+var inlineTriggers = [256]bool{'\\': true, '&': true, '`': true, '<': true}
 
 // textEnd returns the end of the run of bytes from i that no inline construct
 // starts in, before end.

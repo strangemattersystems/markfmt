@@ -32,3 +32,5 @@ code-span-padding equal one space at each end of a code span is not content (CM 
 code-span-one-space different a space at only one end of a code span is content (CM 332)
 code-span-fence equal the length of the backtick runs of a code span is not content (CM 339)
 code-span-line-ending equal a line ending in a code span is a space (CM 335)
+autolink-entity equal cmark decodes entity references in an autolink (design 8.4)
+autolink-escape different a backslash in an autolink is not an escape (CM 603)

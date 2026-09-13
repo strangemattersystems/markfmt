@@ -35,6 +35,7 @@ func TestRenderHTML(t *testing.T) {
 		{"writes u+fffd for nul and invalid utf-8", "a\x00\xffb\xe2\x82", "<p>a\ufffd\ufffdb\ufffd</p>\n"},
 		{"writes entity references", "&ouml;&NotEqualTilde;&#0;&#xD800;&#1114112;&#x10FFFF;&amp;", "<p>ö\u2242\u0338\ufffd\ufffd\ufffd\U0010ffff&amp;</p>\n"},
 		{"writes code spans", "` a `` `\n``\nb\n`` ` ` `  `", "<p><code>a ``</code>\n<code>b</code> <code> </code> <code>  </code></p>\n"},
+		{"writes autolinks", "<https://a.b/\\[&amp;\u00e9'> <A@b.c>", "<p><a href=\"https://a.b/%5C%5B&amp;%C3%A9&#x27;\">https://a.b/\\[&amp;\u00e9'</a> <a href=\"mailto:A@b.c\">A@b.c</a></p>\n"},
 		{"writes line breaks", "a\\\nb  \nc \nd  ", "<p>a<br />\nb<br />\nc\nd</p>\n"},
 		{"writes paragraphs", "\xEF\xBB\xBFa\r\n b\n \nc", "<p>a\nb</p>\n<p>c</p>\n"},
 	}
@@ -157,7 +158,17 @@ func renderHTML(tree *Tree) string {
 			if !e.Exit {
 				b.WriteString("<hr />\n")
 			}
-		case Text, Escape, EntityRef:
+		case Autolink:
+			if e.Exit {
+				b.WriteString("</a>")
+				break
+			}
+			href := string(tree.AppendValue(nil, e.ID+2))
+			if tree.AutolinkEmail(e.ID) {
+				href = "mailto:" + href
+			}
+			b.WriteString(`<a href="` + escapeHref(href) + `">`)
+		case Text, Escape, EntityRef, AutolinkText:
 			b.WriteString(htmlEscaper.Replace(string(tree.AppendValue(nil, e.ID))))
 		case CodeSpan:
 			if !e.Exit {
@@ -180,6 +191,27 @@ func renderHTML(tree *Tree) string {
 }
 
 // tag returns the start tag of an element, or its end tag and a line ending.
+// escapeHref escapes a link destination as cmark's houdini_escape_href does:
+// it keeps ASCII letters, digits and -_.+!*(),%#@?=;:/$~, writes & and ' as
+// character references, and percent-encodes every other byte.
+func escapeHref(s string) string {
+	const hex = "0123456789ABCDEF"
+	var b strings.Builder
+	for i := range len(s) {
+		switch c := s[i]; {
+		case c == '&':
+			b.WriteString("&amp;")
+		case c == '\'':
+			b.WriteString("&#x27;")
+		case isASCIIAlphanumeric(c) || strings.IndexByte("-_.+!*(),%#@?=;:/$~", c) >= 0:
+			b.WriteByte(c)
+		default:
+			b.Write([]byte{'%', hex[c>>4], hex[c&15]})
+		}
+	}
+	return b.String()
+}
+
 func tag(name string, end bool) string {
 	if end {
 		return "</" + name + ">\n"

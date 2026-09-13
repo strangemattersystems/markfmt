@@ -114,6 +114,7 @@ func FuzzEqual(f *testing.F) {
 		"\\# a \\* b\\\\\n\\- c\n",
 		"&amp; &ast;a&#42; &#x2d; b\n",
 		"`a` `` b\n` `` ``` c`",
+		"<https://a.b> <a@b.c>\n",
 	} {
 		for op := range byte(mutations) {
 			f.Add([]byte(src), op)

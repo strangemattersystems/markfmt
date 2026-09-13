@@ -764,6 +764,7 @@ research (section 17).
 | --- | --- |
 | Line ending kind | Not meaning (product rule 7). |
 | Escapes and entity references in text | Compared decoded. A decoded character never becomes syntax. Whether the printer keeps the source form is a stage 6 style decision. |
+| Entity references in an angle autolink | Decoded, as cmark decodes them. A backslash is not an escape there (CM 603). |
 | Reference link vs inline link | Different meaning: the key has the form and the label. |
 | Unused and duplicate definitions | Kept. Compared in document order. |
 | Table cells beyond the header count | Kept as content. |
