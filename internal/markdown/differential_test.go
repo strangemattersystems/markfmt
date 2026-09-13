@@ -380,6 +380,21 @@ var goldmarkDeviations = []struct {
 		}
 		return false
 	}},
+	{"goldmark deviates, spec section 4.5: the first word of an info string ends at a tab", func(t *Tree) bool {
+		for i, n := range t.nodes {
+			if n.kind != CodeBlock {
+				continue
+			}
+			word := t.AppendInfo(nil, NodeID(i))
+			if end := bytes.IndexByte(word, ' '); end >= 0 {
+				word = word[:end]
+			}
+			if bytes.ContainsAny(word, "\t\n\r\v\f") {
+				return true
+			}
+		}
+		return false
+	}},
 	{"goldmark deviates, spec section 4.7: a definition with its destination on a later line ends at the destination when the next line is not a title", func(t *Tree) bool {
 		for i, n := range t.nodes {
 			if n.kind != LinkReferenceDefinition {

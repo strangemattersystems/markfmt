@@ -340,3 +340,16 @@ y
 <pre><code class="language-a">y
 </code></pre>
 ````````````````````````````````
+
+## goldmark deviates, spec section 4.5: the first word of an info string ends at a tab
+
+goldmark ends the first word only at a space.
+
+```````````````````````````````` example
+~~~0→0
+x
+~~~
+.
+<pre><code class="language-0">x
+</code></pre>
+````````````````````````````````
