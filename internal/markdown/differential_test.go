@@ -707,6 +707,35 @@ var goldmarkDeviations = []struct {
 	{"goldmark deviates, spec section 6.6: a closing tag has no `/` before its `>`", func(t *Tree) bool {
 		return slashClosingTag.Match(t.src)
 	}},
+	{"goldmark deviates, spec section 6.6: FF is whitespace in an HTML tag, as cmark reads it", func(t *Tree) bool {
+		src := t.src
+		for i := range src {
+			j := i + 1
+			if src[i] != '<' || j == len(src) {
+				continue
+			}
+			if src[j] == '/' {
+				j++
+			}
+			k := j
+			for k < len(src) && (isASCIIAlphanumeric(src[k]) || src[k] == '-') {
+				k++
+			}
+			if k == j || !isASCIILetter(src[j]) {
+				continue
+			}
+			// goldmark takes FF right after a kind 1 tag name.
+			if k < len(src) && src[k] == '\f' && slices.Contains(kind1Names, strings.ToLower(string(src[j:k]))) {
+				continue
+			}
+			for ; k < len(src) && strings.IndexByte("<>\r\n", src[k]) < 0; k++ {
+				if src[k] == '\f' {
+					return true
+				}
+			}
+		}
+		return false
+	}},
 }
 
 var (

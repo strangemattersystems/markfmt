@@ -775,3 +775,22 @@ x
 <stYle
 x
 ````````````````````````````````
+
+## goldmark deviates, spec section 6.6: FF is whitespace in an HTML tag, as cmark reads it
+
+goldmark reads a form feed in a tag as a character of the tag, and gives
+text, except right after a kind 1 tag name (design 8.4).
+
+```````````````````````````````` example
+<div
+x
+
+<ab>
+
+z <ab>
+.
+<div
+x
+<ab>
+<p>z <ab></p>
+````````````````````````````````
