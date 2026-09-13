@@ -5,8 +5,8 @@ import (
 	"unicode/utf8"
 )
 
-// delimiter is a run of '*' or '_' on the delimiter stack (design 6.4). The
-// run has one piece per character. Closers use its characters from the left,
+// delimiter is a run of '*', '_' or '~' on the delimiter stack (design 6.4).
+// The run has one piece per character. Closers use its characters from the left,
 // and openers from the right.
 type delimiter struct {
 	piece             int // the piece of the first character
@@ -17,9 +17,10 @@ type delimiter struct {
 	prev, next        int // neighbours on the stack, or -1
 }
 
-// delimiterRun pushes the run of '*' or '_' at i, on a line that ends at end:
-// one piece per character, and a delimiter when the run can open or close
-// emphasis (CM 350 to 363).
+// delimiterRun pushes the run of '*', '_' or '~' at i, on a line that ends at
+// end: one piece per character, and a delimiter when the run can open or close
+// emphasis (CM 350 to 363) or strikethrough. Only a run of one or two tildes is
+// a delimiter (cmark-gfm).
 func (s *inlineParser) delimiterRun(i, end uint32) {
 	c, j := s.src[i], i+1
 	for j < end && s.src[j] == c {
@@ -42,7 +43,7 @@ func (s *inlineParser) delimiterRun(i, end uint32) {
 		canOpen = left && (!right || isUnicodePunct(before))
 		canClose = right && (!left || isUnicodePunct(after))
 	}
-	if !canOpen && !canClose {
+	if !canOpen && !canClose || c == '~' && j-i > 2 {
 		s.text(j)
 		return
 	}
@@ -59,13 +60,15 @@ func (s *inlineParser) delimiterRun(i, end uint32) {
 	}
 }
 
-// processEmphasis matches the delimiters above index bottom into emphasis and
-// strong emphasis, and removes them from the stack: the "process emphasis"
-// procedure of the CommonMark spec. The bound on the search for an opener, by
-// character, closer length modulo 3 and whether the closer can open, keeps it
-// linear (design 6.8).
+// processEmphasis matches the delimiters above index bottom into emphasis,
+// strong emphasis and strikethrough, and removes them from the stack: the
+// "process emphasis" procedure of the CommonMark spec. The bound on the search
+// for an opener, by character, closer length modulo 3 and whether the closer
+// can open, keeps it linear (design 6.8). cmark-gfm bounds a '~' closer by its
+// length modulo 3 only.
 func (s *inlineParser) processEmphasis(bottom int) {
 	var openersBottom [2][6]int
+	tildesBottom := [3]int{bottom, bottom, bottom}
 	for c := range openersBottom {
 		for k := range openersBottom[c] {
 			openersBottom[c][k] = bottom
@@ -88,12 +91,16 @@ func (s *inlineParser) processEmphasis(bottom int) {
 		if closer.canOpen {
 			k += 3
 		}
+		lowest := &openersBottom[c][k]
+		if closer.char == '~' {
+			lowest = &tildesBottom[closer.length%3]
+		}
 		o := closer.prev
-		for o > openersBottom[c][k] && !s.opens(&s.delims[o], closer) {
+		for o > *lowest && !s.opens(&s.delims[o], closer) {
 			o = s.delims[o].prev
 		}
-		if o <= openersBottom[c][k] {
-			openersBottom[c][k] = max(openersBottom[c][k], closer.prev)
+		if o <= *lowest {
+			*lowest = max(*lowest, closer.prev)
 			next := closer.next
 			if !closer.canOpen {
 				s.unlink(cur)
@@ -102,7 +109,11 @@ func (s *inlineParser) processEmphasis(bottom int) {
 			continue
 		}
 		opener := &s.delims[o]
-		s.match(opener, closer)
+		if closer.char == '~' {
+			s.strike(opener, closer)
+		} else {
+			s.match(opener, closer)
+		}
 		for d := closer.prev; d != o; d = s.delims[d].prev {
 			s.unlink(d)
 		}
@@ -146,6 +157,21 @@ func (s *inlineParser) match(opener, closer *delimiter) {
 	s.pieces[b+use-1].close = true
 	opener.left -= use
 	closer.left, closer.used = closer.left-use, closer.used+use
+}
+
+// strike makes strikethrough from the '~' runs of opener and closer when their
+// lengths are equal, and leaves both as text otherwise. Either way it uses all
+// their characters (design 6.4).
+func (s *inlineParser) strike(opener, closer *delimiter) {
+	if opener.length == closer.length {
+		for k := range opener.length {
+			s.pieces[opener.piece+k].kind, s.pieces[opener.piece+k].join = Delimiter, k > 0
+			s.pieces[closer.piece+k].kind, s.pieces[closer.piece+k].join = Delimiter, k > 0
+		}
+		s.pieces[opener.piece].open = Strikethrough
+		s.pieces[closer.piece+closer.length-1].close = true
+	}
+	opener.left, closer.left = 0, 0
 }
 
 // unlink removes delimiter d from the stack. Its characters that no closer or

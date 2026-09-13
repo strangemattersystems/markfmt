@@ -42,6 +42,7 @@ func TestParse(t *testing.T) {
 		{"gives raw html over lines with their prefix and indent leaves", "> a <b\n>  c='d\n> e'>f", "Document{BlockQuote{QuoteMarker@1 \"> \", Paragraph{Text \"a \", RawHTML{HTMLText \"<b\", VerbatimLineEnding \"\\n\", QuoteMarker@1 \"> \", Indent \" \", HTMLText \"c='d\", VerbatimLineEnding \"\\n\", QuoteMarker@1 \"> \", HTMLText \"e'>\"}, Text \"f\"}}}"},
 		{"gives raw html comments, processing instructions, declarations and cdata sections", "a <!--> <!---> <!-- b -- c ---> <?x?> <!X y> <![CDATA[>]]> </d >", "Document{Paragraph{Text \"a \", RawHTML{HTMLText \"<!-->\"}, Text \" \", RawHTML{HTMLText \"<!--->\"}, Text \" \", RawHTML{HTMLText \"<!-- b -- c --->\"}, Text \" \", RawHTML{HTMLText \"<?x?>\"}, Text \" \", RawHTML{HTMLText \"<!X y>\"}, Text \" \", RawHTML{HTMLText \"<![CDATA[>]]>\"}, Text \" \", RawHTML{HTMLText \"</d >\"}}}"},
 		{"gives text for a tag that does not close", "a <33> </a x> <a b='c> <a\n\nb>", "Document{Paragraph{Text \"a <33> </a x> <a b='c> <a\", LineEnding \"\\n\"}, BlankLine \"\\n\", Paragraph{Text \"b>\"}}"},
+		{"gives strikethrough for runs of one or two tildes of equal length", "~a~ ~~b~~ ~~~c~~~ ~d~~ *~e*~", "Document{Paragraph{Strikethrough{Delimiter \"~\", Text \"a\", Delimiter \"~\"}, Text \" \", Strikethrough{Delimiter \"~~\", Text \"b\", Delimiter \"~~\"}, Text \" ~~~c~~~ ~d~~ \", Emphasis{Delimiter \"*\", Text \"~e\", Delimiter \"*\"}, Text \"~\"}}"},
 		{"gives emphasis and strong emphasis", "***a*** *b** __c__", "Document{Paragraph{Emphasis{Delimiter \"*\", Strong{Delimiter \"**\", Text \"a\", Delimiter \"**\"}, Delimiter \"*\"}, Text \" \", Emphasis{Delimiter \"*\", Text \"b\", Delimiter \"*\"}, Text \"* \", Strong{Delimiter \"__\", Text \"c\", Delimiter \"__\"}}}"},
 		{"gives text for delimiter runs that are not flanking", "a * b _c_d*\n*e", "Document{Paragraph{Text \"a * b _c_d*\", SoftBreak{LineEnding \"\\n\"}, Text \"*e\"}}"},
 		{"treats unicode symbols and u+fffd as punctuation for flanking", "a \u00a3_b_\u00a3 \xff_c_\xff", "Document{Paragraph{Text \"a \u00a3\", Emphasis{Delimiter \"_\", Text \"b\", Delimiter \"_\"}, Text \"\u00a3 \\xff\", Emphasis{Delimiter \"_\", Text \"c\", Delimiter \"_\"}, Text \"\\xff\"}}"},
@@ -340,6 +341,9 @@ var pathologicalInputs = []struct {
 	}},
 	{"strong emphasis in emphasis", func(n int) []byte {
 		return []byte(strings.Repeat("***a*** ", n/8))
+	}},
+	{"strikethrough closers after emphasis openers", func(n int) []byte {
+		return []byte(strings.Repeat("*a ", n/6) + strings.Repeat("a~ ", n/6))
 	}},
 	{"nested strong emphasis", func(n int) []byte {
 		return []byte(strings.Repeat("*a **a ", n/14) + "b" + strings.Repeat(" a** a*", n/14))

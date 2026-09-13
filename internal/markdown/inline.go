@@ -132,7 +132,7 @@ func (s *inlineParser) scan(i, end uint32) {
 		}
 	case '`':
 		s.codeSpan(i, end)
-	case '*', '_':
+	case '*', '_', '~':
 		s.delimiterRun(i, end)
 	case '[':
 		s.openBracket(i, false)
@@ -200,7 +200,7 @@ func (s *inlineParser) trailingSpace() {
 	s.push(piece{kind: TrailingSpace, end: l.end})
 }
 
-var inlineTriggers = [256]bool{'\\': true, '&': true, '`': true, '<': true, '*': true, '_': true, '[': true, ']': true, '!': true}
+var inlineTriggers = [256]bool{'\\': true, '&': true, '`': true, '<': true, '*': true, '_': true, '~': true, '[': true, ']': true, '!': true}
 
 // verbatim pushes pieces of kind text up to p, with a VerbatimLineEnding,
 // the prefix leaves and the Indent leaf at each line boundary.

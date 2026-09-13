@@ -63,6 +63,7 @@ const (
 	CodeFence
 	Delimiter
 	Paren
+	Strikethrough
 )
 
 type class uint8
@@ -80,7 +81,7 @@ func (k Kind) class() class {
 	//exhaustive:enforce
 	switch k {
 	case Document, FrontMatter, BlockQuote, List, ListItem, Paragraph, ThematicBreak, Heading, CodeBlock, HTMLBlock, LinkReferenceDefinition,
-		SoftBreak, HardBreak, CodeSpan, Autolink, RawHTML, Emphasis, Strong, Link, Image:
+		SoftBreak, HardBreak, CodeSpan, Autolink, RawHTML, Emphasis, Strong, Link, Image, Strikethrough:
 		return classStructure
 	case Text, CodeText, VerbatimLineEnding, InfoString, HTMLText, LinkLabel, Destination, Title, FrontMatterText, Escape, EntityRef, AutolinkText:
 		return classContent
@@ -231,6 +232,8 @@ func (k Kind) String() string {
 		return "Image"
 	case Paren:
 		return "Paren"
+	case Strikethrough:
+		return "Strikethrough"
 	}
 	return "Kind(" + strconv.Itoa(int(k)) + ")"
 }

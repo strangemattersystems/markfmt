@@ -41,6 +41,7 @@ func TestRenderHTML(t *testing.T) {
 		{"writes autolinks", "<https://a.b/\\[&amp;\u00e9'> <A@b.c>", "<p><a href=\"https://a.b/%5C%5B&amp;%C3%A9&#x27;\">https://a.b/\\[&amp;\u00e9'</a> <a href=\"mailto:A@b.c\">A@b.c</a></p>\n"},
 		{"writes raw html", "a <b\n c='d'>e<!---->", "<p>a <b\nc='d'>e<!----></p>\n"},
 		{"writes emphasis", "*a* __b__", "<p><em>a</em> <strong>b</strong></p>\n"},
+		{"writes strikethrough", "~a~ ~~b~~", "<p><del>a</del> <del>b</del></p>\n"},
 		{"writes links and images", "[a *b*](/u&amp; \"t\\\"\") ![c *d* `e`\n<f>](g 'h')", "<p><a href=\"/u&amp;\" title=\"t&quot;\">a <em>b</em></a> <img src=\"g\" alt=\"c d e &lt;f&gt;\" title=\"h\" /></p>\n"},
 		{"writes reference links", "[a][B] [b][] [b] ![b]\n\n[B]: /u \"t\"\n[b]: /v", "<p><a href=\"/u\" title=\"t\">a</a> <a href=\"/u\" title=\"t\">b</a> <a href=\"/u\" title=\"t\">b</a> <img src=\"/u\" alt=\"b\" title=\"t\" /></p>\n"},
 		{"writes line breaks", "a\\\nb  \nc \nd  ", "<p>a<br />\nb<br />\nc\nd</p>\n"},
@@ -296,6 +297,8 @@ func renderHTML(tree *Tree, tagFilter bool) string {
 			b.WriteString(inlineTag("em", e.Exit))
 		case Strong:
 			b.WriteString(inlineTag("strong", e.Exit))
+		case Strikethrough:
+			b.WriteString(inlineTag("del", e.Exit))
 		case RawHTML:
 			if !e.Exit {
 				b.WriteString(filterTags(tree.AppendRawHTML(nil, e.ID), tagFilter, false))

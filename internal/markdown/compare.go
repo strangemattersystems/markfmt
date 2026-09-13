@@ -69,7 +69,7 @@ func (c *comparer) equalKeys(ia, ib NodeID) bool {
 	a, b := c.a, c.b
 	//exhaustive:enforce
 	switch a.nodes[ia].kind {
-	case Document, BlockQuote, ListItem, Paragraph, ThematicBreak, SoftBreak, HardBreak, RawHTML, Emphasis, Strong:
+	case Document, BlockQuote, ListItem, Paragraph, ThematicBreak, SoftBreak, HardBreak, RawHTML, Emphasis, Strong, Strikethrough:
 		return true
 	case FrontMatter:
 		return a.FrontMatterTOML(ia) == b.FrontMatterTOML(ib)
