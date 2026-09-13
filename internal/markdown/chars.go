@@ -48,6 +48,60 @@ func decodeRune(b []byte) (rune, int) {
 	return utf8.RuneError, i
 }
 
+// valueReader reads the value of content bytes one piece at a time: each
+// NUL and each maximal invalid UTF-8 subsequence is U+FFFD (design 6.7).
+type valueReader struct {
+	b []byte
+}
+
+func (r *valueReader) next() []byte {
+	b, i := r.b, 0
+	for i < len(b) && b[i] != 0 {
+		if b[i] < utf8.RuneSelf {
+			i++
+			continue
+		}
+		c, n := utf8.DecodeRune(b[i:])
+		if c == utf8.RuneError && n == 1 {
+			break
+		}
+		i += n
+	}
+	switch {
+	case len(b) == 0:
+		return nil
+	case i > 0:
+		r.b = b[i:]
+		return b[:i:i]
+	}
+	_, n := decodeRune(b)
+	r.b = b[n:]
+	return slices.Clip(replacement)
+}
+
+var replacement = []byte("\uFFFD")
+
+// newValueReader returns a reader of the value of content leaf m: an Escape
+// is its character, and a VerbatimLineEnding is a line feed.
+func (t *Tree) newValueReader(m Node) valueReader {
+	switch m.kind {
+	case Escape:
+		return valueReader{t.src[m.start+1 : m.end]}
+	case VerbatimLineEnding:
+		return valueReader{lineFeed}
+	}
+	return valueReader{t.src[m.start:m.end]}
+}
+
+// AppendValue appends the value of content leaf id to dst.
+func (t *Tree) AppendValue(dst []byte, id NodeID) []byte {
+	r := t.newValueReader(t.nodes[id])
+	for b := r.next(); b != nil; b = r.next() {
+		dst = append(dst, b...)
+	}
+	return dst
+}
+
 type caseFold struct {
 	r  rune
 	to string

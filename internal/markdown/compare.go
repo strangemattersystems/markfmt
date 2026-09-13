@@ -91,7 +91,7 @@ func (c *comparer) equalKeys(ia, ib NodeID) bool {
 	case Text, CodeText, VerbatimLineEnding, InfoString, HTMLText, LinkLabel, Destination, Title,
 		FrontMatterText, BOM, LineEnding, BlankLine, Indent, ThematicRun, ATXMarker, ATXClose,
 		Whitespace, CodeIndent, FenceMarker, SetextUnderline, QuoteMarker, ListMarker, ItemIndent,
-		Bracket, Colon, AngleBracket, TitleQuote, FrontMatterFence, TrailingSpace, HardBreakMarker:
+		Bracket, Colon, AngleBracket, TitleQuote, FrontMatterFence, TrailingSpace, HardBreakMarker, Escape:
 	}
 	panic(fmt.Sprintf("markdown: key of node %d of kind %v, which is not a structure kind", ia, a.nodes[ia].kind))
 }
@@ -177,6 +177,8 @@ func (p *projection) group(m Node, parent Kind) (Kind, bool) {
 	switch {
 	case m.kind.class() != classContent, parent == LinkReferenceDefinition && p.label:
 		return 0, false
+	case m.kind == Escape:
+		return Text, true
 	case m.kind != VerbatimLineEnding:
 		return m.kind, true
 	case parent == FrontMatter:
@@ -214,23 +216,25 @@ func equalPieces(a, b pieceReader) bool {
 	}
 }
 
-// runReader reads the value of a content run: its content leaves, with a line
-// feed for each VerbatimLineEnding.
+// runReader reads the value of a content run: the values of its content
+// leaves.
 type runReader struct {
 	t      *Tree
 	i, end uint32
+	leaf   valueReader
 }
 
 func (r *runReader) next() []byte {
-	for r.i < r.end {
-		m := r.t.nodes[r.i]
-		r.i++
-		switch {
-		case m.kind == VerbatimLineEnding:
-			return lineFeed
-		case m.kind.class() == classContent:
-			return r.t.src[m.start:m.end:m.end]
+	for {
+		if b := r.leaf.next(); b != nil {
+			return b
 		}
+		if r.i == r.end {
+			return nil
+		}
+		if m := r.t.nodes[r.i]; m.kind.class() == classContent {
+			r.leaf = r.t.newValueReader(m)
+		}
+		r.i++
 	}
-	return nil
 }

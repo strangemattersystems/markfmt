@@ -38,11 +38,14 @@ func (s *inlineParser) inlines(lines []pendingLine) {
 		for i := s.end(); i < l.end; i = s.end() {
 			switch s.src[i] {
 			case '\\':
-				if i+1 == l.end && s.k+1 < len(s.lines) {
+				switch {
+				case i+1 == l.end && s.k+1 < len(s.lines):
 					s.push(piece{kind: HardBreakMarker, open: HardBreak, end: i + 1})
-					continue
+				case i+1 < l.end && isASCIIPunct(s.src[i+1]):
+					s.push(piece{kind: Escape, end: i + 2})
+				default:
+					s.text(i + 1)
 				}
-				s.text(i + 1)
 			default:
 				s.text(s.textEnd(i, l.end))
 			}

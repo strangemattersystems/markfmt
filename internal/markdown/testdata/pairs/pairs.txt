@@ -23,3 +23,5 @@ definition-label-case equal the key of a definition is its normalized label (CM 
 html-block-blank-line different a blank line ends an HTML block of kind 6 (CM 148)
 hard-break-form equal two spaces and a backslash give the same hard break (CM 633, 634)
 trailing-space equal spaces before a soft break or at the end of a paragraph are not content (CM 226, 649)
+escape equal an escaped character is the character (CM 12)
+replacement-character equal NUL and invalid UTF-8 are U+FFFD (design 6.7, 8.4)

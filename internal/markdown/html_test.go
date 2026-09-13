@@ -30,6 +30,8 @@ func TestRenderHTML(t *testing.T) {
 		{"writes tight lists", "- a\n- b\n", "<ul>\n<li>a</li>\n<li>b</li>\n</ul>\n"},
 		{"writes loose ordered lists", "3. a\n\n4. b", "<ol start=\"3\">\n<li><p>a</p>\n</li>\n<li><p>b</p>\n</li>\n</ol>\n"},
 		{"writes nothing for link reference definitions", "[a]: /u\n", ""},
+		{"writes escapes", "\\*\\<\\a", "<p>*&lt;\\a</p>\n"},
+		{"writes u+fffd for nul and invalid utf-8", "a\x00\xffb\xe2\x82", "<p>a\ufffd\ufffdb\ufffd</p>\n"},
 		{"writes line breaks", "a\\\nb  \nc \nd  ", "<p>a<br />\nb<br />\nc\nd</p>\n"},
 		{"writes paragraphs", "\xEF\xBB\xBFa\r\n b\n \nc", "<p>a\nb</p>\n<p>c</p>\n"},
 	}
@@ -152,8 +154,8 @@ func renderHTML(tree *Tree) string {
 			if !e.Exit {
 				b.WriteString("<hr />\n")
 			}
-		case Text:
-			b.WriteString(htmlEscaper.Replace(string(tree.Raw(e.ID))))
+		case Text, Escape:
+			b.WriteString(htmlEscaper.Replace(string(tree.AppendValue(nil, e.ID))))
 		case SoftBreak:
 			if !e.Exit {
 				b.WriteByte('\n')
