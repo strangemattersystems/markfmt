@@ -323,8 +323,14 @@ func (p *blockParser) startLeaf(first uint32, indent, matched int) bool {
 		p.b.open(CodeBlock)
 		p.b.leafIf(Indent, first)
 		p.b.leaf(FenceMarker, first+n)
-		infoEnd := trimSpaceRight(p.src, first+n, l.end)
-		p.b.leafIf(Whitespace, p.skipSpace(first+n, infoEnd))
+		infoStart, infoEnd := first+n, l.end
+		for infoEnd > infoStart && isInfoSpace(p.src[infoEnd-1]) {
+			infoEnd--
+		}
+		for infoStart < infoEnd && isInfoSpace(p.src[infoStart]) {
+			infoStart++
+		}
+		p.b.leafIf(Whitespace, infoStart)
 		p.b.leafIf(InfoString, infoEnd)
 		p.b.leafIf(Whitespace, l.end)
 		p.b.leafIf(LineEnding, l.eol)

@@ -135,6 +135,12 @@ func (r *verbatimReader) next() []byte {
 	return nil
 }
 
+// isInfoSpace reports whether c is trimmed from the ends of an info string: a
+// space or a tab, and VT or FF, as cmark trims them (design 8.4).
+func isInfoSpace(c byte) bool {
+	return c == ' ' || c == '\t' || c == '\v' || c == '\f'
+}
+
 // AppendInfo appends the value of the info string of code block id to dst.
 func (t *Tree) AppendInfo(dst []byte, id NodeID) []byte {
 	r := t.infoReader(id)
