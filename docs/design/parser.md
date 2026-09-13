@@ -93,6 +93,11 @@ Known divergences at draft 3:
 | Footnote reference label across a line ending | reference with a line ending in its label | rendered as garbled text |
 | Paragraph split off above a table | `\|` is an escaped pipe | backslash removed |
 
+markfmt follows the CommonMark column, with two exceptions. The footnote rows
+have no CommonMark rule, so markfmt follows cmark-gfm's tests. The paragraph
+split off above a table follows GitHub: the table that splits it is GFM
+grammar, so section 5.4 gives the paragraph the cell pipe rule.
+
 Reason: the tree needs one grammar to be testable. The printer's job is to
 keep meaning under the renderers people use, so it must not rewrite where they
 disagree, and must not create a place where they disagree.
@@ -505,20 +510,29 @@ At `]`, find the nearest bracket entry.
      if any bracket entry was pushed after this opener, reject in O(1) with no
      normalization.
 4. Try a footnote reference: if the decoded bracket text starts with `^` and
-   has at least one more character, the span becomes a FootnoteReference.
-   - Everything scanned between the brackets becomes label leaves
+   has at least one more character, the span becomes a FootnoteReference, at
+   any length (cmark-gfm).
+   - The scan pushes a `^` directly after `[` as its own piece, and `![` as a
+     `!` piece and a `[` piece, which an image joins into one Bracket leaf. So
+     the Caret and Bracket leaves are whole pieces, and no piece is inserted.
+   - The delimiter stack is truncated to the opener's bottom. cmark-gfm
+     processes the inner delimiters with the opener as the bottom and then
+     frees their nodes, so none pairs with an outer delimiter. No
+     `openers_bottom` value lives between two runs of process emphasis, so none
+     needs a change. No bracket entry is above the opener, and
+     `linkFormedAfter` is below its sequence number: a link inside would make
+     the opener inactive.
+   - The pieces between the brackets are rewritten in place as label leaves
      (FootnoteLabel, VerbatimLineEnding). Prefix and Indent leaves stay syntax,
      and in a table cell CellPipeEscape leaves stay CellPipeEscape, with label
-     bytes per section 6.7.
-   - Removal is a suffix: truncate the scratch buffer and every table keyed by
-     scratch index (side records, span index), pop delimiter and bracket
-     entries, and set every `openers_bottom` value and `linkFormedAfter` to the
-     minimum of its value and the new stack top.
+     bytes per section 6.7. The rewrite passes each footnote reference that
+     completed inside the brackets in one step, from its opener to its closer,
+     so each piece is rewritten once (section 6.8).
    - Earlier openers stay active. For `![`, the `!` stays text.
-   - "Resolved": a definition label cannot contain `]`, so if any `]` was
-     handled after this opener, the reference is unresolved with no
-     normalization. Otherwise it is resolved when the normalized label is in
-     the pass 1 footnote label list.
+   - "Resolved": the label has 1 to 1,000 label bytes, no `]` was handled after
+     the opener (a definition label cannot contain `]`, so no normalization
+     runs), and the normalized label is in the pass 1 footnote label list. An
+     unresolved reference renders as its source text.
 5. Otherwise `]` is text, and the opener entry is removed.
 
 After a link (not an image, not a footnote reference), earlier `[` openers
@@ -583,10 +597,14 @@ preorder. The scratch buffer never inserts:
   as written, so `[foo\!]` does not match `[foo!]`, CM 545), Unicode full case
   fold, trim and collapse runs of space, tab and line ending to one space.
   Other Unicode whitespace, NBSP included, is kept.
-- Label cap: 999 characters, for every label kind, checked in this order before
-  any scan or normalization: the bracket sequence number (section 6.3), then a
-  byte length of at most 999 (accepted without a count), then a byte length
-  above 3,996 (rejected), then a character count.
+- Label cap: 999 characters, for link reference definitions, links and images,
+  checked in this order before any scan or normalization: the bracket sequence
+  number (section 6.3), then a byte length of at most 999 (accepted without a
+  count), then a byte length above 3,996 (rejected), then a character count.
+- A footnote reference resolves only with at most 1,000 label bytes, with no
+  character count. cmark-gfm's map lookup checks bytes. GitHub API,
+  2026-09-13: a label of 1,000 ASCII bytes resolves; 1,001 ASCII bytes and 334
+  × `€` (1,002 bytes) do not.
 
 ### 6.8 Linear time
 
@@ -597,7 +615,8 @@ preorder. The scratch buffer never inserts:
 | `[` or `]` without partners | Bracket stack cleared at block end; O(1) empty check |
 | `![[]()` repeated | `linkFormedAfter`; inactive openers removed when met |
 | `[`×n `a` `]`×n, and `[`×499 `a` `]`×499 repeated | Bracket-in-label rejection by sequence number; label cap |
-| `[^`×333 `a` `]`×333 repeated | Suffix removal with clamped bottoms; unresolved by `]` sequence number, with no normalization |
+| `[^`×333 `a` `]`×333 repeated | Delimiter stack truncated to the opener's bottom; unresolved by `]` sequence number, with no normalization |
+| `[^`×n `a` `]`×n, and `[^⏎`×n `a` `]`×n | The label rewrite passes each completed inner reference in one step (section 6.3) |
 | Backtick runs of every length | Per-block index of backtick runs by length, with a cursor per length |
 | Unclosed `<!--`, `<?`, `<![CDATA[`, `<!X` | Per-block memo of the first failed search offset per closer |
 | `[a](<b` repeated | Angle destination stops at the next unescaped `<` (CM 494) |
@@ -612,6 +631,7 @@ preorder. The scratch buffer never inserts:
 | `- `×d `a` then blank lines × m | Blank-line fast path (section 5.1) |
 | `>`×n `a`, nested lists | O(1) work per consumed byte; iterative close |
 | Tables with many rows | One header attempt per paragraph; no cells created for missing cells |
+| `[^a]: `×n `b` on one line | O(1) work per consumed byte, as `>`×n |
 | Header of C cells, R one-cell rows | `Equal` compares present cells only (section 10.3) |
 | Nested strong emphasis output | R-walk |
 
@@ -1004,13 +1024,15 @@ adds its set of `Dialect(row)` values to its Enter event. `Equal` requires:
 - It writes missing table cells up to cmark-gfm's cap. Stage 4 captures what
   GitHub does above that cap; if structure changes there, the cap is grammar and
   gets a `dialect.md` row.
-- It applies the GFM tag filter to raw HTML, as cmark-gfm's renderer does. The
-  filter is rendering, not grammar (section 2), so its examples need no
-  grammar rule.
+- It applies the GFM tag filter to raw HTML, as cmark-gfm's renderer does,
+  where upstream enables the filter: examples whose fence names `tagfilter`,
+  every `cmark-gfm-extensions` example, and the GitHub fixtures. The filter is
+  rendering, not grammar (section 2), so its examples need no grammar rule.
 - The GitHub normalizer lands at stage 4 with the fixtures. It removes a fixed
   list of GitHub decorations, each with a unit test: `dir` attributes, heading
   anchors, `user-content-` prefixes, footnote back references and hashes, task
-  list classes, `rel` attributes.
+  list classes, `rel` attributes, and the other decorations that the fixtures
+  show.
 
 ### 11.4 GitHub fixtures
 
@@ -1019,6 +1041,12 @@ adds its set of `Dialect(row)` values to its Enter event. `Equal` requires:
   Tests never call the network.
 - Footnote, task list, table and strikethrough fixtures are conformance cases
   from stage 4.
+- Each `dialect.md` row names its fixture. A row where markfmt differs from
+  GitHub is an entry in `testdata/github/grammar-differs.txt`, whose
+  `markfmt/grammar.txt` case holds markfmt's result (`cmark --unsafe` for core
+  rules). A row where markfmt follows GitHub is an ordinary fixture. GitHub
+  removes most raw HTML, so the input of a raw HTML row shows its rule in
+  visible text.
 - Math and alert fixtures are printer cases at stage 6.
 
 ### 11.5 Differential fuzzing (stage 5)
@@ -1175,10 +1203,40 @@ inputs and the `FuzzEqual` mutations with its constructs:
 32. The stage 3 gate: the last corpus fixes, delete the "needs inlines"
     classification, record `benchstat` output.
 
-Strikethrough, extended and email autolinks, footnote references,
-CellPipeEscape and task list items are stage 4, with their section 6.8
-inputs. Stage 4 adds GFM, footnotes, their `dialect.md` rows and the GitHub
-fixtures.
+Stage 4, GFM and GitHub syntax. Each commit extends `Equal`, the pairs, the
+pathological inputs, the `FuzzEqual` mutations and the GitHub fixtures with its
+constructs, and checks each new linear-time mechanism with a mutation:
+
+33. This plan, the footnote reference rules of sections 6.3 and 6.7, and the
+    tag filter and dialect fixture rules of sections 11.3 and 11.4.
+34. The GFM tag filter in the test renderer. The example reader keeps the
+    extension words of an example's fence (section 11.3).
+35. GitHub fixtures in `testdata/github`, with the capture loop, the GitHub
+    normalizer, `failing.txt`, and the fixtures of the existing `dialect.md`
+    rows with `github/grammar-differs.txt` (section 11.4). Math, alert and
+    plain text fixtures (`:+1:`, `@octocat`, `#1`, and each with an escape) are
+    captured for stage 6 and not tested.
+36. Strikethrough, with `openers_bottom` for `~` per length.
+37. Tables: the delimiter row candidate, the header split, rows, cells with
+    inlines, alignment flags, the column count, row comparison in `Equal`, and
+    missing cells in the test renderer. Measure cmark-gfm and GitHub above
+    524,288 autocompleted cells (section 11.3).
+38. CellPipeEscape in every inline context, label bytes, the code span value,
+    groups by context, and the paragraph split off above a table with its
+    `dialect.md` row.
+39. Task list items: TaskBox, the ListItem task and checked flags, and a
+    defined `[x]` that wins.
+40. Extended www and URL autolinks at `w` and `:`, with the angle or extended
+    key. CM 602, 608 and 611 go in `grammar-differs.txt`.
+41. Extended email autolinks at emit. CM 606 and 612 go in
+    `grammar-differs.txt`.
+42. Footnote definitions: the container, its label rule, FootnoteIndent, and
+    the pass 1 footnote label list with the pass 2 check.
+43. Footnote references: section 6.3 step 4, the resolved flag, the footnote
+    section of the test renderer, and the `dialect.md` rows for an escaped or
+    entity `^` and for a label across a line ending.
+44. The comment pass.
+45. The stage 4 gate.
 
 ## 16. Roadmap changes
 
