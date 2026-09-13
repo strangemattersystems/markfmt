@@ -132,3 +132,21 @@ markfmt wrote the NUL in the value of the block (design 8.4).
 </code></pre>
 <div>�
 ````````````````````````````````
+
+## fixed in markfmt, spec sections 2.3, 6.3 and 6.5: a NUL in an angle autolink or a link destination is U+FFFD
+
+markfmt read the NUL as an ASCII control character, which ends both.
+
+```````````````````````````````` example
+<http://a␀>
+
+[b](/␀)
+
+[c]: /␀
+
+[c]
+.
+<p><a href="http://a%EF%BF%BD">http://a�</a></p>
+<p><a href="/%EF%BF%BD">b</a></p>
+<p><a href="/%EF%BF%BD">c</a></p>
+````````````````````````````````

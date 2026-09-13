@@ -46,7 +46,8 @@ func uriEnd(src []byte, i, end uint32) uint32 {
 	if n := j - i; n < 2 || n > 32 || j == end || src[j] != ':' {
 		return 0
 	}
-	for j++; j < end && src[j] > ' ' && src[j] != '<' && src[j] != '>' && src[j] != 0x7f; j++ {
+	// A NUL is U+FFFD, not a control character (spec 2.3).
+	for j++; j < end && (src[j] > ' ' || src[j] == 0) && src[j] != '<' && src[j] != '>' && src[j] != 0x7f; j++ {
 	}
 	return j
 }

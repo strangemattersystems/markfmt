@@ -378,7 +378,8 @@ func (s *inlineParser) linkDestination() bool {
 			j++
 			continue
 		}
-		if c <= ' ' || c == 0x7f || c == ')' && depth == 0 {
+		// A NUL is U+FFFD, not a control character (spec 2.3).
+		if c <= ' ' && c != 0 || c == 0x7f || c == ')' && depth == 0 {
 			break
 		}
 		switch c {
