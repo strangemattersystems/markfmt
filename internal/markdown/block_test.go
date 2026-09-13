@@ -37,9 +37,9 @@ func TestContainerWalk_Matched(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			parser, walk := matchedLines([]byte(tt.src))
-			if !slices.Equal(parser, tt.want) || !slices.Equal(walk, tt.want) {
-				t.Fatalf("matched containers of %q: parser %v, walk %v, want %v", tt.src, parser, walk, tt.want)
+			parser, walk, parserEnds, walkEnds := matchedLines([]byte(tt.src))
+			if !slices.Equal(parser, tt.want) || !slices.Equal(walk, tt.want) || !slices.Equal(parserEnds, walkEnds) {
+				t.Fatalf("matched containers of %q: parser %v, walk %v, want %v; prefix ends: parser %v, walk %v", tt.src, parser, walk, tt.want, parserEnds, walkEnds)
 			}
 		})
 	}
@@ -49,8 +49,8 @@ func TestContainerWalk_Matched(t *testing.T) {
 
 		for _, c := range corpora {
 			for _, ex := range readExamples(t, c.path) {
-				if parser, walk := matchedLines([]byte(ex.markdown)); !slices.Equal(parser, walk) {
-					t.Errorf("%s example %d: matched containers of %q: parser %v, walk %v", c.name, ex.id, ex.markdown, parser, walk)
+				if parser, walk, parserEnds, walkEnds := matchedLines([]byte(ex.markdown)); !slices.Equal(parser, walk) || !slices.Equal(parserEnds, walkEnds) {
+					t.Errorf("%s example %d: matched containers of %q: parser %v, walk %v; prefix ends: parser %v, walk %v", c.name, ex.id, ex.markdown, parser, walk, parserEnds, walkEnds)
 				}
 			}
 		}
@@ -89,19 +89,34 @@ func TestTree_ItemIndent(t *testing.T) {
 
 // matchedLines returns, for each paragraph continuation line of src in
 // order, the containers that the parser matched and the containers that a
-// [containerWalk] counts.
-func matchedLines(src []byte) (parser, walk []int) {
-	var starts []uint32
-	tree := parse(src, func(l line, matched int) {
-		starts = append(starts, l.start)
-		parser = append(parser, matched)
+// [containerWalk] counts. For each line that starts or continues a
+// paragraph, it also returns the column where the parser's container
+// prefixes end and the column that the walk gives.
+func matchedLines(src []byte) (parser, walk, parserEnds, walkEnds []int) {
+	type traced struct {
+		start        uint32
+		continuation bool
+	}
+	var lines []traced
+	tree := parse(src, func(l line, matched, end int, continuation bool) {
+		lines = append(lines, traced{start: l.start, continuation: continuation})
+		parserEnds = append(parserEnds, end)
+		if continuation {
+			parser = append(parser, matched)
+		}
 	})
 	w := containerWalk{t: tree}
+	j := 0
 	for i, n := range tree.nodes {
-		if len(walk) < len(starts) && n.kind.class() != classStructure && n.start == starts[len(walk)] {
-			walk = append(walk, w.matched(uint32(i)))
+		if j < len(lines) && n.kind.class() != classStructure && n.start == lines[j].start {
+			matched, end := w.matched(uint32(i))
+			if lines[j].continuation {
+				walk = append(walk, matched)
+			}
+			walkEnds = append(walkEnds, end)
+			j++
 		}
 		w.visit(uint32(i))
 	}
-	return parser, walk
+	return parser, walk, parserEnds, walkEnds
 }

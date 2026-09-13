@@ -842,8 +842,8 @@ func FuzzParse(f *testing.F) {
 		if !bytes.Equal(leaves, src) {
 			t.Fatalf("leaves of Parse(%q) = %q", src, leaves)
 		}
-		if parser, walk := matchedLines(src); !slices.Equal(parser, walk) {
-			t.Fatalf("matched containers of the continuation lines of %q: parser %v, walk %v", src, parser, walk)
+		if parser, walk, parserEnds, walkEnds := matchedLines(src); !slices.Equal(parser, walk) || !slices.Equal(parserEnds, walkEnds) {
+			t.Fatalf("matched containers of the paragraph lines of %q: parser %v, walk %v; prefix ends: parser %v, walk %v", src, parser, walk, parserEnds, walkEnds)
 		}
 	})
 }

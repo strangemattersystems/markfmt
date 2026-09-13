@@ -33,6 +33,12 @@ func (t *Tree) Kind(id NodeID) Kind {
 	return t.nodes[id].kind
 }
 
+// SplitTab returns the columns left for leaf id of a tab at its start that
+// structures consumed in part, or 0 (design 4.3).
+func (t *Tree) SplitTab(id NodeID) int {
+	return int(t.nodes[id].virt)
+}
+
 // Raw returns the source bytes of node id.
 func (t *Tree) Raw(id NodeID) []byte {
 	n := t.nodes[id]

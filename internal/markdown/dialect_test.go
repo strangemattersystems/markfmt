@@ -46,6 +46,7 @@ func TestTree_DialectSpans(t *testing.T) {
 		{"finds brackets with 1000 bytes between them across an escaped bracket", "[" + strings.Repeat("a", 998) + "\\]]", []string{"Paragraph 9"}},
 		{"finds no span for brackets with 999 bytes between them", "[" + strings.Repeat("a", 999) + "](/u)", nil},
 		{"finds a paragraph that starts with an underline after a definition", "[foo]: /url\n---\n\n[bar]: /u\n===", []string{"LinkReferenceDefinition 10", "Paragraph 10", "LinkReferenceDefinition 10", "Paragraph 10"}},
+		{"finds a setext heading that starts with an underline after a definition", "[baz]: /url\n-\n-", []string{"LinkReferenceDefinition 10", "Heading 10"}},
 		{"finds no span for a paragraph after a blank line or without an underline after a definition", "[foo]: /url\nbar\n\n[a]: /u\n\n===", nil},
 		{"finds a paragraph that starts with a quote after a definition without a title", "[foo]: /url\n\"title\"ok\n\n[a]: /u\n(b) c", []string{"LinkReferenceDefinition 11", "Paragraph 11", "LinkReferenceDefinition 11", "Paragraph 11"}},
 		{"finds no span for a paragraph that starts with a quote after a definition with a title", "[foo]: /url 't'\n\"x\"", nil},

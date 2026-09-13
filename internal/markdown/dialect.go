@@ -74,6 +74,18 @@ type dialectSpan struct {
 	rows dialectRows
 }
 
+// DialectSpans returns the structure nodes where GitHub and CommonMark 0.31.2
+// give the document a different meaning, in node order. The printer keeps
+// their bytes and the blank lines around them (design 2.1, 12).
+func (t *Tree) DialectSpans() []NodeID {
+	spans := t.dialectSpans()
+	ids := make([]NodeID, len(spans))
+	for i, s := range spans {
+		ids[i] = NodeID(s.id)
+	}
+	return ids
+}
+
 // dialectSpans returns the dialect spans of t in node order. Each predicate
 // is conservative: a span where GitHub gives the same meaning only keeps
 // bytes that the printer could have changed.
@@ -164,7 +176,7 @@ func (f *spanFinder) enter(id uint32, n Node) {
 	case Paragraph, Heading, TableCell:
 		f.block = id
 		f.inlineBlock(id, n)
-		if n.kind == Paragraph {
+		if n.kind != TableCell {
 			f.afterDefinition(id)
 		}
 	case LinkReferenceDefinition:
@@ -247,9 +259,9 @@ func (f *spanFinder) inlineBlock(id uint32, n Node) {
 	}
 }
 
-// afterDefinition adds paragraph id and the link reference definition before
-// it to a row, when no blank line is between them and the paragraph starts
-// with an underline or a title quote.
+// afterDefinition adds block id, a paragraph or a heading, and the link
+// reference definition before it to a row, when no blank line is between
+// them and the block starts with an underline or a title quote.
 func (f *spanFinder) afterDefinition(id uint32) {
 	t := f.t
 	if t.nodes[f.last].kind != LineEnding || t.nodes[f.parent].kind != LinkReferenceDefinition {
@@ -313,9 +325,10 @@ func (f *spanFinder) line(id uint32, n Node) {
 	if tagNamed(t.src[n.start:end], "source") {
 		f.add(block, rowSource)
 	}
-	if t.nodes[block].kind != Table && htmlBlockStart(t.src, n.start, end) == 7 &&
-		f.walk.matched(f.lineFirst) < len(f.walk.chain) {
-		f.add(block, rowLazyKind7)
+	if t.nodes[block].kind != Table && htmlBlockStart(t.src, n.start, end) == 7 {
+		if matched, _ := f.walk.matched(f.lineFirst); matched < len(f.walk.chain) {
+			f.add(block, rowLazyKind7)
+		}
 	}
 }
 

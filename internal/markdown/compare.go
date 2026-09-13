@@ -398,12 +398,28 @@ func equalSpans(pa *projection, ia NodeID, pb *projection, ib NodeID) bool {
 // prefix leaves, with a split tab as its virt spaces (design 4.3) and each
 // line ending as a line feed.
 type spanReader struct {
-	t      *Tree
-	i, end uint32
-	b      []byte // the rest of the last leaf
+	t       *Tree
+	i, end  uint32
+	b       []byte // the rest of the last leaf
+	last    byte   // the last byte read
+	started bool   // a byte was read
+	done    bool   // the reader gave the line feed that ends the input
 }
 
 func (r *spanReader) next() []byte {
+	b := r.read()
+	switch {
+	case b != nil:
+		r.last, r.started = b[len(b)-1], true
+	case r.started && r.last != '\n' && !r.done:
+		// The end of the input is a line ending (design 8.2).
+		r.done = true
+		return lineFeed[:1:1]
+	}
+	return b
+}
+
+func (r *spanReader) read() []byte {
 	for len(r.b) == 0 {
 		if r.i == r.end {
 			return nil
@@ -450,7 +466,8 @@ func (s *spanLines) next() (int, bool) {
 		if s.lineStart && n.kind.class() != classStructure {
 			s.lineStart = false
 			if !t.blankRest(i, s.end) {
-				matched, found = s.w.matched(i), true
+				matched, _ = s.w.matched(i)
+				found = true
 			}
 		}
 		s.w.visit(i)

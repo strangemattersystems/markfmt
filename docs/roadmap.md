@@ -144,6 +144,9 @@ Layout:
 | ATX headings without a closing sequence | dprint, mdformat, Google. Prettier 3.9 writes ATX, and keeps setext headings. |
 | List item content indented by the marker width plus 1 | Prettier, dprint, mdformat, markdownlint (MD030). Google indents 4 columns. |
 | Escapes and entity references as written. The printer adds and removes none | Prettier and dprint keep them; mdformat decodes them. The printer uses indentation and syntax choices where the others add escapes, so `Kept` stays exact (design 12). The user chose this over added escapes, 2026-09-13. |
+| No byte order mark in the output | A BOM is not meaning: cmark and GitHub strip it (design 4.1), and UTF-8 needs no byte order. |
+| No blank line between adjacent link reference definitions | Prettier writes them this way (`print/children.js`). A blank line between them is not meaning. |
+| A table stays directly below a paragraph that it split off when the paragraph starts with `[` | After a blank line, the paragraph would start with a link reference definition (design 5.4). Other paragraphs get a blank line before the table. |
 | The printer keeps each NUL and invalid UTF-8 byte | cmark writes an invalid byte in a destination as `%A6`, where markfmt's value is U+FFFD, so `Equal` cannot see the byte. `Kept` checks it (design 12). |
 | One blank line between blocks, one final newline, line breaks as written | Prettier (`proseWrap: "preserve"`), dprint (`TextWrap::Maintain`), mdformat (`wrap: keep`). markdownlint MD012 and MD047 agree. |
 

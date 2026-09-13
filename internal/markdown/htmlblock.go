@@ -185,6 +185,23 @@ func (t *Tree) htmlKindAgrees(i int) bool {
 	return j < m.end && htmlBlockStart(t.src, j, m.end) == t.nodes[i].flags
 }
 
+// HTMLBlockClosed reports whether HTML block id ends at its end condition,
+// so that a blank line after it is not its content: a block of kind 6 or 7,
+// or a block of kind 1 to 5 whose last line meets the end condition (design
+// 8.2).
+func (t *Tree) HTMLBlockClosed(id NodeID) bool {
+	n := t.nodes[id]
+	if n.flags >= 6 {
+		return true
+	}
+	for i := n.link - 1; i > uint32(id); i-- {
+		if m := t.nodes[i]; m.kind == HTMLText {
+			return htmlBlockEnds(t.src, m.start, m.end, n.flags)
+		}
+	}
+	return false
+}
+
 // AppendHTML appends the value of HTML block id to dst (design 8.2).
 func (t *Tree) AppendHTML(dst []byte, id NodeID) []byte {
 	return t.appendVerbatim(dst, id, HTMLText)

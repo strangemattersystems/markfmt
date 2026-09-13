@@ -32,7 +32,7 @@ type blockParser struct {
 	inline inlineParser
 	defs   *definitions
 	pass1  bool // the block phase of pass 1, which skips the inline phase (design 7.1)
-	trace  func(line, int)
+	trace  func(line, int, int, bool)
 	label  []byte // a normalized label
 
 	pending []pendingLine // lines of the open leaf block that are not appended yet (design 5.3)
@@ -164,7 +164,7 @@ func (p *blockParser) parseLine(l line) {
 	}
 	// cmark-gfm starts a footnote definition only when fewer than 99 blocks
 	// started before it on the line (its MAX_LIST_DEPTH, design 9.2).
-	opened := 0
+	opened, note := 0, false
 starts:
 	for indent < 4 && first < l.end {
 		m, item := p.listItemStart(first, allMatched)
@@ -175,6 +175,7 @@ starts:
 		case labelEnd > 0 && opened < 99:
 			p.startBlock(matched)
 			p.startFootnote(first, labelEnd, contentStart)
+			note = true
 		case item:
 			p.startItem(m, indent, matched)
 		default:
@@ -201,7 +202,7 @@ starts:
 					n++
 				}
 			}
-			p.trace(l, n)
+			p.trace(l, n, p.col+p.used, true)
 		}
 		p.addPending()
 		return
@@ -215,6 +216,9 @@ starts:
 	}
 	p.startBlock(matched)
 	p.leaf = leafBlock{kind: paragraphLeaf, first: p.first}
+	if p.trace != nil && !note {
+		p.trace(l, 0, p.col+p.used, false)
+	}
 	p.addPending()
 }
 
@@ -642,6 +646,40 @@ func nextColumn(c byte, col int) int {
 	return col + 1
 }
 
+// A Layout follows a walk over the nodes of a tree in order. It gives the
+// columns of each leaf, and the containers that each line matched (design
+// 4.3, 12).
+type Layout struct {
+	w containerWalk
+}
+
+// Layout returns a layout before the first node of t.
+func (t *Tree) Layout() Layout {
+	return Layout{w: containerWalk{t: t}}
+}
+
+// Visit moves l to node id, the node after the last one it visited. For a
+// leaf it returns the column where the leaf's own columns start, after the
+// columns of a split tab that structures consumed, and the column after the
+// leaf.
+func (l *Layout) Visit(id NodeID) (start, end int) {
+	return l.w.visit(uint32(id))
+}
+
+// ItemIndent returns the columns that the list item that Visit entered last
+// continues on: its indentation, marker and padding (design 5.5).
+func (l *Layout) ItemIndent() int {
+	return l.w.chain[len(l.w.chain)-1].indent
+}
+
+// Matched returns how many of the open block quotes, list items and footnote
+// definitions the line whose first leaf is node id matched, and the column
+// where the prefixes of the line's containers end. Call it before visiting
+// id. A lazy line matches fewer than are open.
+func (l *Layout) Matched(id NodeID) (matched, end int) {
+	return l.w.matched(uint32(id))
+}
+
 // containerWalk follows a walk over the nodes of a tree in order. It keeps the
 // open block quotes, list items and footnote definitions with the columns that
 // each continues on, and the column after the last leaf, so that it can count
@@ -657,8 +695,9 @@ type openContainer struct {
 	indent int // the columns that a list item or a footnote definition continues on
 }
 
-// visit moves the walk to node i, the node after the last one it visited.
-func (w *containerWalk) visit(i uint32) {
+// visit moves the walk to node i, the node after the last one it visited,
+// and returns the columns of a leaf, as [Tree.leafColumns] gives them.
+func (w *containerWalk) visit(i uint32) (start, end int) {
 	w.pop(i)
 	t := w.t
 	n := t.nodes[i]
@@ -671,12 +710,14 @@ func (w *containerWalk) visit(i uint32) {
 		w.chain = append(w.chain, openContainer{id: i, indent: 4})
 	}
 	if n.kind.class() == classStructure {
-		return
+		return 0, 0
 	}
-	_, w.col = t.leafColumns(n, w.col)
+	start, end = t.leafColumns(n, w.col)
+	w.col = end
 	if c := t.src[n.end-1]; c == '\n' || c == '\r' {
 		w.col = 0
 	}
+	return start, end
 }
 
 // pop closes the containers that end before node i.
@@ -689,8 +730,10 @@ func (w *containerWalk) pop(i uint32) {
 // matched returns how many open containers the line whose first leaf is node
 // i matched: the owners of its prefix leaves and the containers before them,
 // then the list items and footnote definitions whose indentation ends inside
-// the split tab of the first leaf that is not a prefix leaf (design 4.3).
-func (w *containerWalk) matched(i uint32) int {
+// the split tab of the first leaf that is not a prefix leaf (design 4.3). It
+// also returns the column where the prefixes of the line's containers end,
+// with the containers that start on the line.
+func (w *containerWalk) matched(i uint32) (int, int) {
 	w.pop(i)
 	t, chain := w.t, w.chain
 	k, col, partial := 0, 0, 0 // partial: columns of that tab that the last prefix leaf's container consumed
@@ -701,23 +744,31 @@ func (w *containerWalk) matched(i uint32) int {
 		}
 		if _, prefix := n.kind.owner(); !prefix {
 			if n.virt == 0 {
-				return k
+				return k, col
 			}
-			consumed := nextColumn('\t', col) - col - int(n.virt) - partial
+			consumed := nextColumn('\t', col) - col - int(n.virt)
+			end := col + max(min(partial, consumed), 0)
+			consumed -= partial
 			for k < len(chain) && t.nodes[chain[k].id].kind != BlockQuote && chain[k].indent <= consumed {
 				consumed -= chain[k].indent
+				end += chain[k].indent
 				k++
 			}
-			return k
+			return k, end
 		}
-		for k < len(chain) && chain[k].id != n.link {
-			k++
+		j, indent := k, 0
+		for j < len(chain) && chain[j].id != n.link {
+			j++
 		}
-		if k == len(chain) {
-			return k
+		switch {
+		case j < len(chain):
+			k, indent = j+1, chain[j].indent
+		case t.nodes[n.link].kind == ListItem:
+			// A list item that starts on the line.
+			indent = t.itemIndent(NodeID(n.link), col)
 		}
 		start, end := t.leafColumns(n, col)
-		partial = chain[k].indent - (end - start)
+		partial = indent - (end - start)
 		if n.kind == QuoteMarker {
 			// The optional space after '>' takes a column of a tab.
 			partial = 0
@@ -725,9 +776,9 @@ func (w *containerWalk) matched(i uint32) int {
 				partial = 1
 			}
 		}
-		k, col = k+1, end
+		col = end
 	}
-	return k
+	return k, col
 }
 
 // itemIndent returns the columns that list item id continues on, when its
