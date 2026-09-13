@@ -36,3 +36,5 @@ autolink-entity equal cmark decodes entity references in an autolink (design 8.4
 autolink-escape different a backslash in an autolink is not an escape (CM 603)
 raw-html-escaped different raw HTML is not text (CM 613)
 raw-html-indent equal the indentation of a paragraph line in raw HTML is not content (CM 615, 616)
+emphasis-character equal the delimiter character is not in the key of emphasis (CM 350, 357, 378, 382)
+emphasis-nesting different emphasis around strong emphasis is not strong emphasis around emphasis (CM 467)

@@ -37,6 +37,7 @@ func TestRenderHTML(t *testing.T) {
 		{"writes code spans", "` a `` `\n``\nb\n`` ` ` `  `", "<p><code>a ``</code>\n<code>b</code> <code> </code> <code>  </code></p>\n"},
 		{"writes autolinks", "<https://a.b/\\[&amp;\u00e9'> <A@b.c>", "<p><a href=\"https://a.b/%5C%5B&amp;%C3%A9&#x27;\">https://a.b/\\[&amp;\u00e9'</a> <a href=\"mailto:A@b.c\">A@b.c</a></p>\n"},
 		{"writes raw html", "a <b\n c='d'>e<!---->", "<p>a <b\nc='d'>e<!----></p>\n"},
+		{"writes emphasis", "*a* __b__", "<p><em>a</em> <strong>b</strong></p>\n"},
 		{"writes line breaks", "a\\\nb  \nc \nd  ", "<p>a<br />\nb<br />\nc\nd</p>\n"},
 		{"writes paragraphs", "\xEF\xBB\xBFa\r\n b\n \nc", "<p>a\nb</p>\n<p>c</p>\n"},
 	}
@@ -106,7 +107,7 @@ func renderHTML(tree *Tree) string {
 		}
 		//exhaustive:enforce
 		switch n.kind {
-		case Document, BOM, BlankLine, Indent, LineEnding, TrailingSpace, HardBreakMarker, CodeFence, ThematicRun, ATXMarker, ATXClose, Whitespace,
+		case Document, BOM, BlankLine, Indent, LineEnding, TrailingSpace, HardBreakMarker, CodeFence, Delimiter, ThematicRun, ATXMarker, ATXClose, Whitespace,
 			CodeIndent, CodeText, VerbatimLineEnding, FenceMarker, InfoString, SetextUnderline, HTMLText, QuoteMarker, ListMarker, ItemIndent,
 			LinkReferenceDefinition, LinkLabel, Destination, Title, Bracket, Colon, AngleBracket, TitleQuote,
 			FrontMatter, FrontMatterFence, FrontMatterText:
@@ -171,6 +172,10 @@ func renderHTML(tree *Tree) string {
 			b.WriteString(`<a href="` + escapeHref(href) + `">`)
 		case Text, Escape, EntityRef, AutolinkText:
 			b.WriteString(htmlEscaper.Replace(string(tree.AppendValue(nil, e.ID))))
+		case Emphasis:
+			b.WriteString(inlineTag("em", e.Exit))
+		case Strong:
+			b.WriteString(inlineTag("strong", e.Exit))
 		case RawHTML:
 			if !e.Exit {
 				b.Write(tree.AppendRawHTML(nil, e.ID))
@@ -215,6 +220,14 @@ func escapeHref(s string) string {
 		}
 	}
 	return b.String()
+}
+
+// inlineTag returns the start or end tag of an inline element.
+func inlineTag(name string, end bool) string {
+	if end {
+		return "</" + name + ">"
+	}
+	return "<" + name + ">"
 }
 
 func tag(name string, end bool) string {
