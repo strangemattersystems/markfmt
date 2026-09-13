@@ -527,7 +527,8 @@ func (p *printer) leaf(id markdown.NodeID, k markdown.Kind, start, end int) {
 		default:
 			p.write([]byte{'\\'})
 		}
-	case len(p.out) == 0 && len(p.stack) == 2 && k == markdown.Text && string(t.Raw(id)) == "+++":
+	case len(p.out) == 0 && len(p.stack) == 2 && k == markdown.Text && p.inSpan == 0 &&
+		string(bytes.TrimRight(t.RestOfLine(id), " \t\r\n")) == "+++":
 		// The first block never looks like front matter (appendix B, trap 7).
 		p.indent = -1
 		p.write(spaces[:1])
