@@ -40,11 +40,11 @@ func parseListMarker(src []byte, i, end uint32) (listMarker, bool) {
 // open container.
 func (p *blockParser) listItemStart(first uint32, allMatched bool) (listMarker, bool) {
 	end := p.l.end
-	// A setext underline and a thematic break come first. An item interrupts a
-	// paragraph that is a child of the last matched container only when it
-	// starts at 1 and has content (design 5.1).
-	para := allMatched && p.leaf.kind == paragraphLeaf
-	if para && setextUnderline(p.src, first, end) > 0 || isThematicBreak(p.src, first, end) {
+	// A thematic break comes first. An item interrupts a paragraph that is a
+	// child of the last matched container only when it starts at 1 and has
+	// content (design 5.1).
+	para := allMatched && (p.leaf.kind == paragraphLeaf || p.interrupt)
+	if isThematicBreak(p.src, first, end) {
 		return listMarker{}, false
 	}
 	m, ok := parseListMarker(p.src, first, end)

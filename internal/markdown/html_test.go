@@ -29,6 +29,7 @@ func TestRenderHTML(t *testing.T) {
 		{"writes block quotes", "> a\n", "<blockquote>\n<p>a</p>\n</blockquote>\n"},
 		{"writes tight lists", "- a\n- b\n", "<ul>\n<li>a</li>\n<li>b</li>\n</ul>\n"},
 		{"writes loose ordered lists", "3. a\n\n4. b", "<ol start=\"3\">\n<li><p>a</p>\n</li>\n<li><p>b</p>\n</li>\n</ol>\n"},
+		{"writes nothing for link reference definitions", "[a]: /u\n", ""},
 		{"writes paragraphs", "\xEF\xBB\xBFa\r\n b\n \nc", "<p>a\nb</p>\n<p>c</p>\n"},
 	}
 	for _, tt := range tests {
@@ -99,7 +100,8 @@ func renderHTML(tree *Tree) string {
 		//exhaustive:enforce
 		switch n.kind {
 		case Document, BOM, BlankLine, Indent, ThematicRun, ATXMarker, ATXClose, Whitespace,
-			CodeIndent, CodeText, VerbatimLineEnding, FenceMarker, InfoString, SetextUnderline, HTMLText, QuoteMarker, ListMarker, ItemIndent:
+			CodeIndent, CodeText, VerbatimLineEnding, FenceMarker, InfoString, SetextUnderline, HTMLText, QuoteMarker, ListMarker, ItemIndent,
+			LinkReferenceDefinition, LinkLabel, Destination, Title, Bracket, Colon, AngleBracket, TitleQuote:
 		case CodeBlock:
 			if e.Exit {
 				break

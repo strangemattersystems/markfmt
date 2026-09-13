@@ -17,6 +17,10 @@ type blockParser struct {
 	used   int          // columns of a tab at pos that structures consumed (design 4.3)
 	prefix []prefixLeaf // prefix leaves of the line that are not appended yet
 
+	// interrupt blocks the starts that cannot interrupt a paragraph, on a
+	// setext underline after definitions that took every paragraph line.
+	interrupt bool
+
 	pending []pendingLine // lines of the open leaf block that are not appended yet (design 5.3)
 	arena   []prefixLeaf  // prefix leaves of the pending lines
 }
@@ -66,7 +70,7 @@ type pendingLine struct {
 
 // parseLine adds one line to the tree (design 5.1 and 5.2).
 func (p *blockParser) parseLine(l line) {
-	p.l, p.pos, p.col, p.used = l, l.start, 0, 0
+	p.l, p.pos, p.col, p.used, p.interrupt = l, l.start, 0, 0, false
 
 	matched := 1
 	for matched < len(p.containers) && p.continues(p.containers[matched]) {
@@ -78,6 +82,27 @@ func (p *blockParser) parseLine(l line) {
 	}
 
 	first, indent := p.indentation()
+	if allMatched && p.leaf.kind == paragraphLeaf && indent < 4 && first < l.end {
+		if end := setextUnderline(p.src, first, l.end); end > 0 {
+			// Definitions come first (CM 215, 216).
+			if p.commitDefinitions() {
+				p.appendParagraph(Heading)
+				p.appendPrefix()
+				p.b.leafIf(Indent, first)
+				p.b.leaf(SetextUnderline, end)
+				p.b.leafIf(Whitespace, l.end)
+				p.b.leafIf(LineEnding, l.eol)
+				p.b.close()
+				p.leaf = leafBlock{}
+				return
+			}
+			// No paragraph line remains: dispatch the line again as if an
+			// empty paragraph were open (design 5.4).
+			p.clearPending()
+			p.leaf = leafBlock{}
+			p.interrupt = true
+		}
+	}
 starts:
 	for indent < 4 && first < l.end {
 		switch m, item := p.listItemStart(first, allMatched); {
@@ -93,7 +118,7 @@ starts:
 		first, indent = p.indentation()
 	}
 	blank := first == l.end
-	if !blank && p.startLeaf(first, indent, matched, allMatched) {
+	if !blank && p.startLeaf(first, indent, matched) {
 		return
 	}
 
@@ -184,8 +209,8 @@ func (p *blockParser) continueLeaf() bool {
 // startLeaf starts the leaf block that begins at first, after indent columns
 // of indentation, and reports whether one started. matched is the number of
 // open containers that the line matched.
-func (p *blockParser) startLeaf(first uint32, indent, matched int, allMatched bool) bool {
-	l, para := p.l, p.leaf.kind == paragraphLeaf
+func (p *blockParser) startLeaf(first uint32, indent, matched int) bool {
+	l, para := p.l, p.leaf.kind == paragraphLeaf || p.interrupt
 	if indent >= 4 {
 		// Indented code never starts while a paragraph is open, matched or
 		// not (design 5.1).
@@ -196,18 +221,6 @@ func (p *blockParser) startLeaf(first uint32, indent, matched int, allMatched bo
 		p.b.open(CodeBlock)
 		p.leaf.kind = indentedCodeLeaf
 		p.codeLine(p.rest(), p.col, p.used, 4)
-		return true
-	}
-	if end := setextUnderline(p.src, first, l.end); end > 0 && para && allMatched {
-		p.b.open(Heading)
-		p.appendPending()
-		p.appendPrefix()
-		p.b.leafIf(Indent, first)
-		p.b.leaf(SetextUnderline, end)
-		p.b.leafIf(Whitespace, l.end)
-		p.b.leafIf(LineEnding, l.eol)
-		p.b.close()
-		p.leaf = leafBlock{}
 		return true
 	}
 	if isThematicBreak(p.src, first, l.end) {
@@ -331,9 +344,11 @@ func (p *blockParser) closeLeaf() {
 	switch p.leaf.kind {
 	case noLeaf:
 	case paragraphLeaf:
-		p.b.open(Paragraph)
-		p.appendPending()
-		p.b.close()
+		if p.commitDefinitions() {
+			p.appendParagraph(Paragraph)
+			p.b.close()
+		}
+		p.clearPending()
 	case indentedCodeLeaf:
 		// Trailing blank lines follow the code as structural blank lines.
 		p.b.close()
@@ -365,11 +380,15 @@ func (p *blockParser) addPending() {
 	p.b.split = 0
 }
 
-// appendPending appends the pending lines as paragraph lines and clears
-// them.
-func (p *blockParser) appendPending() {
-	for _, pl := range p.pending {
+// appendParagraph opens a block of kind k, Paragraph or Heading, appends the
+// pending lines as its lines and clears them. The prefix leaves of its first
+// line come before its node.
+func (p *blockParser) appendParagraph(k Kind) {
+	for n, pl := range p.pending {
 		p.appendPendingPrefix(pl)
+		if n == 0 {
+			p.b.open(k)
+		}
 		p.b.split = splitVirt(int(pl.col), int(pl.used))
 		p.b.leafIf(Indent, p.skipSpace(pl.rest.start, pl.rest.end))
 		p.b.leaf(Text, pl.rest.end)
