@@ -98,6 +98,7 @@ Known divergences at draft 3:
 | VT and FF at the ends of an info string | trimmed (cmark, section 8.4) | kept |
 | Definition title that other characters follow on its line | the definition has no title (spec text, commonmark.js) | the title stays (cmark and cmark-gfm) |
 | Link label length | at most 999 characters (spec text, commonmark.js) | at most 1000 bytes (cmark and cmark-gfm) |
+| VT and FF in a link label | whitespace (cmark, section 8.4) | label characters |
 
 markfmt follows the CommonMark column, and cmark where cmark and commonmark.js
 disagree, but not where cmark contradicts the spec text (the code span, definition
@@ -620,8 +621,10 @@ preorder. The scratch buffer never inserts:
   2-byte `\|` gives `|`. So `[x\\|y]` has the label `x\|y` (GitHub).
 - Label normalization: UTF-8 decoding only (escapes and entity references stay
   as written, so `[foo\!]` does not match `[foo!]`, CM 545), Unicode full case
-  fold, trim and collapse runs of space, tab and line ending to one space.
-  Other Unicode whitespace, NBSP included, is kept.
+  fold, trim and collapse runs of space, tab and line ending, and in a link
+  label also VT and FF, to one space, as cmark does (section 8.4). A footnote
+  label keeps VT and FF, as cmark-gfm does. Other Unicode whitespace, NBSP
+  included, is kept.
 - Label cap: 999 characters, for link reference definitions, links and images,
   checked in this order before any scan or normalization: the bracket sequence
   number (section 6.3), then a byte length of at most 999 (accepted without a
@@ -828,6 +831,7 @@ research (section 17).
 | ASCII control characters in a destination or an absolute URI | A destination ends at space, tab, VT and FF, and takes the other control characters. An absolute URI takes DEL. cmark and commonmark.js do this. The spec text excludes control characters, but no example tests it (section 2). |
 | HTML block kind 7 at an open tag named `pre`, `script`, `style` or `textarea` | Starts when the tag is not kind 1, as in `<pre/>`. cmark and commonmark.js do this. The spec text excludes these names, but no example tests it (section 2). |
 | Whitespace at the ends of an info string | Trimmed after entity references decode: space, tab, line ending, VT and FF, as cmark trims them. The spec text trims the spaces and tabs of the line only, and no example tests the rest (section 2). |
+| VT and FF in a link label | Whitespace: trimmed, collapsed, and blank in a label of them alone, as cmark reads them. The spec text names spaces, tabs and line endings, and no example tests VT or FF (section 2). |
 | VT and FF in an HTML tag | Whitespace, as cmark and commonmark.js read them: after a kind 1 or kind 6 tag name, around attributes, in a closing tag, and in inline raw HTML. After the tag of an HTML block of kind 7, cmark takes FF but not VT. The spec text makes whitespace of spaces, tabs and one line ending, and no example tests VT or FF (section 2). |
 
 ## 9. GitHub syntax

@@ -28,7 +28,7 @@ func (p *blockParser) commitDefinitions() bool {
 // AppendLabel appends the normalized label of link reference definition id
 // to dst (design 6.7).
 func (t *Tree) AppendLabel(dst []byte, id NodeID) []byte {
-	f := labelFolder{dst: dst, start: len(dst)}
+	f := labelFolder{dst: dst, start: len(dst), link: true}
 	brackets := 0
 	for _, m := range t.nodes[id+1 : t.nodes[id].link] {
 		switch {

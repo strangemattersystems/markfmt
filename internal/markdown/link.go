@@ -228,7 +228,7 @@ func (s *inlineParser) defined(from, to int) bool {
 			return false
 		}
 	}
-	f := labelFolder{dst: s.label[:0]}
+	f := labelFolder{dst: s.label[:0], link: true}
 	for j := from; j < to; j++ {
 		f.leaf(s.pieces[j].kind, s.src[s.startOf(j):s.pieces[j].end])
 	}
@@ -255,7 +255,7 @@ func (t *Tree) LinkForm(id NodeID) LinkForm {
 // to dst: the label of a full reference, or the bracket text of a collapsed
 // or shortcut reference (design 6.7).
 func (t *Tree) AppendLinkLabel(dst []byte, id NodeID) []byte {
-	f := labelFolder{dst: dst, start: len(dst)}
+	f := labelFolder{dst: dst, start: len(dst), link: true}
 	first := 1 // the label follows this many of the link's own brackets
 	if t.LinkForm(id) == FullReference {
 		first = 3
@@ -304,7 +304,8 @@ func (s *inlineParser) linkTail() bool {
 // linkLabel pushes the link label at the position: '[', up to 999 characters
 // with no unescaped bracket and at least one that is not a space, tab or line
 // ending, and ']' (design 6.7). It reports whether there is one, and whether
-// it is blank: it has only spaces, tabs and line endings.
+// it is blank: it has only spaces, tabs, VT, FF and line endings, as cmark
+// reads it.
 func (s *inlineParser) linkLabel() (found, blank bool) {
 	j := s.end()
 	if c, ok := s.byteAt(pos{s.k, j}); !ok || c != '[' {
@@ -334,7 +335,7 @@ func (s *inlineParser) linkLabel() (found, blank bool) {
 			j++
 			chars++
 			blank = false
-		case !isSpaceOrTab(c):
+		case !isSpaceOrTab(c) && c != '\v' && c != '\f':
 			blank = false
 		}
 		if s.src[j]&0xC0 != 0x80 {

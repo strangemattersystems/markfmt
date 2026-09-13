@@ -794,3 +794,16 @@ x
 <ab>
 <p>z <ab></p>
 ````````````````````````````````
+
+## fixed in markfmt, spec section 4.7: VT and FF are whitespace in a link label, as cmark reads them
+
+markfmt kept the form feed in the label, so `[ref]` matched no definition
+(design 6.7, 8.4).
+
+```````````````````````````````` example
+[ref]
+
+[ref]: /u
+.
+<p><a href="/u">ref</a></p>
+````````````````````````````````

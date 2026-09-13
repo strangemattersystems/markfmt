@@ -161,11 +161,17 @@ type labelFolder struct {
 	dst   []byte
 	start int  // length of dst before the label
 	space bool // a run of spaces, tabs and line endings is pending
+	link  bool // the label is a link label, where VT and FF are also spaces, as cmark reads them
 }
 
 func (f *labelFolder) write(b []byte) {
 	for len(b) > 0 {
 		switch b[0] {
+		case '\v', '\f':
+			if !f.link {
+				break
+			}
+			fallthrough
 		case ' ', '\t', '\n', '\r':
 			f.space = len(f.dst) > f.start
 			b = b[1:]
