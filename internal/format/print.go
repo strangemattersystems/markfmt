@@ -25,6 +25,7 @@ type printer struct {
 
 	lineStart bool          // the output is at the start of a line
 	inputLine bool          // the next leaf starts a line of the input
+	lineBegin bool          // the leaf that the printer reads starts a line of the input
 	matched   int           // the containers that the input line of the output line matched
 	indent    int           // the input column where columns that are not written yet start, or -1
 	inSpan    int           // the open dialect spans
@@ -64,6 +65,12 @@ type frame struct {
 	span      bool          // a dialect span
 	tight     bool          // a list that is not loose, or an item of one
 	fences    int           // the fence markers of a code block
+
+	// A code block outside a dialect span writes fence around its lines,
+	// without the fence lines of the input. opening is true on the input's
+	// opening fence line, and lineOpen on a line of code that has not ended.
+	fence             []byte
+	opening, lineOpen bool
 
 	// A list numbers its items from start, and uses its second marker with
 	// alt. Its second item decides lazy numbering.
@@ -163,6 +170,7 @@ func (p *printer) node(id markdown.NodeID) {
 		markdown.Bracket, markdown.Colon, markdown.AngleBracket, markdown.TitleQuote, markdown.FrontMatterFence,
 		markdown.TrailingSpace, markdown.HardBreakMarker, markdown.CodeFence, markdown.Delimiter, markdown.Paren,
 		markdown.TablePipe, markdown.TableDelimiter, markdown.TaskBox, markdown.FootnoteIndent, markdown.Caret:
+		p.lineBegin = p.inputLine
 		if p.inputLine {
 			p.matched, p.indent = p.layout.Matched(id)
 			if p.inSpan > 0 {
@@ -212,6 +220,18 @@ func (p *printer) enter(id markdown.NodeID, k markdown.Kind) {
 	}
 	if f.span {
 		p.inSpan++
+	}
+	if k == markdown.CodeBlock && p.inSpan == 0 {
+		f.fence, f.opening = p.codeFence(id)
+		// Indented code has no fence line: its first line is code.
+		f.lineOpen = !f.opening
+		p.lead, p.indent, p.matched = false, -1, p.containers()
+		p.writePrefix(false)
+		p.write(f.fence)
+		p.lineStart = false
+		if !f.opening {
+			p.endLine()
+		}
 	}
 	if k == markdown.Heading && p.inSpan == 0 {
 		p.head, p.headLevel, p.headDone = headSingle, t.HeadingLevel(id), false
@@ -332,6 +352,9 @@ prefixes:
 func (p *printer) leaf(id markdown.NodeID, k markdown.Kind, start, end int) {
 	t := p.tree
 	top := &p.stack[len(p.stack)-1]
+	if top.fence != nil && p.lineBegin && !top.opening {
+		top.lineOpen = true
+	}
 	switch {
 	case k == markdown.ListMarker:
 		p.listMarker(top, id, start)
@@ -356,6 +379,8 @@ func (p *printer) leaf(id markdown.NodeID, k markdown.Kind, start, end int) {
 		if (k == markdown.LineEnding || k == markdown.VerbatimLineEnding) && top.children == 0 {
 			top.blankFirst = true
 		}
+	case top.fence != nil:
+		p.codeLeaf(top, id, k, start)
 	case p.head == headSingle && p.headDone:
 		// The underline line of a setext heading that prints as ATX.
 	case p.head != headNone && top.kind == markdown.Heading && (k == markdown.ATXMarker || k == markdown.ATXClose || k == markdown.Whitespace):
@@ -466,15 +491,15 @@ func (p *printer) sourceMarker(f *frame, id markdown.NodeID, start int) []byte {
 }
 
 // indentAfter returns the columns of indentation of the first line of the
-// block after node id, when that block is an HTML block or a code block,
-// whose indentation the printer keeps. Otherwise it returns 0.
+// block after node id, when that block is an HTML block, whose indentation is
+// content. Otherwise it returns 0.
 func (p *printer) indentAfter(id markdown.NodeID) int {
 	t := p.tree
 	next, ok := t.Next(id)
 	for ok && (t.Kind(next) == markdown.BlankLine || isPrefix(t.Kind(next))) {
 		next, ok = t.Next(next)
 	}
-	if !ok || t.Kind(next) != markdown.HTMLBlock && t.Kind(next) != markdown.CodeBlock {
+	if !ok || t.Kind(next) != markdown.HTMLBlock {
 		return 0
 	}
 	leaf := next + 1
@@ -537,6 +562,66 @@ func (p *printer) content(id markdown.NodeID, start int) {
 	p.writeLF(b)
 	p.written, p.afterBox = true, k == markdown.TaskBox
 	p.backslash = len(b) > 0 && b[len(b)-1] == '\\' && k != markdown.Escape
+}
+
+// codeFence returns the fence of code block id: backticks, or tildes when its
+// info string has a backtick, one more than the longest run of that
+// character in the code and at least 3 (roadmap Decisions). It also reports
+// whether the input's code block has a fence line.
+func (p *printer) codeFence(id markdown.NodeID) ([]byte, bool) {
+	t := p.tree
+	end, _ := t.Next(id)
+	char, fenced := byte('`'), false
+	for i := id + 1; i < end; i++ {
+		switch t.Kind(i) {
+		case markdown.FenceMarker:
+			fenced = true
+		case markdown.InfoString:
+			if bytes.IndexByte(t.Raw(i), '`') >= 0 {
+				char = '~'
+			}
+		}
+	}
+	longest := 2
+	for i := id + 1; i < end; i++ {
+		if t.Kind(i) != markdown.CodeText {
+			continue
+		}
+		run := 0
+		for _, c := range t.Raw(i) {
+			run++
+			if c != char {
+				run = 0
+			}
+			longest = max(longest, run)
+		}
+	}
+	return bytes.Repeat([]byte{char}, longest+1), fenced
+}
+
+// codeLeaf prints leaf id of kind k, whose own columns start at column
+// start, in code block f: the info string of the opening fence line, and the
+// lines of code as their value.
+func (p *printer) codeLeaf(f *frame, id markdown.NodeID, k markdown.Kind, start int) {
+	switch {
+	case f.opening && k == markdown.InfoString:
+		p.indent = -1
+		p.content(id, start)
+	case f.opening && k == markdown.LineEnding:
+		f.opening = false
+		p.endLine()
+	case f.opening:
+	case k == markdown.CodeText:
+		// The code's value leaves out the input's indentation.
+		p.indent = -1
+		p.content(id, start)
+	case k == markdown.VerbatimLineEnding:
+		f.lineOpen = false
+		p.endLine()
+	case k == markdown.FenceMarker:
+		// The input's closing fence line.
+		f.lineOpen = false
+	}
 }
 
 // thematicRun returns the thematic break to write before the prefix of its
@@ -618,6 +703,18 @@ func (p *printer) exit() {
 		p.inSpan--
 	}
 	switch {
+	case g.fence != nil:
+		// Close the code, also after a last line without a line ending.
+		if !p.lineStart || g.lineOpen {
+			p.endLine()
+		}
+		// A fence line is never lazy.
+		p.matched = p.containers()
+		p.writePrefix(false)
+		p.write(g.fence)
+		p.lineStart = false
+		p.endLine()
+		p.span, p.blanks, p.lastLeaf, p.open, p.bracket = g.span, 0, g.kind, false, false
 	case isLeafBlock(g.kind):
 		if g.kind == markdown.Heading {
 			if p.head == headSingle && !p.headDone {
@@ -648,6 +745,17 @@ func (p *printer) exit() {
 			p.endLine()
 		}
 	}
+}
+
+// containers returns the number of open containers.
+func (p *printer) containers() int {
+	n := 0
+	for i := range p.stack {
+		if p.stack[i].container {
+			n++
+		}
+	}
+	return n
 }
 
 func isPrefix(k markdown.Kind) bool {

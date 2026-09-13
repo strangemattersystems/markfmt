@@ -6,9 +6,5 @@
 #   go test ./internal/format 2>&1 |
 #     sed -n 's/^ *--- FAIL: TestSource\/cases\/\(.*\) (.*/\1/p' |
 #     tr '_' '-' | sort
-closes-a-fence-after-its-blank-lines
-closes-a-list-item-fence-after-its-blank-lines
-closes-an-empty-list-item-fence
-fences-an-indented-code-block-of-a-form-feed
 separates-a-paragraph-from-a-definition
 separates-a-table-from-the-paragraph-above-it
