@@ -470,3 +470,18 @@ a `` b `c` d `e`
 .
 <p>a `` b <code>c</code> d <code>e</code></p>
 ````````````````````````````````
+
+## goldmark deviates, spec section 6.2: a delimiter run at the start of a line in a block quote follows a line ending
+
+goldmark takes the `>` before the run as the character before it, so the
+`*` after it closes emphasis.
+
+```````````````````````````````` example
+>0*0
+>*
+.
+<blockquote>
+<p>0*0
+*</p>
+</blockquote>
+````````````````````````````````
