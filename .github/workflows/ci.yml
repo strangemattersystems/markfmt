@@ -40,3 +40,5 @@ jobs:
           version: 3.x
           repo-token: ${{ secrets.GITHUB_TOKEN }}
       - run: task ${{ matrix.task }}
+      - if: matrix.os == 'ubuntu-latest'
+        run: task long

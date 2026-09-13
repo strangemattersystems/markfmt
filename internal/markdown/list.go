@@ -44,7 +44,7 @@ func (p *blockParser) listItemStart(first uint32, allMatched bool) (listMarker, 
 	// child of the last matched container only when it starts at 1 and has
 	// content (design 5.1).
 	para := allMatched && (p.leaf.kind == paragraphLeaf || p.interrupt)
-	if isThematicBreak(p.src, first, end) {
+	if p.isThematicBreak(first) {
 		return listMarker{}, false
 	}
 	m, ok := parseListMarker(p.src, first, end)
@@ -61,7 +61,9 @@ func (p *blockParser) listItemStart(first uint32, allMatched bool) (listMarker, 
 // is a list that m continues.
 func (p *blockParser) startItem(m listMarker, indent, matched int) {
 	last := p.containers[matched-1]
-	same := last.kind == List && last.marker.ordered == m.ordered && last.marker.char == m.char
+	// The character tells a bullet from a delimiter, so equal characters mean
+	// the same kind of list.
+	same := last.kind == List && last.marker == m.char
 	if last.kind == List && !same {
 		matched--
 	}
@@ -70,7 +72,7 @@ func (p *blockParser) startItem(m listMarker, indent, matched int) {
 	p.addChild()
 	if !same {
 		p.b.open(List)
-		p.containers = append(p.containers, container{kind: List, node: p.b.top(), marker: m})
+		p.push(container{kind: List, node: p.b.top(), marker: m.char})
 		p.addChild()
 	}
 	p.b.open(ListItem)
@@ -86,7 +88,7 @@ func (p *blockParser) startItem(m listMarker, indent, matched int) {
 		padding = max(n, 1)
 	}
 	p.consumeColumns(padding)
-	p.containers = append(p.containers, container{kind: ListItem, node: node, marker: m, indent: indent + width + padding})
+	p.push(container{kind: ListItem, node: node, marker: m.char, indent: count(indent + width + padding)})
 	p.b.split = virt
 	p.b.prefix(ListMarker, p.pos, node)
 }
@@ -97,8 +99,8 @@ func (p *blockParser) startItem(m listMarker, indent, matched int) {
 func (p *blockParser) continueItem(c container) bool {
 	first, indent := p.indentation()
 	switch {
-	case indent >= c.indent:
-		indent = c.indent
+	case indent >= int(c.indent):
+		indent = int(c.indent)
 	case first == p.l.end && c.child:
 	default:
 		return false

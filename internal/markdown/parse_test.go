@@ -3,17 +3,21 @@ package markdown
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"io/fs"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestParse(t *testing.T) {
-	t.Parallel()
+	// Not parallel: the pathological subtest times Parse, and parallel tests
+	// wait until TestParse's own body returns.
 
 	tests := []struct {
 		name string
@@ -133,6 +137,62 @@ func TestParse(t *testing.T) {
 		})
 	}
 
+	t.Run("pathological", func(t *testing.T) {
+		for _, in := range pathologicalInputs {
+			t.Run(in.name, func(t *testing.T) {
+				// The 10n run takes at least 50 ms, so the n run is long enough to
+				// time.
+				n := 1000
+				large, _ := timeParse(t, in.build(10*n))
+				for large < 50*time.Millisecond && 10*n < inputLimit {
+					n *= 2
+					large, _ = timeParse(t, in.build(10*n))
+				}
+				small, _ := timeParse(t, in.build(n))
+				if ratio := float64(large) / float64(small); ratio > 30 {
+					t.Errorf("%d bytes take %v and %d bytes take %v: ratio %.0f, want at most 30", n, small, 10*n, large, ratio)
+				}
+			})
+		}
+	})
+
+	t.Run("long", func(t *testing.T) {
+		if spec := os.Getenv("MARKFMT_LONG_CHILD"); spec != "" {
+			longChild(t, spec)
+			return
+		}
+		if raceEnabled {
+			t.Skip("the race detector makes times and memory unlike those of a normal build")
+		}
+		if os.Getenv("MARKFMT_LONG") != "1" {
+			t.Skip("set MARKFMT_LONG=1 to run")
+		}
+		empty := runLongChild(t, "empty", 0)
+		prose := runLongChild(t, "prose", inputLimit)
+		quotes := runLongChild(t, "quote lines", inputLimit)
+		perByte := float64(prose.time) / float64(prose.bytes)
+		perNode := float64(quotes.time) / float64(quotes.nodes)
+		for _, in := range pathologicalInputs {
+			t.Run(in.name, func(t *testing.T) {
+				small := runLongChild(t, in.name, inputLimit/10)
+				large := runLongChild(t, in.name, inputLimit)
+				t.Logf("%d bytes: %v; %d bytes and %d nodes: %v and %d bytes of memory",
+					small.bytes, small.time, large.bytes, large.nodes, large.time, large.maxrss-empty.maxrss)
+				if ratio := float64(large.time) / float64(small.time); ratio > 30 {
+					t.Errorf("%d bytes take %v and %d bytes take %v: ratio %.0f, want at most 30", small.bytes, small.time, large.bytes, large.time, ratio)
+				}
+				// A linear path with a large constant fails this bound, whatever
+				// its node count.
+				if bound := time.Duration(20 * (float64(large.bytes)*perByte + float64(large.nodes)*perNode)); large.time > bound {
+					t.Errorf("%d bytes and %d nodes take %v, want at most %v", large.bytes, large.nodes, large.time, bound)
+				}
+				if large.maxrss > 0 && empty.maxrss > 0 && large.maxrss-empty.maxrss > memoryBound {
+					t.Errorf("%d bytes take %d bytes of memory, want at most %d", large.bytes, large.maxrss-empty.maxrss, int64(memoryBound))
+				}
+			})
+		}
+	})
+
 	for _, c := range corpora {
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
@@ -140,6 +200,111 @@ func TestParse(t *testing.T) {
 			testConformance(t, c)
 		})
 	}
+}
+
+// inputLimit is the input limit of markfmt.Format (design 7.2).
+const inputLimit = 8 << 20
+
+// memoryBound is the peak memory of the long test at stage 2: half the 4 GiB
+// budget of markfmt.Format, which parses two trees (design 7.2, 11.1).
+const memoryBound = 2 << 30
+
+// longInputs are the calibration inputs of the long test, by name: prose for
+// the time per byte, and block quote lines for the time per node.
+var longInputs = map[string]func(n int) []byte{
+	"empty":       func(int) []byte { return nil },
+	"prose":       func(n int) []byte { return bytes.Repeat([]byte("Lorem ipsum dolor sit amet.\n"), n/28) },
+	"quote lines": func(n int) []byte { return bytes.Repeat([]byte(">a\n"), n/3) },
+}
+
+type longResult struct {
+	time         time.Duration
+	nodes, bytes int
+	maxrss       int64 // peak resident set size in bytes, or 0
+}
+
+// runLongChild runs the input called name at size bytes in a child process of
+// the test binary (design 11.1).
+func runLongChild(t *testing.T, name string, size int) longResult {
+	t.Helper()
+
+	cmd := exec.CommandContext(t.Context(), os.Args[0], "-test.run=^TestParse$/^long$") //nolint:gosec // The command is the test binary itself.
+	cmd.Env = append(os.Environ(), "MARKFMT_LONG_CHILD="+name+","+strconv.Itoa(size))
+	out, err := cmd.Output()
+	if err != nil {
+		t.Fatalf("child for %s at %d bytes: %v\n%s", name, size, err, out)
+	}
+	var r longResult
+	for line := range strings.Lines(string(out)) {
+		if _, err := fmt.Sscanf(line, "markfmt-long %d %d %d", &r.time, &r.nodes, &r.bytes); err == nil {
+			r.maxrss, _ = maxrssBytes(cmd.ProcessState)
+			return r
+		}
+	}
+	t.Fatalf("child for %s at %d bytes gave no result:\n%s", name, size, out)
+	return r
+}
+
+// longChild builds the input that spec names, "name,size", and prints the
+// best time of Parse, Verify and Equal on it, its node count and its size.
+func longChild(t *testing.T, spec string) {
+	name, size, _ := strings.Cut(spec, ",")
+	n, err := strconv.Atoi(size)
+	if err != nil {
+		t.Fatal(err)
+	}
+	build := longInputs[name]
+	for _, in := range pathologicalInputs {
+		if in.name == name {
+			build = in.build
+		}
+	}
+	if build == nil {
+		t.Fatalf("no input %q", name)
+	}
+	src := build(n)
+	d, nodes := timeParse(t, src)
+	fmt.Printf("markfmt-long %d %d %d\n", d, nodes, len(src))
+}
+
+// pathologicalInputs are the block inputs of design 6.8. Each builds an input
+// of about n bytes.
+var pathologicalInputs = []struct {
+	name  string
+	build func(n int) []byte
+}{
+	{"list markers on one line", func(n int) []byte {
+		return []byte(strings.Repeat("- ", n/2) + "a")
+	}},
+	{"nested list items then blank lines", func(n int) []byte {
+		return []byte(strings.Repeat("- ", n/4) + "a" + strings.Repeat("\n", n/2))
+	}},
+	{"nested block quotes on one line", func(n int) []byte {
+		return []byte(strings.Repeat(">", n) + "a")
+	}},
+	{"definitions with unclosed titles", func(n int) []byte {
+		return []byte(strings.Repeat("[a]: b 'c\n", n/10))
+	}},
+}
+
+// timeParse returns the best of 3 times of Parse, Verify, and Equal of the
+// tree with itself on src, and the number of nodes.
+func timeParse(t testing.TB, src []byte) (time.Duration, int) {
+	t.Helper()
+
+	best, nodes := time.Duration(1<<63-1), 0
+	for range 3 {
+		start := time.Now()
+		tree := Parse(src)
+		if err := tree.Verify(); err != nil {
+			t.Fatal(err)
+		}
+		if err := Equal(tree, tree); err != nil {
+			t.Fatal(err)
+		}
+		best, nodes = min(best, time.Since(start)), len(tree.nodes)
+	}
+	return best, nodes
 }
 
 // testConformance renders the examples of c's sections and compares them with

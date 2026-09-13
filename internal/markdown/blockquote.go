@@ -18,7 +18,7 @@ func (p *blockParser) continueQuote(c container) bool {
 func (p *blockParser) startQuote(indent int) {
 	p.b.open(BlockQuote)
 	node := p.b.top()
-	p.containers = append(p.containers, container{kind: BlockQuote, node: node})
+	p.push(container{kind: BlockQuote, node: node})
 	p.b.split = p.consumeQuoteMarker(indent)
 	p.b.prefix(QuoteMarker, p.pos, node)
 }

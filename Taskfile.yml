@@ -37,6 +37,13 @@ tasks:
     cmds:
       - go test -run='^$' -fuzz='^{{.FUZZ}}$' -fuzztime=30s {{.CLI_ARGS}} {{.PKG}}
 
+  long:
+    desc: Run the long tests of time and memory at the input limit, without the race detector
+    env:
+      MARKFMT_LONG: "1"
+    cmds:
+      - go test -count=1 -timeout=60m -v -run='^TestParse$/^long$|^TestMaxrssBytes$' ./internal/markdown
+
   lint:
     desc: Run golangci-lint
     cmds:

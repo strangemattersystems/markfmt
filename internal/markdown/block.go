@@ -9,6 +9,7 @@ type blockParser struct {
 	src []byte
 
 	containers []container // open containers, innermost last; containers[0] is the document
+	blocking   []uint32    // indices of the open block quotes and list items with no child
 	leaf       leafBlock   // the open leaf block of the innermost container
 
 	l      line         // the line being parsed
@@ -21,18 +22,22 @@ type blockParser struct {
 	// setext underline after definitions that took every paragraph line.
 	interrupt bool
 
+	breakMemo uint32 // a thematic break scan from a marker of the line before this offset fails
+
 	pending []pendingLine // lines of the open leaf block that are not appended yet (design 5.3)
 	arena   []prefixLeaf  // prefix leaves of the pending lines
 }
 
+// container is an open container. It is 16 bytes: a line of n '>' opens n
+// of them.
 type container struct {
 	kind   Kind
+	blank  bool // the last line that the container received was blank (design 5.6)
+	child  bool // a block started in the container
+	loose  bool // a List is loose
 	node   uint32
-	blank  bool       // the last line that the container received was blank (design 5.6)
-	child  bool       // a block started in the container
-	loose  bool       // a List is loose
-	indent int        // a ListItem continues on this many columns of indentation
-	marker listMarker // the marker of a ListItem, or of the first item of a List
+	indent uint32 // a ListItem continues on this many columns of indentation
+	marker byte   // the marker character of a ListItem, or of the first item of a List
 }
 
 type leafKind uint8
@@ -70,10 +75,29 @@ type pendingLine struct {
 
 // parseLine adds one line to the tree (design 5.1 and 5.2).
 func (p *blockParser) parseLine(l line) {
-	p.l, p.pos, p.col, p.used, p.interrupt = l, l.start, 0, 0, false
+	p.l, p.pos, p.col, p.used, p.interrupt, p.breakMemo = l, l.start, 0, 0, false, 0
 
-	matched := 1
-	for matched < len(p.containers) && p.continues(p.containers[matched]) {
+	matched, passed := 1, 0
+	for matched < len(p.containers) {
+		// Blank-line fast path (design 5.1): on an empty rest, each container
+		// before the next block quote or list item with no child continues
+		// and consumes nothing.
+		if p.pos == l.end {
+			next := len(p.containers)
+			if passed < len(p.blocking) {
+				next = int(p.blocking[passed])
+			}
+			if matched < next {
+				matched = next
+				continue
+			}
+		}
+		if !p.continues(p.containers[matched]) {
+			break
+		}
+		if passed < len(p.blocking) && int(p.blocking[passed]) == matched {
+			passed++
+		}
 		matched++
 	}
 	allMatched := matched == len(p.containers)
@@ -223,7 +247,7 @@ func (p *blockParser) startLeaf(first uint32, indent, matched int) bool {
 		p.codeLine(p.rest(), p.col, p.used, 4)
 		return true
 	}
-	if isThematicBreak(p.src, first, l.end) {
+	if p.isThematicBreak(first) {
 		p.startBlock(matched)
 		p.b.open(ThematicBreak)
 		p.b.leafIf(Indent, first)
@@ -300,6 +324,9 @@ func (p *blockParser) closeUnmatched(n int) {
 		}
 		p.b.close()
 		p.containers = p.containers[:i]
+		if n := len(p.blocking); n > 0 && int(p.blocking[n-1]) == i {
+			p.blocking = p.blocking[:n-1]
+		}
 		p.orBlank(c.blank)
 	}
 }
@@ -319,7 +346,31 @@ func (p *blockParser) addChild() {
 		}
 		c.blank = false
 	}
+	if c.kind == ListItem && !c.child {
+		p.blocking = p.blocking[:len(p.blocking)-1]
+	}
 	c.child = true
+}
+
+// push opens container c. A block quote, and a list item, which has no child
+// yet, go on the blocking stack of the blank-line fast path.
+func (p *blockParser) push(c container) {
+	if c.kind == BlockQuote || c.kind == ListItem {
+		p.blocking = append(p.blocking, count(len(p.containers)))
+	}
+	p.containers = append(p.containers, c)
+}
+
+// isThematicBreak reports whether the rest of the line from first is a
+// thematic break. A failed scan leaves a memo, so a later start on the line
+// that the memo covers needs no scan (design 5.1).
+func (p *blockParser) isThematicBreak(first uint32) bool {
+	if first < p.breakMemo {
+		return false
+	}
+	ok, memo := scanThematicBreak(p.src, first, p.l.end)
+	p.breakMemo = max(p.breakMemo, memo)
+	return ok
 }
 
 // receiveBlank records a blank line in the innermost open container. A block

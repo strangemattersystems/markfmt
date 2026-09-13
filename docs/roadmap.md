@@ -51,7 +51,7 @@ Last updated: 2026-09-13. Nothing after `ff7de5b` is pushed.
 | `1f63d60`, `f32fd7e` | Parser design, after five review rounds |
 | `104566e` | `.scratch/` is gitignored |
 | `59e930f` onwards | Stage 1: tree, builder, `Verify`, line iterator, test HTML renderer, conformance runner, five corpora |
-| `1604b94` onwards | Stage 2: paragraphs, blank lines, thematic breaks, ATX and setext headings, indented and fenced code, HTML blocks, block quotes, tabs, lists, link reference definitions, front matter, label normalization, `Equal` for block kinds |
+| `1604b94` onwards | Stage 2: paragraphs, blank lines, thematic breaks, ATX and setext headings, indented and fenced code, HTML blocks, block quotes, tabs, lists, link reference definitions, front matter, label normalization, `Equal` for block kinds, pathological inputs and `task long` |
 
 Layout:
 
@@ -186,7 +186,7 @@ Passed 2026-09-12.
 - [x] Front matter, `grammar-differs.txt` and `markfmt/grammar.txt`.
 - [x] `Equal` for block kinds, the stage 2 pairs, `FuzzEqual` with block
   mutations.
-- [ ] Pathological block inputs, the long test and `task long` in the ubuntu
+- [x] Pathological block inputs, the long test and `task long` in the ubuntu
   CI job.
 
 Gates:
@@ -198,6 +198,11 @@ Gates:
 - The pathological subtest of `TestParse` passes, including `- `×n `a` and
   deep lists with blank lines. `task long` passes.
 - `Equal` passes the stage 2 pairs, and `FuzzEqual` finds no false acceptance.
+
+Passed 2026-09-13. `FuzzParse` and `FuzzEqual` ran 90 seconds each with no
+finding. At the input limit, `task long` takes at most 0.6 s and 1.5 GiB of
+memory per input, for nested block quotes; the stage 2 bound is 2 GiB (design
+11.1).
 
 ### Stage 3: inlines
 

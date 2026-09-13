@@ -89,8 +89,8 @@ func (t *Tree) Verify() error {
 		return fmt.Errorf("markdown: invariant 8: %d nodes for %d bytes", len(nodes), len(t.src))
 	}
 
-	var pos uint32 // end of the last leaf
-	var open []int // interior nodes whose subtree is not passed yet
+	var pos uint32    // end of the last leaf
+	var open []uint32 // interior nodes whose subtree is not passed yet
 	exit := func(i int) error {
 		for len(open) > 0 && int(nodes[open[len(open)-1]].link) == i {
 			if n := nodes[open[len(open)-1]]; n.end != pos {
@@ -126,7 +126,7 @@ func (t *Tree) Verify() error {
 			if n.start != pos {
 				return fmt.Errorf("markdown: invariant 3: node %d starts at %d, want %d", i, n.start, pos)
 			}
-			open = append(open, i)
+			open = append(open, count(i))
 		case !t.leafLinkValid(i):
 			return fmt.Errorf("markdown: invariant 5: leaf %d links to %d", i, n.link)
 		case n.start != pos:
