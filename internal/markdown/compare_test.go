@@ -161,6 +161,7 @@ func FuzzEqual(f *testing.F) {
 		"- [ ] a\n- [x] b\n- [X]\tc\n\n1. [ ] d\n",
 		"www.a.com http://b.c/(d) *www.e.f* HTTPS://g.h.\n",
 		"a\\_b@c.de mailto:x@y.zz &#104;@i.jj [e@f.gg](/u)\n",
+		"a[^1] b[^x] ![^1] [^*c* [^d]]\n\n[^1]: e\n    f\n",
 	} {
 		for op := range byte(mutations) {
 			f.Add([]byte(src), op)
@@ -183,7 +184,7 @@ func FuzzEqual(f *testing.F) {
 	})
 }
 
-const mutations = 19
+const mutations = 20
 
 // mutateSyntax returns the source of tree with one kind of block syntax
 // changed everywhere, chosen by op: bullet characters, line endings, ordered
@@ -193,8 +194,8 @@ const mutations = 19
 // emphasis character, the quotes of titles, the case of labels, the number of
 // tildes of strikethrough, the outer pipes of table rows, the spaces of
 // Whitespace leaves, the dashes of delimiter row cells, the backslash before a
-// cell pipe escape, or the case of the x of task boxes (design 10.5). A
-// mutation may change meaning.
+// cell pipe escape, the case of the x of task boxes, or the case of footnote
+// labels (design 10.5). A mutation may change meaning.
 func mutateSyntax(tree *Tree, op byte) []byte {
 	var out []byte
 	for i, n := range tree.nodes {
@@ -270,6 +271,10 @@ func mutateSyntax(tree *Tree, op byte) []byte {
 		case 15:
 			if n.kind == Whitespace {
 				b = bytes.Repeat(b, 2)
+			}
+		case 19:
+			if n.kind == FootnoteLabel {
+				b = bytes.ToUpper(b)
 			}
 		case 18:
 			if n.kind == TaskBox {

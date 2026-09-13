@@ -52,3 +52,5 @@ cell-pipe-split-paragraph different the paragraph split off above a table gets t
 task-box-case equal x and X both check a task box (GitHub fixture tasks/basic)
 task-box-whitespace equal the spaces and tabs after a task box are not content (GitHub fixture tasks/whitespace)
 task-checked different a task is checked or not (cmark-gfm extensions 28)
+footnote-reference-label-case equal a footnote reference label matches after case folding (GitHub fixture footnotes/label-case)
+footnote-definition-label-case different GitHub writes the label of a definition as written into element ids (design 9.2)

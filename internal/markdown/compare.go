@@ -123,6 +123,16 @@ func (c *comparer) equalKeys(ia, ib NodeID) bool {
 		return bytes.Equal(c.labelA, c.labelB)
 	case FootnoteDefinition:
 		return bytes.Equal(a.FootnoteDefinitionLabel(ia), b.FootnoteDefinitionLabel(ib))
+	case FootnoteReference:
+		resolved := a.FootnoteReferenceResolved(ia)
+		if resolved != b.FootnoteReferenceResolved(ib) {
+			return false
+		}
+		// ponytail: an unresolved label is copied whole, O(label) memory; use
+		// decoding cursors if labels this long matter.
+		c.labelA = a.AppendFootnoteReferenceLabel(c.labelA[:0], ia, resolved)
+		c.labelB = b.AppendFootnoteReferenceLabel(c.labelB[:0], ib, resolved)
+		return bytes.Equal(c.labelA, c.labelB)
 	case Text, CodeText, VerbatimLineEnding, InfoString, HTMLText, LinkLabel, Destination, Title,
 		FrontMatterText, BOM, LineEnding, BlankLine, Indent, ThematicRun, ATXMarker, ATXClose,
 		Whitespace, CodeIndent, FenceMarker, SetextUnderline, QuoteMarker, ListMarker, ItemIndent,
@@ -256,6 +266,9 @@ func (p *projection) group(m, parent Node) (Kind, bool) {
 		return HTMLText, true
 	case (parent.kind == Link || parent.kind == Image) && LinkForm(parent.flags) == FullReference:
 		// A line ending in the label of a full reference.
+		return 0, false
+	case parent.kind == FootnoteReference:
+		// A line ending in the label of a footnote reference.
 		return 0, false
 	case parent.kind == LinkReferenceDefinition, parent.kind == Link, parent.kind == Image:
 		return Title, true

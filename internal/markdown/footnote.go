@@ -76,3 +76,37 @@ func (t *Tree) FootnoteDefinitionLabel(id NodeID) []byte {
 	}
 	return nil
 }
+
+// FootnoteReferenceResolved reports whether footnote reference id resolves to
+// a footnote definition.
+func (t *Tree) FootnoteReferenceResolved(id NodeID) bool {
+	return t.nodes[id].flags == 1
+}
+
+// AppendFootnoteReferenceLabel appends the label of footnote reference id to
+// dst: the label bytes after its caret (design 6.7), normalized when normalize
+// is true.
+func (t *Tree) AppendFootnoteReferenceLabel(dst []byte, id NodeID, normalize bool) []byte {
+	f := labelFolder{dst: dst, start: len(dst)}
+	caret := false
+	for i := uint32(id) + 1; i+1 < t.nodes[id].link; i++ {
+		m := t.nodes[i]
+		b := t.src[m.start:m.end]
+		switch _, prefix := m.kind.owner(); {
+		case m.kind == Caret:
+			caret = true
+		case !caret, normalize:
+			if caret {
+				f.leaf(m.kind, b)
+			}
+		case prefix, m.kind == Indent:
+		case m.kind == VerbatimLineEnding:
+			f.dst = append(f.dst, '\n')
+		case m.kind == CellPipeEscape:
+			f.dst = append(append(f.dst, b[:len(b)-2]...), '|')
+		default:
+			f.dst = append(f.dst, b...)
+		}
+	}
+	return f.dst
+}

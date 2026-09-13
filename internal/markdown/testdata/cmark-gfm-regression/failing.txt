@@ -6,9 +6,3 @@
 #   go test ./internal/markdown -run '^TestParse$/^cmark-gfm-regression$' 2>&1 |
 #     sed -n 's/^ *--- FAIL: TestParse\/cmark-gfm-regression\/cmark-gfm-regression_example_\([0-9]*\) .*/\1/p' |
 #     sort -n
-13
-20
-21
-22
-23 # footnotes: passed only while emphasis did not exist; footnote references are stage 4
-24 # footnotes: passed only while strikethrough did not exist; footnote references are stage 4

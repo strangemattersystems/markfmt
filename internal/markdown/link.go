@@ -2,22 +2,36 @@ package markdown
 
 // bracket is a link or image opener on the bracket stack (design 6.3).
 type bracket struct {
-	piece  int // the opener piece
-	bottom int // the top of the delimiter stack when the opener was pushed
-	seq    int // the opener's push sequence number
-	image  bool
+	piece   int // the opener piece: the '[', or the '!' of an image
+	bottom  int // the top of the delimiter stack when the opener was pushed
+	seq     int // the opener's push sequence number
+	closers int // the ']' that closeBracket handled before the opener was pushed
+	image   bool
 }
 
-// openBracket pushes the '[' at i, or the '![' when image is true, as a piece
-// and a bracket.
-func (s *inlineParser) openBracket(i uint32, image bool) {
-	end := i + 1
-	if image {
-		end++
+// text returns the index of the first piece of the bracket text.
+func (b bracket) text() int {
+	if b.image {
+		return b.piece + 2
 	}
+	return b.piece + 1
+}
+
+// openBracket pushes the '[' at i, or the '![' when image is true, as a bracket
+// and held pieces: the '!' and the '[' of an image, which a footnote reference
+// splits, and a '^' after the '[', which a footnote reference makes its caret
+// (design 6.3).
+func (s *inlineParser) openBracket(i uint32, image bool) {
 	s.seq++
-	s.brackets = append(s.brackets, bracket{piece: len(s.pieces), bottom: len(s.delims) - 1, seq: s.seq, image: image})
-	s.push(piece{kind: Text, held: true, end: end})
+	s.brackets = append(s.brackets, bracket{piece: len(s.pieces), bottom: len(s.delims) - 1, seq: s.seq, closers: s.closers, image: image})
+	if image {
+		s.push(piece{kind: Text, held: true, end: i + 1})
+		i++
+	}
+	s.push(piece{kind: Text, held: true, end: i + 1})
+	if i+1 < s.lines[s.k].rest.end && s.src[i+1] == '^' {
+		s.push(piece{kind: Text, held: true, end: i + 2})
+	}
 }
 
 // closeBracket pushes the ']' at i, on a line that ends at end, with the
@@ -32,6 +46,8 @@ func (s *inlineParser) closeBracket(i, end uint32) {
 	}
 	b := s.brackets[n-1]
 	s.brackets = s.brackets[:n-1]
+	inner := s.closers > b.closers
+	s.closers++
 	if b.image || b.seq > s.linkFormed {
 		m := s.mark()
 		s.push(piece{kind: Bracket, end: i + 1})
@@ -52,13 +68,107 @@ func (s *inlineParser) closeBracket(i, end uint32) {
 			}
 			opener := &s.pieces[b.piece]
 			opener.kind, opener.open, opener.flags = Bracket, kind, uint8(form)
+			if b.image {
+				s.pieces[b.piece+1].kind, s.pieces[b.piece+1].join = Bracket, true
+			}
 			s.pieces[len(s.pieces)-1].close = true
 			s.processEmphasis(b.bottom)
 			return
 		}
 		s.reset(m)
+		if s.footnoteReference(b, i, inner) {
+			return
+		}
 	}
 	s.text(i + 1)
+}
+
+// footnoteNote is a footnote reference that the scan completed: its opener
+// and closer pieces, and its label bytes inside the label of another reference.
+type footnoteNote struct {
+	open, close, size int
+}
+
+// footnoteReference makes the bracket text of opener b, which the ']' at i
+// closes, a footnote reference, and reports whether it did: the text decodes
+// to '^' and more (design 6.3 step 4). The delimiters inside it go, and its
+// pieces become label pieces; a reference that completed inside it is passed
+// in one step. It resolves when no ']' was handled inside it (inner is false),
+// its label has at most 1,000 label bytes, and its normalized label is a
+// footnote label (design 6.7).
+func (s *inlineParser) footnoteReference(b bracket, i uint32, inner bool) bool {
+	open := b.text() - 1
+	caret := open + 1
+	if caret+1 >= len(s.pieces) || !s.isCaret(caret) {
+		return false
+	}
+	s.delims = s.delims[:b.bottom+1]
+	if b.bottom >= 0 {
+		s.delims[b.bottom].next = -1
+	}
+	k := len(s.notes)
+	for k > 0 && s.notes[k-1].open > open {
+		k--
+	}
+	f := labelFolder{dst: s.label[:0]}
+	size, note, prev := 0, k, Caret
+	for j := caret + 1; j < len(s.pieces); j++ {
+		if note < len(s.notes) && s.notes[note].open == j {
+			n := s.notes[note]
+			for _, p := range [...]int{n.open, n.open + 1, n.open + 2, n.close} {
+				if x := &s.pieces[p]; p != n.open+2 || x.kind == FootnoteLabel {
+					*x = piece{kind: FootnoteLabel, join: s.pieces[p-1].kind == FootnoteLabel, end: x.end}
+				}
+			}
+			size += n.size
+			j, note, prev = n.close, note+1, FootnoteLabel
+			continue
+		}
+		x := &s.pieces[j]
+		bytes := s.src[s.startOf(j):x.end]
+		kind, flags := x.kind, uint8(0)
+		switch _, prefix := kind.owner(); {
+		case prefix, kind == Indent:
+		case kind == LineEnding, kind == VerbatimLineEnding:
+			kind = VerbatimLineEnding
+			size++
+		case kind == CellPipeEscape:
+			flags = uint8(FootnoteLabel)
+			size += len(bytes) - 1
+		default:
+			kind = FootnoteLabel
+			size += len(bytes)
+		}
+		if !inner && size <= 1000 {
+			f.leaf(kind, bytes)
+		}
+		*x = piece{kind: kind, virt: x.virt, flags: flags, join: kind == FootnoteLabel && prev == FootnoteLabel, end: x.end, owner: x.owner}
+		prev = kind
+	}
+	s.label = f.dst
+	caretSize := int(s.pieces[caret].end - s.startOf(caret))
+	s.pieces[open] = piece{kind: Bracket, open: FootnoteReference, end: s.pieces[open].end}
+	if !inner && size <= 1000 && len(f.dst) > 0 && s.defs.footnoteDefined[string(f.dst)] {
+		s.pieces[open].flags = 1
+	}
+	s.pieces[caret] = piece{kind: Caret, end: s.pieces[caret].end}
+	s.push(piece{kind: Bracket, close: true, end: i + 1})
+	s.notes = append(s.notes[:k], footnoteNote{open: open, close: len(s.pieces) - 1, size: size + caretSize + 2})
+	return true
+}
+
+// isCaret reports whether piece j decodes to '^'.
+func (s *inlineParser) isCaret(j int) bool {
+	b := s.src[s.startOf(j):s.pieces[j].end]
+	switch s.pieces[j].kind {
+	case Text:
+		return string(b) == "^"
+	case Escape:
+		return b[1] == '^'
+	case EntityRef:
+		return string(appendEntityValue(s.entity[:0], b)) == "^"
+	}
+	return false
 }
 
 // reference pushes the label of the reference link or image that the last
@@ -84,7 +194,7 @@ func (s *inlineParser) reference(b bracket) (LinkForm, bool) {
 	}
 	// A bracket text with an unescaped bracket is not a label, and a bracket
 	// pushed after the opener shows one in O(1) (CM 546 to 548).
-	return form, b.seq == s.seq && s.defined(b.piece+1, closer)
+	return form, b.seq == s.seq && s.defined(b.text(), closer)
 }
 
 // defined reports whether the label bytes of the pieces from index from to

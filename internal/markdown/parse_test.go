@@ -121,6 +121,10 @@ func TestParse(t *testing.T) {
 		{"gives a footnote definition with its label leaves and a continuation of four columns", "[^a]: b\n\n    c", `Document{FootnoteDefinition{Bracket "[", Caret "^", FootnoteLabel "a", Bracket "]", Colon ":", Whitespace " ", Paragraph{Text "b", LineEnding "\n"}, BlankLine "\n", FootnoteIndent@1 "    ", Paragraph{Text "c"}}}`},
 		{"ends a footnote definition at a line that is not empty and has fewer than four columns", "> [^a]: b\n>\n>     c\n\n[^d]: e\n  \n    f", `Document{BlockQuote{QuoteMarker@1 "> ", FootnoteDefinition{Bracket "[", Caret "^", FootnoteLabel "a", Bracket "]", Colon ":", Whitespace " ", Paragraph{Text "b", LineEnding "\n"}}, QuoteMarker@1 ">", BlankLine "\n", QuoteMarker@1 "> ", CodeBlock{CodeIndent "    ", CodeText "c", VerbatimLineEnding "\n"}}, BlankLine "\n", FootnoteDefinition{Bracket "[", Caret "^", FootnoteLabel "d", Bracket "]", Colon ":", Whitespace " ", Paragraph{Text "e", LineEnding "\n"}}, BlankLine "  \n", CodeBlock{CodeIndent "    ", CodeText "f"}}`},
 		{"interrupts a paragraph with a footnote definition, and reads a label with a space as a link label", "a\n[^b]: c\n\n[^d e]: /u", `Document{Paragraph{Text "a", LineEnding "\n"}, FootnoteDefinition{Bracket "[", Caret "^", FootnoteLabel "b", Bracket "]", Colon ":", Whitespace " ", Paragraph{Text "c", LineEnding "\n"}, BlankLine "\n"}, LinkReferenceDefinition{Bracket "[", LinkLabel "^d e", Bracket "]", Colon ":", Whitespace " ", Destination "/u"}}`},
+		{"gives resolved and unresolved footnote references", "a[^1] b[^x] ![^1]\n\n[^1]: c", `Document{Paragraph{Text "a", FootnoteReference[1]{Bracket "[", Caret "^", FootnoteLabel "1", Bracket "]"}, Text " b", FootnoteReference{Bracket "[", Caret "^", FootnoteLabel "x", Bracket "]"}, Text " !", FootnoteReference[1]{Bracket "[", Caret "^", FootnoteLabel "1", Bracket "]"}, LineEnding "\n"}, BlankLine "\n", FootnoteDefinition{Bracket "[", Caret "^", FootnoteLabel "1", Bracket "]", Colon ":", Whitespace " ", Paragraph{Text "c"}}}`},
+		{"gives the label of a footnote reference its inlines, escapes and nested references as label bytes", "[^*a* [^b] \\^]", `Document{Paragraph{FootnoteReference{Bracket "[", Caret "^", FootnoteLabel "*a* [^b] \\^", Bracket "]"}}}`},
+		{"gives a footnote reference whose caret is an escape or an entity reference", "a[\\^1] b[&#94;1]\n\n[^1]: x", `Document{Paragraph{Text "a", FootnoteReference[1]{Bracket "[", Caret "\\^", FootnoteLabel "1", Bracket "]"}, Text " b", FootnoteReference[1]{Bracket "[", Caret "&#94;", FootnoteLabel "1", Bracket "]"}, LineEnding "\n"}, BlankLine "\n", FootnoteDefinition{Bracket "[", Caret "^", FootnoteLabel "1", Bracket "]", Colon ":", Whitespace " ", Paragraph{Text "x"}}}`},
+		{"gives a footnote reference label across a line ending", "a[^b\nc]", `Document{Paragraph{Text "a", FootnoteReference{Bracket "[", Caret "^", FootnoteLabel "b", VerbatimLineEnding "\n", FootnoteLabel "c", Bracket "]"}}}`},
 		{"gives task list items, unchecked and checked", "- [ ] a\n- [X]\tb", `Document{List{ListItem[1]{ListMarker@2 "- ", Paragraph{TaskBox "[ ]", Whitespace " ", Text "a", LineEnding "\n"}}, ListItem[3]{ListMarker@9 "- ", Paragraph{TaskBox "[X]", Whitespace "\t", Text "b"}}}}`},
 		{"gives a task after link reference definitions in a list item", "- [a]: /u\n  [ ] b", `Document{List{ListItem[1]{ListMarker@2 "- ", LinkReferenceDefinition{Bracket "[", LinkLabel "a", Bracket "]", Colon ":", Whitespace " ", Destination "/u", LineEnding "\n"}, ItemIndent@2 "  ", Paragraph{TaskBox "[ ]", Whitespace " ", Text "b"}}}}`},
 		{"gives a task to the first paragraph of a list item after definitions and a blank line", "- [a]: /u\n\n  [ ] b", `Document{List[1]{ListItem[1]{ListMarker@2 "- ", LinkReferenceDefinition{Bracket "[", LinkLabel "a", Bracket "]", Colon ":", Whitespace " ", Destination "/u", LineEnding "\n"}, BlankLine "\n", ItemIndent@2 "  ", Paragraph{TaskBox "[ ]", Whitespace " ", Text "b"}}}}`},
@@ -433,6 +437,15 @@ var pathologicalInputs = []struct {
 	}},
 	{"footnote definitions on one line then blank lines", func(n int) []byte {
 		return []byte(strings.Repeat("[^a]: ", 98) + "b" + strings.Repeat("\n", n))
+	}},
+	{"nested footnote references of 333 repeated", func(n int) []byte {
+		return []byte(strings.Repeat(strings.Repeat("[^", 333)+"a"+strings.Repeat("]", 333)+" ", n/1000))
+	}},
+	{"nested footnote references", func(n int) []byte {
+		return []byte(strings.Repeat("[^", n/3) + "a" + strings.Repeat("]", n/3))
+	}},
+	{"nested footnote references across lines", func(n int) []byte {
+		return []byte(strings.Repeat("[^\n", n/4) + "a" + strings.Repeat("]", n/4))
 	}},
 	{"tables with many rows", func(n int) []byte {
 		return []byte("| a |\n| - |\n" + strings.Repeat("| b |\n", n/6))

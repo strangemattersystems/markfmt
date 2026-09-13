@@ -47,6 +47,7 @@ func TestRenderHTML(t *testing.T) {
 		{"writes strikethrough", "~a~ ~~b~~", "<p><del>a</del> <del>b</del></p>\n"},
 		{"writes cell pipe escapes in text, a code span, a destination and an autolink", "| \\| | `\\\\|` | [a](\\\\|) | <http://a\\|b> |\n|-|-|-|-|", "<table>\n<thead>\n<tr>\n<th>|</th>\n<th><code>\\|</code></th>\n<th><a href=\"%7C\">a</a></th>\n<th><a href=\"http://a%7Cb\">http://a|b</a></th>\n</tr>\n</thead>\n</table>\n"},
 		{"writes task list items", "- [ ] a\n- [x] b\n\n1. [X] c\n\n   d", "<ul>\n<li><input type=\"checkbox\" disabled=\"\" /> a</li>\n<li><input type=\"checkbox\" checked=\"\" disabled=\"\" /> b</li>\n</ul>\n<ol>\n<li>\n<p><input type=\"checkbox\" checked=\"\" disabled=\"\" /> c</p>\n<p>d</p>\n</li>\n</ol>\n"},
+		{"writes footnote references and the footnote section as cmark-gfm does", "a[^x] b[^y] c[^x] [^z]\n\n[^y]: Y\n\n    Z\n[^x]: X\n", "<p>a<sup class=\"footnote-ref\"><a href=\"#fn-x\" id=\"fnref-x\" data-footnote-ref>1</a></sup> b<sup class=\"footnote-ref\"><a href=\"#fn-y\" id=\"fnref-y\" data-footnote-ref>2</a></sup> c<sup class=\"footnote-ref\"><a href=\"#fn-x\" id=\"fnref-x-2\" data-footnote-ref>1</a></sup> [^z]</p>\n<section class=\"footnotes\" data-footnotes>\n<ol>\n<li id=\"fn-x\">\n<p>X <a href=\"#fnref-x\" class=\"footnote-backref\" data-footnote-backref data-footnote-backref-idx=\"1\" aria-label=\"Back to reference 1\">↩</a> <a href=\"#fnref-x-2\" class=\"footnote-backref\" data-footnote-backref data-footnote-backref-idx=\"1-2\" aria-label=\"Back to reference 1-2\">↩<sup class=\"footnote-ref\">2</sup></a></p>\n</li>\n<li id=\"fn-y\">\n<p>Y</p>\n<p>Z <a href=\"#fnref-y\" class=\"footnote-backref\" data-footnote-backref data-footnote-backref-idx=\"2\" aria-label=\"Back to reference 2\">↩</a></p>\n</li>\n</ol>\n</section>\n"},
 		{"writes tables with missing cells and without cells beyond the header count", "| a | b |\n| :-: | - |\n| c |\n| d | e | f |", "<table>\n<thead>\n<tr>\n<th align=\"center\">a</th>\n<th>b</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td align=\"center\">c</td>\n<td></td>\n</tr>\n<tr>\n<td align=\"center\">d</td>\n<td>e</td>\n</tr>\n</tbody>\n</table>\n"},
 		{"writes links and images", "[a *b*](/u&amp; \"t\\\"\") ![c *d* `e`\n<f>](g 'h')", "<p><a href=\"/u&amp;\" title=\"t&quot;\">a <em>b</em></a> <img src=\"g\" alt=\"c d e &lt;f&gt;\" title=\"h\" /></p>\n"},
 		{"writes reference links", "[a][B] [b][] [b] ![b]\n\n[B]: /u \"t\"\n[b]: /v", "<p><a href=\"/u\" title=\"t\">a</a> <a href=\"/u\" title=\"t\">b</a> <a href=\"/u\" title=\"t\">b</a> <img src=\"/u\" alt=\"b\" title=\"t\" /></p>\n"},
@@ -183,236 +184,333 @@ func renderHTML(tree *Tree, tagFilter bool) string {
 		}
 		return defs[string(tree.AppendLinkLabel(nil, id))]
 	}
-	c := tree.Walk()
-	for e, ok := c.Next(); ok; e, ok = c.Next() {
-		n := tree.nodes[e.ID]
-		if e.Exit {
-			open = open[:len(open)-1]
+	// cmark-gfm numbers the footnote definitions in the order of their first
+	// resolved reference, counts the references to each, and writes the
+	// definitions with a reference in that order at the end.
+	footnoteDefs := make(map[string]NodeID) // the first definition of each label
+	footnoteIx := make(map[NodeID]int)      // the number of a definition with a reference
+	footnoteRefs := make(map[NodeID]int)    // the references to a definition
+	footnoteRefIx := make(map[NodeID]int)   // the number of a reference among the references to its definition
+	var footnotes []NodeID                  // the definitions with a reference, in number order
+	footnoteOf := func(id NodeID) NodeID {
+		return footnoteDefs[string(tree.AppendFootnoteReferenceLabel(nil, id, true))]
+	}
+	for i, n := range tree.nodes {
+		if n.kind == FootnoteDefinition {
+			f := labelFolder{}
+			f.write(tree.FootnoteDefinitionLabel(NodeID(i)))
+			if label := string(f.dst); footnoteDefs[label] == 0 {
+				footnoteDefs[label] = NodeID(i)
+			}
 		}
-		if plain != 0 {
-			// Alt text is plain text, as cmark writes it.
-			switch {
-			case e.Exit && e.ID == plain:
-				b.WriteString(`"` + titleAttr(tree, target(e.ID)) + " />")
-				plain = 0
-			case e.Exit:
-			case n.kind == Text, n.kind == Escape, n.kind == EntityRef, n.kind == AutolinkText, n.kind == CellPipeEscape && written(n):
-				b.WriteString(htmlEscaper.Replace(string(tree.AppendValue(nil, e.ID))))
-			case n.kind == CodeSpan:
-				b.WriteString(htmlEscaper.Replace(string(tree.AppendCodeSpan(nil, e.ID))))
-			case n.kind == RawHTML:
-				b.WriteString(htmlEscaper.Replace(string(tree.AppendRawHTML(nil, e.ID))))
-			case n.kind == SoftBreak, n.kind == HardBreak:
-				b.WriteByte(' ')
-			}
-			if !e.Exit && n.kind.class() == classStructure {
-				open = append(open, e.ID)
-			}
+	}
+	for i, n := range tree.nodes {
+		if n.kind != FootnoteReference || !tree.FootnoteReferenceResolved(NodeID(i)) {
 			continue
 		}
-		if skip != 0 {
-			if e.Exit && e.ID == skip {
-				skip = 0
-			}
-			if !e.Exit && n.kind.class() == classStructure {
-				open = append(open, e.ID)
-			}
-			continue
+		def := footnoteOf(NodeID(i))
+		if footnoteIx[def] == 0 {
+			footnotes = append(footnotes, def)
+			footnoteIx[def] = len(footnotes)
 		}
-		//exhaustive:enforce
-		switch n.kind {
-		case Document, BOM, BlankLine, Indent, LineEnding, TrailingSpace, HardBreakMarker, CodeFence, Delimiter, Paren, ThematicRun, ATXMarker, ATXClose, Whitespace,
-			CodeIndent, CodeText, VerbatimLineEnding, FenceMarker, InfoString, SetextUnderline, HTMLText, QuoteMarker, ListMarker, ItemIndent,
-			LinkReferenceDefinition, LinkLabel, Destination, Title, Bracket, Colon, AngleBracket, TitleQuote,
-			FrontMatter, FrontMatterFence, FrontMatterText, TablePipe, TableDelimiter, FootnoteIndent, FootnoteLabel, Caret:
-		case CodeBlock:
-			if e.Exit {
-				break
-			}
-			cr()
-			b.WriteString("<pre><code")
-			if info := string(tree.AppendInfo(nil, e.ID)); info != "" {
-				word := info
-				if i := strings.IndexAny(info, " \t\n\v\f\r"); i >= 0 {
-					word = info[:i]
+		footnoteRefs[def]++
+		footnoteRefIx[NodeID(i)] = footnoteRefs[def]
+	}
+	var section NodeID // the definition whose list item is being written, or 0
+	var backref bool   // the back references of section are written
+	// backrefs returns the back references to definition def.
+	backrefs := func(def NodeID) string {
+		label := escapeHref(string(tree.FootnoteDefinitionLabel(def)))
+		m := strconv.Itoa(footnoteIx[def])
+		var s strings.Builder
+		s.WriteString(`<a href="#fnref-` + label + `" class="footnote-backref" data-footnote-backref data-footnote-backref-idx="` + m + `" aria-label="Back to reference ` + m + `">↩</a>`)
+		for k := 2; k <= footnoteRefs[def]; k++ {
+			n := strconv.Itoa(k)
+			s.WriteString(` <a href="#fnref-` + label + "-" + n + `" class="footnote-backref" data-footnote-backref data-footnote-backref-idx="` + m + "-" + n + `" aria-label="Back to reference ` + m + "-" + n + `">↩<sup class="footnote-ref">` + n + `</sup></a>`)
+		}
+		return s.String()
+	}
+	// lastBlock returns the last child block of definition def that is not a
+	// definition, which cmark-gfm moves out, or 0.
+	lastBlock := func(def NodeID) NodeID {
+		var last NodeID
+		for i := def + 1; i < NodeID(tree.nodes[def].link); i++ {
+			if m := tree.nodes[i]; m.kind.class() == classStructure {
+				if m.kind != FootnoteDefinition {
+					last = i
 				}
-				// cmark and commonmark.js write no second language- prefix.
-				b.WriteString(` class="` + htmlEscaper.Replace("language-"+strings.TrimPrefix(word, "language-")) + `"`)
+				i = NodeID(m.link) - 1
 			}
-			b.WriteString(">" + htmlEscaper.Replace(string(tree.AppendCode(nil, e.ID))) + "</code></pre>\n")
-		case BlockQuote:
+		}
+		return last
+	}
+	walk := func(c Cursor) {
+		for e, ok := c.Next(); ok; e, ok = c.Next() {
+			n := tree.nodes[e.ID]
 			if e.Exit {
-				b.WriteString("</blockquote>\n")
-			} else {
+				open = open[:len(open)-1]
+			}
+			if plain != 0 {
+				// Alt text is plain text, as cmark writes it.
+				switch {
+				case e.Exit && e.ID == plain:
+					b.WriteString(`"` + titleAttr(tree, target(e.ID)) + " />")
+					plain = 0
+				case e.Exit:
+				case n.kind == Text, n.kind == Escape, n.kind == EntityRef, n.kind == AutolinkText, n.kind == CellPipeEscape && written(n):
+					b.WriteString(htmlEscaper.Replace(string(tree.AppendValue(nil, e.ID))))
+				case n.kind == CodeSpan:
+					b.WriteString(htmlEscaper.Replace(string(tree.AppendCodeSpan(nil, e.ID))))
+				case n.kind == RawHTML:
+					b.WriteString(htmlEscaper.Replace(string(tree.AppendRawHTML(nil, e.ID))))
+				case n.kind == SoftBreak, n.kind == HardBreak:
+					b.WriteByte(' ')
+				case n.kind == FootnoteReference && !e.Exit && !tree.FootnoteReferenceResolved(e.ID):
+					b.WriteString(htmlEscaper.Replace("[^" + string(tree.AppendFootnoteReferenceLabel(nil, e.ID, false)) + "]"))
+				}
+				if !e.Exit && n.kind.class() == classStructure {
+					open = append(open, e.ID)
+				}
+				continue
+			}
+			if skip != 0 {
+				if e.Exit && e.ID == skip {
+					skip = 0
+				}
+				if !e.Exit && n.kind.class() == classStructure {
+					open = append(open, e.ID)
+				}
+				continue
+			}
+			//exhaustive:enforce
+			switch n.kind {
+			case Document, BOM, BlankLine, Indent, LineEnding, TrailingSpace, HardBreakMarker, CodeFence, Delimiter, Paren, ThematicRun, ATXMarker, ATXClose, Whitespace,
+				CodeIndent, CodeText, VerbatimLineEnding, FenceMarker, InfoString, SetextUnderline, HTMLText, QuoteMarker, ListMarker, ItemIndent,
+				LinkReferenceDefinition, LinkLabel, Destination, Title, Bracket, Colon, AngleBracket, TitleQuote,
+				FrontMatter, FrontMatterFence, FrontMatterText, TablePipe, TableDelimiter, FootnoteIndent, FootnoteLabel, Caret:
+			case CodeBlock:
+				if e.Exit {
+					break
+				}
 				cr()
-				b.WriteString("<blockquote>\n")
-			}
-		case HTMLBlock:
-			if !e.Exit {
-				cr()
-				b.WriteString(filterTags(tree.AppendHTML(nil, e.ID), tagFilter, true))
-			}
-		case List:
-			if !e.Exit {
-				cr()
-			}
-			switch start, ordered := tree.ListStart(e.ID); {
-			case !ordered && e.Exit:
-				b.WriteString("</ul>\n")
-			case !ordered:
-				b.WriteString("<ul>\n")
-			case e.Exit:
-				b.WriteString("</ol>\n")
-			case start != 1:
-				b.WriteString(`<ol start="` + strconv.Itoa(start) + "\">\n")
-			default:
-				b.WriteString("<ol>\n")
-			}
-		case ListItem:
-			if !e.Exit {
-				cr()
-			}
-			b.WriteString(tag("li", e.Exit))
-		case Paragraph:
-			// A paragraph in an item of a tight list has no tags.
-			if len(open) < 2 || tree.Kind(open[len(open)-1]) != ListItem || tree.ListLoose(open[len(open)-2]) {
+				b.WriteString("<pre><code")
+				if info := string(tree.AppendInfo(nil, e.ID)); info != "" {
+					word := info
+					if i := strings.IndexAny(info, " \t\n\v\f\r"); i >= 0 {
+						word = info[:i]
+					}
+					// cmark and commonmark.js write no second language- prefix.
+					b.WriteString(` class="` + htmlEscaper.Replace("language-"+strings.TrimPrefix(word, "language-")) + `"`)
+				}
+				b.WriteString(">" + htmlEscaper.Replace(string(tree.AppendCode(nil, e.ID))) + "</code></pre>\n")
+			case BlockQuote:
+				if e.Exit {
+					b.WriteString("</blockquote>\n")
+				} else {
+					cr()
+					b.WriteString("<blockquote>\n")
+				}
+			case HTMLBlock:
+				if !e.Exit {
+					cr()
+					b.WriteString(filterTags(tree.AppendHTML(nil, e.ID), tagFilter, true))
+				}
+			case List:
 				if !e.Exit {
 					cr()
 				}
-				b.WriteString(tag("p", e.Exit))
-			}
-		case Heading:
-			if !e.Exit {
-				cr()
-			}
-			b.WriteString(tag("h"+strconv.Itoa(tree.HeadingLevel(e.ID)), e.Exit))
-		case ThematicBreak:
-			if !e.Exit {
-				cr()
-				b.WriteString("<hr />\n")
-			}
-		case Autolink:
-			if e.Exit {
-				b.WriteString("</a>")
-				break
-			}
-			href := string(tree.AppendAutolinkText(nil, e.ID))
-			switch {
-			case tree.AutolinkEmail(e.ID):
-				href = "mailto:" + href
-			case !tree.AutolinkAngle(e.ID) && strings.HasPrefix(href, "www."):
-				href = "http://" + href
-			}
-			b.WriteString(`<a href="` + escapeHref(href) + `">`)
-		case Text, Escape, EntityRef, AutolinkText:
-			b.WriteString(htmlEscaper.Replace(string(tree.AppendValue(nil, e.ID))))
-		case FootnoteDefinition:
-			// cmark-gfm writes a definition only in the footnote section, and only
-			// when a reference resolves to it.
-			skip = e.ID
-		case CellPipeEscape:
-			if written(n) {
-				b.WriteString("|")
-			}
-		case TaskBox:
-			// GitHub writes the box in the paragraph, also in a loose list.
-			if _, checked := tree.ListItemTask(open[len(open)-2]); checked {
-				b.WriteString(`<input type="checkbox" checked="" disabled="" /> `)
-			} else {
-				b.WriteString(`<input type="checkbox" disabled="" /> `)
-			}
-		case Link:
-			if e.Exit {
-				b.WriteString("</a>")
-				break
-			}
-			b.WriteString(`<a href="` + escapeHref(string(tree.AppendDestination(nil, target(e.ID)))) + `"` + titleAttr(tree, target(e.ID)) + ">")
-		case Image:
-			b.WriteString(`<img src="` + escapeHref(string(tree.AppendDestination(nil, target(e.ID)))) + `" alt="`)
-			plain = e.ID
-		case Emphasis:
-			b.WriteString(inlineTag("em", e.Exit))
-		case Strong:
-			b.WriteString(inlineTag("strong", e.Exit))
-		case Strikethrough:
-			b.WriteString(inlineTag("del", e.Exit))
-		case Table:
-			if e.Exit {
-				if body {
-					cr()
-					b.WriteString("</tbody>")
+				switch start, ordered := tree.ListStart(e.ID); {
+				case !ordered && e.Exit:
+					b.WriteString("</ul>\n")
+				case !ordered:
+					b.WriteString("<ul>\n")
+				case e.Exit:
+					b.WriteString("</ol>\n")
+				case start != 1:
+					b.WriteString(`<ol start="` + strconv.Itoa(start) + "\">\n")
+				default:
+					b.WriteString("<ol>\n")
 				}
-				cr()
-				b.WriteString("</table>\n")
-				break
-			}
-			cr()
-			b.WriteString("<table>")
-			columns, rows, aligns, body = tree.TableColumns(e.ID), 0, aligns[:0], false
-		case TableRow:
-			// cmark-gfm writes the cells missing from a row as empty cells.
-			if e.Exit {
-				for ; cells < columns; cells++ {
+			case ListItem:
+				if !e.Exit {
 					cr()
-					b.WriteString("<td" + alignAttr(aligns[cells]) + "></td>")
 				}
-				cr()
-				b.WriteString("</tr>")
-				if header {
+				b.WriteString(tag("li", e.Exit))
+			case Paragraph:
+				// A paragraph in an item of a tight list has no tags.
+				if len(open) < 2 || tree.Kind(open[len(open)-1]) != ListItem || tree.ListLoose(open[len(open)-2]) {
+					if !e.Exit {
+						cr()
+					}
+					if e.Exit && section != 0 && open[len(open)-1] == section && lastBlock(section) == e.ID {
+						b.WriteString(" " + backrefs(section))
+						backref = true
+					}
+					b.WriteString(tag("p", e.Exit))
+				}
+			case Heading:
+				if !e.Exit {
 					cr()
-					b.WriteString("</thead>")
 				}
-				break
-			}
-			cr()
-			header, cells = rows == 0, 0
-			rows++
-			switch {
-			case header:
-				b.WriteString("<thead>\n")
-			case !body:
-				b.WriteString("<tbody>\n")
-				body = true
-			}
-			b.WriteString("<tr>")
-		case TableCell:
-			name := "td"
-			if header {
-				name = "th"
-			}
-			switch {
-			case e.Exit:
-				b.WriteString("</" + name + ">")
-			case cells == columns:
+				b.WriteString(tag("h"+strconv.Itoa(tree.HeadingLevel(e.ID)), e.Exit))
+			case ThematicBreak:
+				if !e.Exit {
+					cr()
+					b.WriteString("<hr />\n")
+				}
+			case Autolink:
+				if e.Exit {
+					b.WriteString("</a>")
+					break
+				}
+				href := string(tree.AppendAutolinkText(nil, e.ID))
+				switch {
+				case tree.AutolinkEmail(e.ID):
+					href = "mailto:" + href
+				case !tree.AutolinkAngle(e.ID) && strings.HasPrefix(href, "www."):
+					href = "http://" + href
+				}
+				b.WriteString(`<a href="` + escapeHref(href) + `">`)
+			case Text, Escape, EntityRef, AutolinkText:
+				b.WriteString(htmlEscaper.Replace(string(tree.AppendValue(nil, e.ID))))
+			case FootnoteDefinition:
+				// cmark-gfm writes a definition only in the footnote section, and only
+				// when a reference resolves to it.
 				skip = e.ID
-			default:
-				if header {
-					aligns = append(aligns, tree.CellAlignment(e.ID))
+			case FootnoteReference:
+				skip = e.ID
+				switch def := footnoteOf(e.ID); {
+				case !tree.FootnoteReferenceResolved(e.ID):
+					b.WriteString(htmlEscaper.Replace("[^" + string(tree.AppendFootnoteReferenceLabel(nil, e.ID, false)) + "]"))
+				default:
+					label := escapeHref(string(tree.FootnoteDefinitionLabel(def)))
+					id := label
+					if k := footnoteRefIx[e.ID]; k > 1 {
+						id += "-" + strconv.Itoa(k)
+					}
+					b.WriteString(`<sup class="footnote-ref"><a href="#fn-` + label + `" id="fnref-` + id + `" data-footnote-ref>` + strconv.Itoa(footnoteIx[def]) + "</a></sup>")
+				}
+			case CellPipeEscape:
+				if written(n) {
+					b.WriteString("|")
+				}
+			case TaskBox:
+				// GitHub writes the box in the paragraph, also in a loose list.
+				if _, checked := tree.ListItemTask(open[len(open)-2]); checked {
+					b.WriteString(`<input type="checkbox" checked="" disabled="" /> `)
+				} else {
+					b.WriteString(`<input type="checkbox" disabled="" /> `)
+				}
+			case Link:
+				if e.Exit {
+					b.WriteString("</a>")
+					break
+				}
+				b.WriteString(`<a href="` + escapeHref(string(tree.AppendDestination(nil, target(e.ID)))) + `"` + titleAttr(tree, target(e.ID)) + ">")
+			case Image:
+				b.WriteString(`<img src="` + escapeHref(string(tree.AppendDestination(nil, target(e.ID)))) + `" alt="`)
+				plain = e.ID
+			case Emphasis:
+				b.WriteString(inlineTag("em", e.Exit))
+			case Strong:
+				b.WriteString(inlineTag("strong", e.Exit))
+			case Strikethrough:
+				b.WriteString(inlineTag("del", e.Exit))
+			case Table:
+				if e.Exit {
+					if body {
+						cr()
+						b.WriteString("</tbody>")
+					}
+					cr()
+					b.WriteString("</table>\n")
+					break
 				}
 				cr()
-				b.WriteString("<" + name + alignAttr(tree.CellAlignment(e.ID)) + ">")
-				cells++
+				b.WriteString("<table>")
+				columns, rows, aligns, body = tree.TableColumns(e.ID), 0, aligns[:0], false
+			case TableRow:
+				// cmark-gfm writes the cells missing from a row as empty cells.
+				if e.Exit {
+					for ; cells < columns; cells++ {
+						cr()
+						b.WriteString("<td" + alignAttr(aligns[cells]) + "></td>")
+					}
+					cr()
+					b.WriteString("</tr>")
+					if header {
+						cr()
+						b.WriteString("</thead>")
+					}
+					break
+				}
+				cr()
+				header, cells = rows == 0, 0
+				rows++
+				switch {
+				case header:
+					b.WriteString("<thead>\n")
+				case !body:
+					b.WriteString("<tbody>\n")
+					body = true
+				}
+				b.WriteString("<tr>")
+			case TableCell:
+				name := "td"
+				if header {
+					name = "th"
+				}
+				switch {
+				case e.Exit:
+					b.WriteString("</" + name + ">")
+				case cells == columns:
+					skip = e.ID
+				default:
+					if header {
+						aligns = append(aligns, tree.CellAlignment(e.ID))
+					}
+					cr()
+					b.WriteString("<" + name + alignAttr(tree.CellAlignment(e.ID)) + ">")
+					cells++
+				}
+			case RawHTML:
+				if !e.Exit {
+					b.WriteString(filterTags(tree.AppendRawHTML(nil, e.ID), tagFilter, false))
+				}
+			case CodeSpan:
+				if !e.Exit {
+					b.WriteString("<code>" + htmlEscaper.Replace(string(tree.AppendCodeSpan(nil, e.ID))) + "</code>")
+				}
+			case SoftBreak:
+				if !e.Exit {
+					b.WriteByte('\n')
+				}
+			case HardBreak:
+				if !e.Exit {
+					b.WriteString("<br />\n")
+				}
 			}
-		case RawHTML:
-			if !e.Exit {
-				b.WriteString(filterTags(tree.AppendRawHTML(nil, e.ID), tagFilter, false))
-			}
-		case CodeSpan:
-			if !e.Exit {
-				b.WriteString("<code>" + htmlEscaper.Replace(string(tree.AppendCodeSpan(nil, e.ID))) + "</code>")
-			}
-		case SoftBreak:
-			if !e.Exit {
-				b.WriteByte('\n')
-			}
-		case HardBreak:
-			if !e.Exit {
-				b.WriteString("<br />\n")
+			if !e.Exit && n.kind.class() == classStructure {
+				open = append(open, e.ID)
 			}
 		}
-		if !e.Exit && n.kind.class() == classStructure {
-			open = append(open, e.ID)
+	}
+	walk(tree.Walk())
+	for _, def := range footnotes {
+		if section == 0 {
+			b.WriteString("<section class=\"footnotes\" data-footnotes>\n<ol>\n")
 		}
+		section, backref = def, false
+		b.WriteString(`<li id="fn-` + escapeHref(string(tree.FootnoteDefinitionLabel(def))) + "\">\n")
+		open = append(open[:0], def)
+		walk(Cursor{nodes: tree.nodes[:tree.nodes[def].link], next: uint32(def) + 1})
+		if !backref {
+			b.WriteString(backrefs(def) + "\n")
+		}
+		b.WriteString("</li>\n")
+	}
+	if section != 0 {
+		b.WriteString("</ol>\n</section>\n")
 	}
 	return b.String()
 }

@@ -75,6 +75,7 @@ const (
 	FootnoteIndent
 	FootnoteLabel
 	Caret
+	FootnoteReference
 )
 
 type class uint8
@@ -93,7 +94,7 @@ func (k Kind) class() class {
 	switch k {
 	case Document, FrontMatter, BlockQuote, List, ListItem, Paragraph, ThematicBreak, Heading, CodeBlock, HTMLBlock, LinkReferenceDefinition,
 		SoftBreak, HardBreak, CodeSpan, Autolink, RawHTML, Emphasis, Strong, Link, Image, Strikethrough,
-		Table, TableRow, TableCell, FootnoteDefinition:
+		Table, TableRow, TableCell, FootnoteDefinition, FootnoteReference:
 		return classStructure
 	case Text, CodeText, VerbatimLineEnding, InfoString, HTMLText, LinkLabel, Destination, Title, FrontMatterText, Escape, EntityRef, AutolinkText, CellPipeEscape, FootnoteLabel:
 		return classContent
@@ -131,10 +132,12 @@ func (k Kind) validFlags(f uint8) bool {
 		return f <= 3
 	case TableCell:
 		return f <= 7
+	case FootnoteReference:
+		return f <= 1
 	case CellPipeEscape:
 		// The kind of the content leaves around it (design 10.3).
 		switch Kind(f) {
-		case Text, CodeText, HTMLText, AutolinkText, Destination, Title, LinkLabel:
+		case Text, CodeText, HTMLText, AutolinkText, Destination, Title, LinkLabel, FootnoteLabel:
 			return true
 		}
 		return false
@@ -281,6 +284,8 @@ func (k Kind) String() string {
 		return "FootnoteLabel"
 	case Caret:
 		return "Caret"
+	case FootnoteReference:
+		return "FootnoteReference"
 	}
 	return "Kind(" + strconv.Itoa(int(k)) + ")"
 }

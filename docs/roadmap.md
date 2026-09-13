@@ -269,8 +269,8 @@ The scope is what GitHub renders, because most users expect it.
 
 - [x] GFM extensions: tables, strikethrough, task list items (design 6.5),
   extended autolinks.
-- [ ] Footnote definitions and references (design 6.3, 9.2).
-- [ ] GitHub fixtures for footnotes, tasks, tables, strikethrough and every
+- [x] Footnote definitions and references (design 6.3, 9.2).
+- [x] GitHub fixtures for footnotes, tasks, tables, strikethrough and every
   `dialect.md` row, with the GitHub normalizer.
 - [x] The test renderer applies the GFM tag filter (design 11.3).
 - [x] `grammar-differs.txt` entries for regression examples that GFM rules

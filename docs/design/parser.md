@@ -1404,7 +1404,7 @@ Flags:
 | HTMLBlock | kind 1 to 7 | start condition of the first line |
 | Link, Image | form: inline, full, collapsed, shortcut | no |
 | TableCell | alignment, header | delimiter row cell |
-| CellPipeEscape | group: Text, CodeText, HTMLText, AutolinkText, Destination, Title or LinkLabel | no |
+| CellPipeEscape | group: Text, CodeText, HTMLText, AutolinkText, Destination, Title, LinkLabel or FootnoteLabel | no |
 | FootnoteReference | resolved | no |
 
 ## Appendix B. Printer traps for stage 6

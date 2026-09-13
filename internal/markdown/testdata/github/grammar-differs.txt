@@ -12,3 +12,5 @@
 15 dialect row, html block kind 6 tag list without source: github 15
 16 dialect row, raw html comments: github 16
 17 dialect row, list items that start on one line: github 17
+23 dialect row, footnote reference whose caret is an escape or an entity reference: github 23
+31 dialect row, footnote reference label across a line ending: github 31

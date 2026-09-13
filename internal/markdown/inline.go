@@ -20,8 +20,10 @@ type inlineParser struct {
 	contentEnd uint32 // end of the content of the block, before its trailing spaces
 	delims     []delimiter
 	brackets   []bracket
-	seq        int // push sequence number of the last bracket
-	linkFormed int // sequence number of the opener of the last link
+	seq        int            // push sequence number of the last bracket
+	linkFormed int            // sequence number of the opener of the last link
+	closers    int            // the ']' that closeBracket handled
+	notes      []footnoteNote // completed footnote references, in scan order
 
 	ticks    []uint32 // one past the start of the last backtick run of each length that a search passed
 	ticksAll bool     // a backtick search reached the end of the block
@@ -113,7 +115,7 @@ func (s *inlineParser) inlines(lines []pendingLine) {
 // begin starts the pieces of lines at the Indent leaf of the first line.
 func (s *inlineParser) begin(lines []pendingLine) {
 	s.lines, s.pieces, s.delims, s.brackets, s.k = lines, s.pieces[:0], s.delims[:0], s.brackets[:0], 0
-	s.seq, s.linkFormed = 0, 0
+	s.seq, s.linkFormed, s.closers, s.notes = 0, 0, 0, s.notes[:0]
 	s.start = lines[0].rest.start
 	last := lines[len(lines)-1].rest
 	s.contentEnd = last.end
