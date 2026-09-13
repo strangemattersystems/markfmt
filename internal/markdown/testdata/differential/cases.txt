@@ -246,3 +246,20 @@ item.
 </li>
 </ul>
 ````````````````````````````````
+
+## goldmark deviates, spec section 5.2: a list item that starts with a blank line takes a bullet list item indented to its content
+
+goldmark ends the empty item and starts a second list.
+
+```````````````````````````````` example
+* 
+   - b
+.
+<ul>
+<li>
+<ul>
+<li>b</li>
+</ul>
+</li>
+</ul>
+````````````````````````````````

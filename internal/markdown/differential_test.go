@@ -339,6 +339,26 @@ var goldmarkDeviations = []struct {
 		}
 		return false
 	}},
+	{"goldmark deviates, spec section 5.2: a list item that starts with a blank line takes a bullet list item indented to its content", func(t *Tree) bool {
+		for i, n := range t.nodes {
+			if n.kind != ListItem {
+				continue
+			}
+			blank := false
+			j := i + 1
+			for ; j < int(n.link); j++ {
+				k := t.nodes[j].kind
+				blank = blank || k == BlankLine
+				if k != ListMarker && k != BlankLine && k != ItemIndent && k != QuoteMarker && k != FootnoteIndent {
+					break
+				}
+			}
+			if blank && j < int(n.link) && t.nodes[j].kind == List {
+				return true
+			}
+		}
+		return false
+	}},
 	{"goldmark deviates, spec section 4.7: a definition with its destination on a later line ends at the destination when the next line is not a title", func(t *Tree) bool {
 		for i, n := range t.nodes {
 			if n.kind != LinkReferenceDefinition {
