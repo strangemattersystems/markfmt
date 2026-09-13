@@ -820,7 +820,7 @@ research (section 17).
 | Soft break vs space | Different meaning. |
 | ASCII control characters in a destination or an absolute URI | A destination ends at space, tab, VT and FF, and takes the other control characters. An absolute URI takes DEL. cmark and commonmark.js do this. The spec text excludes control characters, but no example tests it (section 2). |
 | HTML block kind 7 at an open tag named `pre`, `script`, `style` or `textarea` | Starts when the tag is not kind 1, as in `<pre/>`. cmark and commonmark.js do this. The spec text excludes these names, but no example tests it (section 2). |
-| VT and FF at the ends of an info string | Trimmed, as cmark and commonmark.js trim them. The spec text trims spaces and tabs only, and no example tests it (section 2). |
+| Whitespace at the ends of an info string | Trimmed after entity references decode: space, tab, line ending, VT and FF, as cmark trims them. The spec text trims the spaces and tabs of the line only, and no example tests the rest (section 2). |
 
 ## 9. GitHub syntax
 

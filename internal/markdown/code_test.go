@@ -32,3 +32,27 @@ func TestTree_AppendCode(t *testing.T) {
 		})
 	}
 }
+
+func TestTree_AppendInfo(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		src  string
+		want string
+	}{
+		{"decodes escapes and entity references", "~~~a\\+&ouml;\nx\n~~~", "a+ö"},
+		{"trims whitespace at the ends after entity references decode, as cmark does", "~~~ &#32;a&#9;b &#10;\nx\n~~~", "a\tb"},
+		{"gives nothing for an info string of decoded whitespace", "~~~&#9;&Tab;\nx\n~~~", ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			tree := Parse([]byte(tt.src))
+			if got := string(tree.AppendInfo(nil, firstOf(tree, CodeBlock))); got != tt.want {
+				t.Fatalf("AppendInfo of %q = %q, want %q", tt.src, got, tt.want)
+			}
+		})
+	}
+}

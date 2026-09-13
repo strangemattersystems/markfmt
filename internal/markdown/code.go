@@ -148,16 +148,53 @@ func (t *Tree) AppendInfo(dst []byte, id NodeID) []byte {
 }
 
 // infoReader returns a reader of the value of the info string of code block
-// id, which reads nothing when it has none.
+// id, which reads nothing when it has none. The value has no whitespace at
+// its ends after its entity references decode, as cmark trims it (design 8.4).
 func (t *Tree) infoReader(id NodeID) valueReader {
 	for _, m := range t.nodes[id+1 : t.nodes[id].link] {
 		switch m.kind {
 		case Indent, FenceMarker, Whitespace:
 		case InfoString:
-			return t.newValueReader(m)
+			return t.trimmedValueReader(m)
 		default:
 			return valueReader{}
 		}
 	}
 	return valueReader{}
+}
+
+// trimmedValueReader returns a reader of the value of content leaf m without
+// ASCII whitespace at its ends. A piece of plain bytes can lose some of its
+// bytes, and a decoded piece of whitespace alone is left out whole.
+func (t *Tree) trimmedValueReader(m Node) valueReader {
+	const space = " \t\n\v\f\r"
+	r := t.newValueReader(m)
+	raw, lo, hi := r.b, -1, 0
+	for {
+		start := len(raw) - len(r.b)
+		b := r.next()
+		if b == nil {
+			break
+		}
+		end := len(raw) - len(r.b)
+		if len(bytes.Trim(b, space)) == 0 {
+			continue
+		}
+		first, last := start, end
+		if end-start == len(b) && bytes.Equal(raw[start:end], b) {
+			first = end - len(bytes.TrimLeft(b, space))
+			last = start + len(bytes.TrimRight(b, space))
+		}
+		if lo < 0 {
+			lo = first
+		}
+		hi = last
+	}
+	r = t.newValueReader(m)
+	if lo < 0 {
+		r.b = nil
+	} else {
+		r.b = raw[lo:hi]
+	}
+	return r
 }
