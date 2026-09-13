@@ -688,16 +688,22 @@ item.
 </ol>
 ````````````````````````````````
 
-## goldmark deviates, spec sections 2.4 and 6.7: a backslash escape starts the line after a backslash and a hard line break of spaces
+## goldmark deviates, spec sections 2.4 and 6.7: a backslash escape after a backslash, a hard line break of spaces and punctuation decodes
 
-goldmark writes the escape as it is.
+goldmark writes the first escape of the next line as it is, when only
+punctuation comes before it on that line.
 
 ```````````````````````````````` example
 a\  
 \!
+
+b\  
+*\!
 .
 <p>a\<br />
 !</p>
+<p>b\<br />
+*!</p>
 ````````````````````````````````
 
 ## goldmark deviates, spec section 4.6: a tab after the tag that starts HTML block kind 7 is whitespace

@@ -94,6 +94,7 @@ func TestGoldmarkDiffers(t *testing.T) {
 		{"skips a control character in an unquoted value after a quoted value with >", "<A A='>' A=\x15>", "goldmark deviates, spec section 6.6: an unquoted attribute value takes ASCII control characters"},
 		{"skips a single dash after definitions alone", "[0]:0\n-", "goldmark deviates, spec sections 4.3 and 4.7: a setext underline after link reference definitions alone is paragraph text"},
 		{"skips a nested list item after an empty one and a blank line", "* -\n \n  -", "goldmark deviates, spec section 5.2: a blank line after an empty nested list item continues the outer list item"},
+		{"skips an escape after punctuation on the line after a backslash and a hard break", "\\  \n*\\!", "goldmark deviates, spec sections 2.4 and 6.7: a backslash escape after a backslash, a hard line break of spaces and punctuation decodes"},
 		{"skips a tab in the indentation after a list item prefix", "* 0\n  \t -", "goldmark deviates, spec sections 2.2 and 5.2: a tab after the prefix of a list item line stops at a column counted from the start of the line"},
 	}
 	for _, tt := range tests {
@@ -664,18 +665,28 @@ var goldmarkDeviations = []struct {
 		}
 		return false
 	}},
-	{"goldmark deviates, spec sections 2.4 and 6.7: a backslash escape starts the line after a backslash and a hard line break of spaces", func(t *Tree) bool {
+	{"goldmark deviates, spec sections 2.4 and 6.7: a backslash escape after a backslash, a hard line break of spaces and punctuation decodes", func(t *Tree) bool {
 		for i := 1; i+1 < len(t.nodes); i++ {
 			if t.nodes[i].kind != HardBreak || t.nodes[i-1].kind != Text || t.nodes[i+1].kind != HardBreakMarker ||
 				!bytes.HasSuffix(t.Raw(NodeID(i-1)), []byte("\\")) || bytes.Contains(t.Raw(NodeID(i+1)), []byte("\\")) {
 				continue
 			}
-			next := int(t.nodes[i].link)
-			for next < len(t.nodes) && t.nodes[next].kind.class() == classSyntax {
-				next++
-			}
-			if next < len(t.nodes) && t.nodes[next].kind == Escape {
-				return true
+		next:
+			for j := int(t.nodes[i].link); j < len(t.nodes); j++ {
+				switch m := t.nodes[j]; {
+				case m.kind == Escape:
+					return true
+				case m.kind == SoftBreak || m.kind == HardBreak:
+					break next
+				case m.kind == Text || m.kind == Delimiter:
+					for _, c := range t.src[m.start:m.end] {
+						if !isASCIIPunct(c) {
+							break next
+						}
+					}
+				case m.kind.class() == classContent:
+					break next
+				}
 			}
 		}
 		return false
