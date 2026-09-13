@@ -73,8 +73,12 @@ type frame struct {
 	// opening fence line, and lineOpen on a line of code that has not ended.
 	fence             []byte
 	opening, lineOpen bool
-	delim             []byte // the delimiter of emphasis or strikethrough, or nil for the input's
-	label             bool   // a collapsed or shortcut reference, whose text keeps its bytes
+	delim             []byte   // the delimiter of emphasis or strikethrough, or nil for the input's
+	code              []byte   // the bytes of a code span, or nil for the input's
+	codeDone          bool     // the code span is written
+	tail              tailPart // the part of an inline link or image that prints
+	brackets          int      // the brackets of the link's own text
+	label             bool     // a collapsed or shortcut reference, whose text keeps its bytes
 
 	// A link reference definition outside a dialect span prints in the
 	// part def, puts one space before its destination with spaced, has an
@@ -255,6 +259,12 @@ func (p *printer) enter(id markdown.NodeID, k markdown.Kind) {
 		f.label = true
 		p.inLabel++
 	}
+	if k == markdown.CodeSpan && p.inSpan == 0 && p.inLabel == 0 {
+		f.code = p.codeSpan(id)
+	}
+	if (k == markdown.Link || k == markdown.Image) && t.LinkForm(id) == markdown.InlineLink && p.inSpan == 0 && p.inLabel == 0 {
+		f.tail, f.quotes = tailText, p.titleQuotes(id)
+	}
 	if (k == markdown.Emphasis || k == markdown.Strong || k == markdown.Strikethrough) && p.inSpan == 0 && p.inLabel == 0 {
 		f.delim = p.delimiter(id, k)
 	}
@@ -409,6 +419,15 @@ func (p *printer) leaf(id markdown.NodeID, k markdown.Kind, start, end int) {
 		}
 	case top.fence != nil:
 		p.codeLeaf(top, id, k, start)
+	case top.code != nil:
+		// The code span prints whole at its first leaf.
+		if !top.codeDone {
+			top.codeDone = true
+			p.replace = top.code
+			p.content(id, start)
+		}
+	case top.tail != tailNone:
+		p.tailLeaf(top, id, k, start)
 	case top.delim != nil && k == markdown.Delimiter:
 		p.replace = top.delim
 		p.content(id, start)
@@ -669,6 +688,12 @@ func (p *printer) titleQuotes(id markdown.NodeID) [2]byte {
 	var source [2]byte
 	quotes := 0
 	for i := id + 1; i < end; i++ {
+		if !t.Kind(i).Leaf() {
+			// A link in an image's text has its own title.
+			next, _ := t.Next(i)
+			i = next - 1
+			continue
+		}
 		switch t.Kind(i) {
 		case markdown.Title:
 			title = append(title, t.Raw(i)...)
@@ -806,6 +831,137 @@ func flanksLikeSpace(c byte) bool {
 		return false
 	}
 	return strings.IndexByte("!\"#$%&'()+,-./:;<=>?@[]^`{|}~", c) >= 0
+}
+
+// codeSpan returns the bytes of code span id in the canonical style, or nil
+// to keep its input bytes when it spans lines or holds a cell pipe escape.
+// The fence is the shortest run of backticks that its value does not hold,
+// with a space inside each end when the value starts or ends with a
+// backtick, or starts and ends with a space and is not only spaces (spec 6.1,
+// appendix B, trap 9).
+func (p *printer) codeSpan(id markdown.NodeID) []byte {
+	t := p.tree
+	end, _ := t.Next(id)
+	var value []byte
+	for i := id + 1; i < end; i++ {
+		switch t.Kind(i) {
+		case markdown.CodeText:
+			value = append(value, t.Raw(i)...)
+		case markdown.CodeFence:
+		default:
+			return nil
+		}
+	}
+	allSpaces := len(bytes.Trim(value, " ")) == 0
+	if len(value) >= 2 && value[0] == ' ' && value[len(value)-1] == ' ' && !allSpaces {
+		value = value[1 : len(value)-1]
+	}
+	runs := make(map[int]bool)
+	for run, i := 0, 0; i <= len(value); i++ {
+		if i < len(value) && value[i] == '`' {
+			run++
+			continue
+		}
+		runs[run] = true
+		run = 0
+	}
+	n := 1
+	for runs[n] {
+		n++
+	}
+	fence := bytes.Repeat([]byte{'`'}, n)
+	out := append([]byte(nil), fence...)
+	pad := len(value) > 0 && (value[0] == '`' || value[len(value)-1] == '`' ||
+		value[0] == ' ' && value[len(value)-1] == ' ' && len(bytes.Trim(value, " ")) > 0)
+	if pad {
+		out = append(out, ' ')
+	}
+	out = append(out, value...)
+	if pad {
+		out = append(out, ' ')
+	}
+	return append(out, fence...)
+}
+
+// tailPart is the part of an inline link or image that prints.
+type tailPart uint8
+
+const (
+	tailNone        tailPart = iota // no inline link prints, or it keeps its bytes
+	tailText                        // the link text, up to its closing bracket
+	tailOpen                        // the opening parenthesis
+	tailDestination                 // before and in the destination
+	tailTitle                       // after the destination, before a title
+	tailInTitle                     // the title
+	tailEnd                         // after the title
+)
+
+// tailLeaf prints leaf id of kind k, whose own columns start at column
+// start, that is a child of inline link or image f: its text, and a tail of
+// the destination as written and one space and the title in f's quotes. The
+// whitespace, indentation and line endings between them are not written.
+func (p *printer) tailLeaf(f *frame, id markdown.NodeID, k markdown.Kind, start int) {
+	skip := k == markdown.Whitespace || k == markdown.LineEnding || k == markdown.Indent
+	switch f.tail {
+	case tailNone:
+	case tailText:
+		p.content(id, start)
+		if k == markdown.Bracket {
+			f.brackets++
+			if f.brackets == 2 {
+				f.tail = tailOpen
+			}
+		}
+	case tailOpen:
+		p.content(id, start)
+		f.tail = tailDestination
+	case tailDestination:
+		switch {
+		case skip:
+		case k == markdown.Paren:
+			p.indent = -1
+			p.content(id, start)
+			f.tail = tailEnd
+		default:
+			p.indent = -1
+			p.content(id, start)
+			if k == markdown.AngleBracket && !f.angle {
+				f.angle = true
+			} else if k == markdown.Destination && !f.angle || k == markdown.AngleBracket {
+				f.tail = tailTitle
+			}
+		}
+	case tailTitle:
+		switch {
+		case skip:
+		case k == markdown.TitleQuote:
+			p.write(spaces[:1])
+			p.indent, p.replace = -1, f.quotes[:1]
+			p.content(id, start)
+			f.tail = tailInTitle
+		default:
+			p.indent = -1
+			p.content(id, start)
+			f.tail = tailEnd
+		}
+	case tailInTitle:
+		switch k {
+		case markdown.VerbatimLineEnding:
+			p.endLine()
+		case markdown.TitleQuote:
+			p.indent, p.replace = -1, f.quotes[1:]
+			p.content(id, start)
+			f.tail = tailEnd
+		default:
+			p.indent = -1
+			p.content(id, start)
+		}
+	case tailEnd:
+		if !skip {
+			p.indent = -1
+			p.content(id, start)
+		}
+	}
 }
 
 // codeFence returns the fence of code block id: backticks, or tildes when its

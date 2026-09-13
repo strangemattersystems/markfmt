@@ -152,6 +152,8 @@ Layout:
 | A list's padding grows past the indentation of an HTML block or code block after the list | Otherwise the block would continue the last item. When more than 4 columns of padding would be needed, the list keeps its input layout. |
 | Strikethrough `~~` | GitHub reads `~` and `~~` the same, and its docs write `~~`. No `~` goes next to a `~~` delimiter (design appendix B, trap 13). |
 | Emphasis and strikethrough keep their input delimiters where the canonical delimiter could pair differently | `_` flanks differently from `*` inside words and next to symbols (spec 6.2, trap 19). A node whose content has a character of its delimiters keeps them, so that a second format decides the same. |
+| A code span has the shortest fence that its value does not hold, and one space of padding only where the value needs it | Prettier chooses the shortest run that the content does not hold (`print/mdast.js`). A code span over lines or with a cell pipe escape keeps its bytes. |
+| An inline link has no whitespace or line break in its parentheses, and one space before its title | The title uses the quotes of a definition title. The destination keeps its bytes and angle brackets. |
 | The printer keeps each NUL and invalid UTF-8 byte | cmark writes an invalid byte in a destination as `%A6`, where markfmt's value is U+FFFD, so `Equal` cannot see the byte. `Kept` checks it (design 12). |
 | One blank line between blocks, one final newline, line breaks as written | Prettier (`proseWrap: "preserve"`), dprint (`TextWrap::Maintain`), mdformat (`wrap: keep`). markdownlint MD012 and MD047 agree. |
 
