@@ -273,9 +273,12 @@ func (p *printer) leaf(id markdown.NodeID, k markdown.Kind, start, end int) {
 	case k == markdown.ListMarker:
 		p.listMarker(top, id, start)
 	case k == markdown.BlankLine:
-		p.blanks++
+		// A blank line before the first block of a container is the rest of
+		// its marker line, or a blank line at its start.
 		if top.container && top.children == 0 {
 			top.blankFirst = true
+		} else {
+			p.blanks++
 		}
 	case k == markdown.BOM, k == markdown.QuoteMarker, k == markdown.ItemIndent, k == markdown.FootnoteIndent,
 		top.kind == markdown.Document, top.kind == markdown.List:

@@ -377,6 +377,7 @@ func TestKept(t *testing.T) {
 		{"gives each nul and invalid utf-8 sequence in content", "a\x00b\xa6\xe0\xa0c", []string{"invalid \x00", "invalid \xa6", "invalid \xe0\xa0"}},
 		{"gives an ordered list that starts at 1 and whose second item is 1", "1. a\n1. b\n\n- c\n\n3) d\n1) e\n\n1. f\n2. g", []string{"lazy numbering"}},
 		{"gives the rows and the blank lines around each dialect span", "a\n<search>\n\n\nb", []string{"span 1, blank lines 0 and 0", "span 1, blank lines 0 and 2"}},
+		{"gives no blank line for the blank rest of a list marker line", "*\n\xf1*", []string{"span 100000, blank lines 0 and 0", "invalid \xf1"}},
 		{"gives no blank lines at the start of a container or at the end of the input", "\n<search>\n\n\n\n> \n> <search>\n>\n", []string{"span 1, blank lines 0 and 3", "span 1, blank lines 0 and 0"}},
 		{"gives nothing for text, emphasis and an inline link", "a *b* [c](/u)", nil},
 	}
@@ -484,7 +485,8 @@ func lazyNumbering(tree *Tree, id NodeID) bool {
 
 // blankLinesBefore counts the BlankLine leaves between node id and the block
 // before it, across prefix leaves. Blank lines at the start of a container
-// have no meaning, so they count as none.
+// have no meaning, so they count as none, and the blank rest of a marker line
+// is no blank line.
 func blankLinesBefore(tree *Tree, id int) int {
 	n := 0
 	for i := id - 1; i >= 0; i-- {
@@ -492,7 +494,9 @@ func blankLinesBefore(tree *Tree, id int) int {
 		_, prefix := m.kind.owner()
 		switch {
 		case m.kind == BlankLine:
-			n++
+			if !markerRest(tree, i) {
+				n++
+			}
 		case prefix:
 		case m.kind.class() == classStructure && int(m.link) > id:
 			return 0
@@ -501,6 +505,16 @@ func blankLinesBefore(tree *Tree, id int) int {
 		}
 	}
 	return 0
+}
+
+// markerRest reports whether BlankLine i is the rest of the first line of a
+// list item or a footnote definition.
+func markerRest(tree *Tree, i int) bool {
+	j := i - 1
+	for j >= 0 && (tree.nodes[j].kind.class() == classStructure || tree.nodes[j].kind == Whitespace) {
+		j--
+	}
+	return j >= 0 && (tree.nodes[j].kind == ListMarker || tree.nodes[j].kind == Colon)
 }
 
 // blankLinesAfter counts the BlankLine leaves from node i to the next node,
