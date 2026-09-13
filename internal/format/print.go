@@ -779,7 +779,9 @@ func (p *printer) delimiter(id markdown.NodeID, k markdown.Kind) []byte {
 		}
 		return []byte{'_'}
 	case markdown.Strong:
-		if bytes.ContainsAny(content, "*_") {
+		// Next to '*' or '_', which can be the unused part of a delimiter run
+		// (design 6.4), "**" could pair differently.
+		if bytes.ContainsAny(content, "*_") || before == '*' || before == '_' || after == '*' || after == '_' {
 			return nil
 		}
 		return []byte("**")
