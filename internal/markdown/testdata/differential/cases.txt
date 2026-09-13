@@ -304,3 +304,19 @@ so markfmt follows cmark (design 2, 8.4).
 .
 <textarea x="1"/>
 ````````````````````````````````
+
+## goldmark deviates, spec section 4.6: HTML block kind 1 needs a space, a tab, `>` or the end of the line after the tag name
+
+goldmark starts kind 1 at `<style/` and `<pre/`.
+
+```````````````````````````````` example
+<style/>x
+
+<pre/>
+
+b
+.
+<p><style/>x</p>
+<pre/>
+<p>b</p>
+````````````````````````````````

@@ -362,6 +362,9 @@ var goldmarkDeviations = []struct {
 	{"goldmark deviates, spec sections 4.7 and 6.3: a form feed ends a destination", func(t *Tree) bool {
 		return formFeedDestination.Match(t.src)
 	}},
+	{"goldmark deviates, spec section 4.6: HTML block kind 1 needs a space, a tab, `>` or the end of the line after the tag name", func(t *Tree) bool {
+		return kind1SlashTag.Match(t.src)
+	}},
 	{"goldmark deviates, spec section 4.7: a definition with its destination on a later line ends at the destination when the next line is not a title", func(t *Tree) bool {
 		for i, n := range t.nodes {
 			if n.kind != LinkReferenceDefinition {
@@ -394,4 +397,5 @@ var (
 	kind1ClosingTag      = regexp.MustCompile(`(?i)</(pre|script|style)`)
 	angleDestinationLT   = regexp.MustCompile(`\](\(|:)[ \t\r\n]*<[^>\r\n]*<`)
 	formFeedDestination  = regexp.MustCompile(`\](\(|:)[ \t\r\n]*[^ \t\r\n]*\f`)
+	kind1SlashTag        = regexp.MustCompile(`(?i)<(pre|script|style|textarea)/`)
 )
