@@ -828,6 +828,7 @@ research (section 17).
 | ASCII control characters in a destination or an absolute URI | A destination ends at space, tab, VT and FF, and takes the other control characters. An absolute URI takes DEL. cmark and commonmark.js do this. The spec text excludes control characters, but no example tests it (section 2). |
 | HTML block kind 7 at an open tag named `pre`, `script`, `style` or `textarea` | Starts when the tag is not kind 1, as in `<pre/>`. cmark and commonmark.js do this. The spec text excludes these names, but no example tests it (section 2). |
 | Whitespace at the ends of an info string | Trimmed after entity references decode: space, tab, line ending, VT and FF, as cmark trims them. The spec text trims the spaces and tabs of the line only, and no example tests the rest (section 2). |
+| VT and FF in an HTML tag | Whitespace, as cmark and commonmark.js read them: after a kind 1 or kind 6 tag name, around attributes, in a closing tag, and in inline raw HTML. After the tag of an HTML block of kind 7, cmark takes FF but not VT. The spec text makes whitespace of spaces, tabs and one line ending, and no example tests VT or FF (section 2). |
 
 ## 9. GitHub syntax
 

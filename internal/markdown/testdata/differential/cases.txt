@@ -762,3 +762,16 @@ a </b/>
 <p>&lt;/A/&gt;</p>
 <p>a &lt;/b/&gt;</p>
 ````````````````````````````````
+
+## fixed in markfmt, spec sections 4.6 and 6.6: VT and FF are whitespace in an HTML tag, as cmark and commonmark.js read them
+
+markfmt started no HTML block of kind 1 at a tag name before a form feed
+(design 8.4).
+
+```````````````````````````````` example
+<stYle
+x
+.
+<stYle
+x
+````````````````````````````````

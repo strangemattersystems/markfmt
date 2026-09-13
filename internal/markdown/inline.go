@@ -281,16 +281,16 @@ func (s *inlineParser) expect(p pos, c byte) (pos, bool) {
 	return pos{}, false
 }
 
-// skipSpace returns the position after the spaces and tabs at p, with at
-// most one line ending, and whether it moved.
+// skipSpace returns the position after the whitespace of an HTML tag at p,
+// with at most one line ending, and whether it moved.
 func (s *inlineParser) skipSpace(p pos) (pos, bool) {
 	q := p
-	for c, ok := s.byteAt(q); ok && isSpaceOrTab(c); c, ok = s.byteAt(q) {
+	for c, ok := s.byteAt(q); ok && isTagSpace(c); c, ok = s.byteAt(q) {
 		q.i++
 	}
 	if _, ok := s.byteAt(q); !ok && q.k+1 < len(s.lines) {
 		q = pos{q.k + 1, s.lines[q.k+1].rest.start}
-		for c, ok := s.byteAt(q); ok && isSpaceOrTab(c); c, ok = s.byteAt(q) {
+		for c, ok := s.byteAt(q); ok && isTagSpace(c); c, ok = s.byteAt(q) {
 			q.i++
 		}
 	}

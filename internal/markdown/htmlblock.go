@@ -34,7 +34,7 @@ func htmlBlockStart(src []byte, i, end uint32) uint8 {
 	}
 	for _, name := range kind1Names {
 		if n := len(name) + 1; len(s) >= n && strings.EqualFold(string(s[1:n]), name) &&
-			(len(s) == n || s[n] == ' ' || s[n] == '\t' || s[n] == '>') {
+			(len(s) == n || isTagSpace(s[n]) || s[n] == '>') {
 			return 1
 		}
 	}
@@ -59,12 +59,12 @@ func htmlBlockStart(src []byte, i, end uint32) uint8 {
 		k++
 	}
 	if kind6Names[strings.ToLower(string(s[j:k]))] &&
-		(k == len(s) || s[k] == ' ' || s[k] == '\t' || s[k] == '>' || bytes.HasPrefix(s[k:], []byte("/>"))) {
+		(k == len(s) || isTagSpace(s[k]) || s[k] == '>' || bytes.HasPrefix(s[k:], []byte("/>"))) {
 		return 6
 	}
 	// cmark also takes an open tag named pre, script, style or textarea, which
-	// the spec text excludes (design 8.4).
-	if n := htmlTagLen(s); n > 0 && len(bytes.Trim(s[n:], " \t")) == 0 {
+	// the spec text excludes, and FF but not VT after the tag (design 8.4).
+	if n := htmlTagLen(s); n > 0 && len(bytes.Trim(s[n:], " \t\f")) == 0 {
 		return 7
 	}
 	return 0
@@ -86,14 +86,14 @@ func htmlTagLen(s []byte) int {
 		j++
 	}
 	if closing {
-		j = skipSpaceTab(s, j)
+		j = skipTagSpace(s, j)
 		if j < len(s) && s[j] == '>' {
 			return j + 1
 		}
 		return 0
 	}
 	for {
-		k := skipSpaceTab(s, j)
+		k := skipTagSpace(s, j)
 		if k == j || k == len(s) || !isAttrNameStart(s[k]) {
 			j = k
 			break
@@ -101,11 +101,11 @@ func htmlTagLen(s []byte) int {
 		for k++; k < len(s) && (isAttrNameStart(s[k]) || '0' <= s[k] && s[k] <= '9' || s[k] == '.' || s[k] == '-'); k++ {
 		}
 		j = k
-		v := skipSpaceTab(s, k)
+		v := skipTagSpace(s, k)
 		if v == len(s) || s[v] != '=' {
 			continue
 		}
-		v = skipSpaceTab(s, v+1)
+		v = skipTagSpace(s, v+1)
 		switch {
 		case v == len(s):
 			return 0
@@ -117,7 +117,7 @@ func htmlTagLen(s []byte) int {
 			j = v + 1 + e + 1
 		default:
 			e := v
-			for e < len(s) && strings.IndexByte(" \t\"'=<>`", s[e]) < 0 {
+			for e < len(s) && strings.IndexByte(" \t\v\f\"'=<>`", s[e]) < 0 {
 				e++
 			}
 			if e == v {
@@ -187,8 +187,14 @@ func isAttrNameStart(c byte) bool {
 	return isASCIILetter(c) || c == '_' || c == ':'
 }
 
-func skipSpaceTab(s []byte, i int) int {
-	for i < len(s) && isSpaceOrTab(s[i]) {
+// isTagSpace reports whether c is whitespace in an HTML tag: a space, a tab,
+// VT or FF, as cmark and commonmark.js read it (design 8.4).
+func isTagSpace(c byte) bool {
+	return c == ' ' || c == '\t' || c == '\v' || c == '\f'
+}
+
+func skipTagSpace(s []byte, i int) int {
+	for i < len(s) && isTagSpace(s[i]) {
 		i++
 	}
 	return i

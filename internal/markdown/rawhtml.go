@@ -114,7 +114,7 @@ func (s *inlineParser) attribute(p pos) (pos, bool) {
 	}
 	end = s.lines[q.k].rest.end
 	i := q.i
-	for i < end && strings.IndexByte(" \t\"'=<>`", s.src[i]) < 0 {
+	for i < end && strings.IndexByte(" \t\v\f\"'=<>`", s.src[i]) < 0 {
 		i++
 	}
 	if i == q.i {
