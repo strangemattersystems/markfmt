@@ -475,8 +475,9 @@ b</p>
 
 ## goldmark deviates, spec section 5.2: a blank line after an empty nested list item continues the outer list item
 
-goldmark ends the outer item when a child list ends with an empty item, at
-any depth, and the content after the blank line leaves the list.
+goldmark ends the outer item at a blank line after an empty item of a child
+list, at any depth. The content after the blank line leaves the list, also
+when it is another item of the child list.
 
 ```````````````````````````````` example
 - -
@@ -492,6 +493,10 @@ any depth, and the content after the blank line leaves the list.
 + 1)   +
 
   c
+
+* -
+ 
+  -
 .
 <ul>
 <li>
@@ -520,6 +525,14 @@ any depth, and the content after the blank line leaves the list.
 </li>
 </ol>
 <p>c</p>
+</li>
+</ul>
+<ul>
+<li>
+<ul>
+<li></li>
+<li></li>
+</ul>
 </li>
 </ul>
 ````````````````````````````````

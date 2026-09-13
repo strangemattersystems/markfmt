@@ -93,6 +93,7 @@ func TestGoldmarkDiffers(t *testing.T) {
 		{"skips an open parenthesis before a backslash and a space", "[]((\\ )", "goldmark deviates, spec sections 4.7 and 6.3: a parenthesis in a destination is escaped or in a balanced pair"},
 		{"skips a control character in an unquoted value after a quoted value with >", "<A A='>' A=\x15>", "goldmark deviates, spec section 6.6: an unquoted attribute value takes ASCII control characters"},
 		{"skips a single dash after definitions alone", "[0]:0\n-", "goldmark deviates, spec sections 4.3 and 4.7: a setext underline after link reference definitions alone is paragraph text"},
+		{"skips a nested list item after an empty one and a blank line", "* -\n \n  -", "goldmark deviates, spec section 5.2: a blank line after an empty nested list item continues the outer list item"},
 		{"skips a tab in the indentation after a list item prefix", "* 0\n  \t -", "goldmark deviates, spec sections 2.2 and 5.2: a tab after the prefix of a list item line stops at a column counted from the start of the line"},
 	}
 	for _, tt := range tests {
@@ -517,36 +518,39 @@ var goldmarkDeviations = []struct {
 			}
 			return last
 		}
-		// endsEmpty reports whether the last item of list, or of the list that
-		// its last item ends with, and so on, is empty.
-		endsEmpty := func(list int) bool {
+		// endsEmpty reports whether list item id is empty, or ends with a list
+		// whose last item ends empty.
+		endsEmpty := func(id int) bool {
 			for {
-				item := lastChild(list)
-				if item < 0 {
-					return false
-				}
-				child := lastChild(item)
+				child := lastChild(id)
 				if child < 0 {
 					return true
 				}
 				if t.nodes[child].kind != List {
 					return false
 				}
-				list = child
+				if id = lastChild(child); id < 0 {
+					return false
+				}
 			}
 		}
 		for i, n := range t.nodes {
 			if n.kind != ListItem {
 				continue
 			}
-			// A child list of the item that ends with an empty item, and a
-			// later child.
+			// An item of a child list that ends empty, with an item or a child
+			// of the outer item after it.
 			for c := firstChild(i+1, int(n.link)); c >= 0; c = firstChild(int(t.nodes[c].link), int(n.link)) {
-				if t.nodes[c].kind != List || firstChild(int(t.nodes[c].link), int(n.link)) < 0 {
+				if t.nodes[c].kind != List {
 					continue
 				}
-				if endsEmpty(c) {
-					return true
+				later := firstChild(int(t.nodes[c].link), int(n.link)) >= 0
+				for item := firstChild(c+1, int(t.nodes[c].link)); item >= 0; {
+					next := firstChild(int(t.nodes[item].link), int(t.nodes[c].link))
+					if (next >= 0 || later) && endsEmpty(item) {
+						return true
+					}
+					item = next
 				}
 			}
 		}
