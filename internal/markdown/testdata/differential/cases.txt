@@ -581,3 +581,19 @@ b](/u)
 .
 <p><img src="/u" alt="a b" /></p>
 ````````````````````````````````
+
+## goldmark deviates, spec section 4.7: a title that other characters follow on its line is not the title of the definition
+
+cmark 0.31.1, cmark-gfm and goldmark keep the failed title as the title of
+the link, and also write it as paragraph text. The expected HTML is the
+output of commonmark.js, which follows the spec text (`../dialect.md`).
+
+```````````````````````````````` example
+[foo]: /url
+"title"ok
+
+[foo]
+.
+<p>&quot;title&quot;ok</p>
+<p><a href="/url">foo</a></p>
+````````````````````````````````

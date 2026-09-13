@@ -570,6 +570,24 @@ var goldmarkDeviations = []struct {
 		}
 		return false
 	}},
+	{"goldmark deviates, spec section 4.7: a title that other characters follow on its line is not the title of the definition", func(t *Tree) bool {
+		for i, n := range t.nodes {
+			if n.kind != LinkReferenceDefinition || slices.ContainsFunc(t.nodes[i+1:n.link], func(m Node) bool { return m.kind == Title }) {
+				continue
+			}
+			next := int(n.link)
+			for next < len(t.nodes) && (t.nodes[next].kind == QuoteMarker || t.nodes[next].kind == ListMarker || t.nodes[next].kind == ItemIndent || t.nodes[next].kind == FootnoteIndent) {
+				next++
+			}
+			if next == len(t.nodes) || t.nodes[next].kind != Paragraph {
+				continue
+			}
+			if rest := bytes.TrimLeft(t.src[t.nodes[next].start:], " \t"); len(rest) > 0 && strings.IndexByte(`"'(`, rest[0]) >= 0 {
+				return true
+			}
+		}
+		return false
+	}},
 }
 
 var (

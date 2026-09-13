@@ -96,9 +96,11 @@ Known divergences at draft 3:
 | Code span after an unmatched backtick run (`a `` b `c` d `e``) | `c` and `e` are code spans (spec text, commonmark.js) | `e` stays text (cmark and cmark-gfm) |
 | VT and FF in a link destination | end the destination (cmark, section 8.4) | part of the destination |
 | VT and FF at the ends of an info string | trimmed (cmark, section 8.4) | kept |
+| Definition title that other characters follow on its line | the definition has no title (spec text, commonmark.js) | the title stays (cmark and cmark-gfm) |
 
 markfmt follows the CommonMark column, and cmark where cmark and commonmark.js
-disagree, but not where cmark contradicts the spec text (the code span row),
+disagree, but not where cmark contradicts the spec text (the code span and definition
+title rows),
 with two exceptions. The footnote rows
 have no CommonMark rule, so markfmt follows cmark-gfm's tests. The paragraph
 split off above a table follows GitHub: the table that splits it is GFM
