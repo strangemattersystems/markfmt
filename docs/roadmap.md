@@ -52,6 +52,7 @@ Last updated: 2026-09-13. Nothing after `ff7de5b` is pushed.
 | `104566e` | `.scratch/` is gitignored |
 | `59e930f` onwards | Stage 1: tree, builder, `Verify`, line iterator, test HTML renderer, conformance runner, five corpora |
 | `1604b94` onwards | Stage 2: paragraphs, blank lines, thematic breaks, ATX and setext headings, indented and fenced code, HTML blocks, block quotes, tabs, lists, link reference definitions, front matter, label normalization, `Equal` for block kinds, pathological inputs and `task long` |
+| `8ec40c6` onwards | Stage 3: the inline phase, line breaks, backslash escapes, entity references, code spans, autolinks, raw HTML, emphasis, links and images, pass 1 and reference links, `BenchmarkParse` |
 
 Layout:
 
@@ -67,7 +68,9 @@ Layout:
 - `internal/markdown/testdata/markfmt/grammar.txt`: markfmt's own cases, with
   the expected HTML of each example that a `grammar-differs.txt` lists
   (design 11.2). `testdata/commonmark/grammar-differs.txt` lists CM 96 and 98
-  (front matter).
+  (front matter). `testdata/commonmark-js-regression/grammar-differs.txt`
+  lists regression example 25, where cmark and commonmark.js disagree on list
+  looseness and markfmt follows cmark.
 - `internal/markdown/testdata/pairs`: the pair corpus of `TestEqual`, each
   pair equal or different with a reason, checked against the test HTML
   (design 10.5).
@@ -116,6 +119,7 @@ CommonMark example 210. Our own parser makes this finding obsolete.
 | One grammar in production and tests | No test-only grammar switch. Core examples that markfmt's GFM or front matter rules change are listed in `grammar-differs.txt`, each with a case of markfmt's expected result. Design 11.2. |
 | Streaming not planned | The documents that would need it are one top-level block, so per-block streaming would not help. Design 7.4. |
 | Design document at `docs/design/parser.md` | It is reviewed and versioned with the code. |
+| `grammar-differs.txt` also lists corpus examples where cmark and commonmark.js disagree | markfmt follows cmark (design 2). The named case holds the output of `cmark --unsafe`. commonmark.js regression 25: cmark 0.31.1 makes a list loose after a blank line in an HTML block. |
 | Full case folding table from Unicode `CaseFolding.txt` | Label matching needs Unicode full case folding (CM 540: `ẞ` matches `SS`). Go's `unicode` package has only simple folding. Design 15, commit 19. |
 | Canonical style by consensus | The style follows modern best practice across the major formatters and style guides, not personal preference. See Open decisions. |
 
@@ -208,13 +212,13 @@ memory per input, for nested block quotes; the stage 2 bound is 2 GiB (design
 
 ### Stage 3: inlines
 
-- [ ] Backslash escapes, entity and numeric character references (table
+- [x] Backslash escapes, entity and numeric character references (table
   generated from WHATWG `entities.json`), code spans.
-- [ ] Emphasis and strong emphasis with the delimiter run algorithm.
-- [ ] Links, images, reference links, autolinks, raw HTML, with pass 1 and the
+- [x] Emphasis and strong emphasis with the delimiter run algorithm.
+- [x] Links, images, reference links, autolinks, raw HTML, with pass 1 and the
   pass label check.
-- [ ] Hard and soft line breaks.
-- [ ] `Equal`, the pairs and the `FuzzEqual` mutations extended with each
+- [x] Hard and soft line breaks.
+- [x] `Equal`, the pairs and the `FuzzEqual` mutations extended with each
   construct.
 
 Gates:
@@ -226,6 +230,34 @@ Gates:
 - Pathological inline inputs pass the pathological subtest and `task long`.
 - `benchstat` output recorded here: parse throughput within 2 times goldmark's,
   with pass 1 included.
+
+Passed 2026-09-13. The CommonMark and commonmark.js regression `failing.txt`
+lists are empty. commonmark.js regression 25 is in `grammar-differs.txt`, and
+its named case passes. The cmark-gfm regression list holds only examples
+tagged with GFM extensions: 8, 10, 11, 13 and 20 to 23. The pathological
+subtest has 25 inputs, and each linear-time mechanism of design 6.8 was
+checked with a mutation. At the input limit, `task long` takes at most 0.62 s
+and 1.34 GiB of memory per input, for nested block quotes. `FuzzParse` and
+`FuzzEqual` ran 90 seconds each with no finding. `BenchmarkParse` on an Apple
+M2 Pro, with `go run golang.org/x/perf/cmd/benchstat@v0.0.0-20260908200009-22c9c6c9d4da -col /parser`:
+
+```
+                       │   markfmt   │               goldmark               │
+                       │   sec/op    │    sec/op     vs base                │
+Parse/input=spec-10      1.249m ± 1%    1.504m ± 0%  +20.42% (p=0.000 n=10)
+Parse/input=corpora-10   943.5µ ± 0%   1873.3µ ± 3%  +98.54% (p=0.000 n=10)
+Parse/input=design-10    405.3µ ± 1%    532.6µ ± 0%  +31.42% (p=0.000 n=10)
+geomean                  781.7µ         1.145m       +46.47%
+
+                       │   markfmt    │               goldmark               │
+                       │     B/s      │     B/s       vs base                │
+Parse/input=spec-10      156.5Mi ± 1%   130.0Mi ± 0%  -16.95% (p=0.000 n=10)
+Parse/input=corpora-10   41.37Mi ± 0%   20.83Mi ± 3%  -49.64% (p=0.000 n=10)
+Parse/input=design-10    175.5Mi ± 1%   133.5Mi ± 0%  -23.91% (p=0.000 n=10)
+geomean                  104.3Mi        71.24Mi       -31.73%
+```
+
+markfmt parses faster than goldmark on every input.
 
 ### Stage 4: GFM and GitHub syntax
 
