@@ -1504,13 +1504,20 @@ const (
 	headMulti                  // a setext heading of more than one line
 )
 
-// multiLine reports whether heading id has a line break in its content.
+// multiLine reports whether heading id has a line ending in its content: a
+// setext heading whose leaves before its underline hold more than one line
+// ending, as a soft break, a hard break or a code span over lines does.
 func (p *printer) multiLine(id markdown.NodeID) bool {
 	t := p.tree
 	end, _ := t.Next(id)
+	endings := 0
 	for i := id + 1; i < end; i++ {
-		if k := t.Kind(i); k == markdown.SoftBreak || k == markdown.HardBreak {
-			return true
+		switch k := t.Kind(i); {
+		case k == markdown.SetextUnderline:
+			return endings > 1
+		case k.Leaf():
+			raw := t.Raw(i)
+			endings += bytes.Count(raw, lineFeed) + bytes.Count(raw, []byte{'\r'}) - bytes.Count(raw, []byte("\r\n"))
 		}
 	}
 	return false
