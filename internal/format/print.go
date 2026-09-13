@@ -402,11 +402,6 @@ func (p *printer) exit() {
 		if !p.lineStart {
 			p.endLine()
 		}
-		if p.span {
-			for range p.blanks {
-				p.write(lineFeed)
-			}
-		}
 	}
 }
 

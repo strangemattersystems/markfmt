@@ -377,6 +377,7 @@ func TestKept(t *testing.T) {
 		{"gives each nul and invalid utf-8 sequence in content", "a\x00b\xa6\xe0\xa0c", []string{"invalid \x00", "invalid \xa6", "invalid \xe0\xa0"}},
 		{"gives an ordered list that starts at 1 and whose second item is 1", "1. a\n1. b\n\n- c\n\n3) d\n1) e\n\n1. f\n2. g", []string{"lazy numbering"}},
 		{"gives the rows and the blank lines around each dialect span", "a\n<search>\n\n\nb", []string{"span 1, blank lines 0 and 0", "span 1, blank lines 0 and 2"}},
+		{"gives no blank lines at the start of a container or at the end of the input", "\n<search>\n\n\n\n> \n> <search>\n>\n", []string{"span 1, blank lines 0 and 3", "span 1, blank lines 0 and 0"}},
 		{"gives nothing for text, emphasis and an inline link", "a *b* [c](/u)", nil},
 	}
 	for _, tt := range tests {
@@ -402,7 +403,7 @@ func kept(tree *Tree) []string {
 		id := NodeID(i)
 		b := tree.src[n.start:n.end]
 		if len(spans) > 0 && spans[0].id == uint32(i) {
-			events = append(events, fmt.Sprintf("span %b, blank lines %d and %d", spans[0].rows, blankLines(tree, i-1, -1), blankLines(tree, int(n.link), 1)))
+			events = append(events, fmt.Sprintf("span %b, blank lines %d and %d", spans[0].rows, blankLinesBefore(tree, i), blankLinesAfter(tree, int(n.link))))
 			spans = spans[1:]
 		}
 		switch n.kind {
@@ -481,17 +482,41 @@ func lazyNumbering(tree *Tree, id NodeID) bool {
 	return false
 }
 
-// blankLines counts the BlankLine leaves from node i in direction dir, -1 or
-// 1, across prefix leaves, up to another node.
-func blankLines(tree *Tree, i, dir int) int {
+// blankLinesBefore counts the BlankLine leaves between node id and the block
+// before it, across prefix leaves. Blank lines at the start of a container
+// have no meaning, so they count as none.
+func blankLinesBefore(tree *Tree, id int) int {
 	n := 0
-	for ; i >= 0 && i < len(tree.nodes); i += dir {
+	for i := id - 1; i >= 0; i-- {
 		m := tree.nodes[i]
-		if _, prefix := m.kind.owner(); m.kind == BlankLine {
+		_, prefix := m.kind.owner()
+		switch {
+		case m.kind == BlankLine:
 			n++
-		} else if !prefix {
-			break
+		case prefix:
+		case m.kind.class() == classStructure && int(m.link) > id:
+			return 0
+		default:
+			return n
 		}
 	}
-	return n
+	return 0
+}
+
+// blankLinesAfter counts the BlankLine leaves from node i to the next node,
+// across prefix leaves. Blank lines at the end of the input have no meaning,
+// so they count as none.
+func blankLinesAfter(tree *Tree, i int) int {
+	n := 0
+	for ; i < len(tree.nodes); i++ {
+		m := tree.nodes[i]
+		_, prefix := m.kind.owner()
+		switch {
+		case m.kind == BlankLine:
+			n++
+		case !prefix:
+			return n
+		}
+	}
+	return 0
 }
