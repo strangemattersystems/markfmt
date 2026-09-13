@@ -694,6 +694,9 @@ var goldmarkDeviations = []struct {
 	{"goldmark deviates, spec section 4.6: a tab after the tag that starts HTML block kind 7 is whitespace", func(t *Tree) bool {
 		return tabAfterTag.Match(t.src)
 	}},
+	{"goldmark deviates, spec section 6.3: a link forms after any number of open brackets", func(t *Tree) bool {
+		return bytes.Count(t.src, []byte("[")) >= 1000
+	}},
 }
 
 var (
