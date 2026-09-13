@@ -408,18 +408,18 @@ This is our reading of the licenses, not legal advice.
 
 ## Known goldmark deviations
 
-Use this list to triage stage 5 disagreements. Each row gets a predicate in
-the differential test.
+Use this list to triage stage 5 disagreements. The last column says how
+`FuzzDifferential` handles each row (design 11.5).
 
-| Input | goldmark behaviour | Expected |
-| --- | --- | --- |
-| Table directly after a paragraph | The table gets the paragraph's position. | Position of the header row. |
-| `0\n0\n    -\n0\n-` | Block positions out of order. | Positions in source order. |
-| Paragraph with trailing spaces, then a table | HTML keeps the space: `<p>0 </p>`. | No trailing space. |
-| HTML block at end of input without a final newline | HTML differs from the same input with a final newline. | The same HTML. |
-| Lone CR | Not a line ending. | A line ending (CommonMark). |
-| `*\r\n` | A paragraph. | An empty list item. |
-| `[0]:\n0\n''0` | The destination line also appears as paragraph text. | Paragraph `''0` only (compare example 210). |
+| Input | goldmark behaviour | Expected | Differential test |
+| --- | --- | --- | --- |
+| Table directly after a paragraph | The table gets the paragraph's position. | Position of the header row. | Positions are not in HTML. |
+| `0\n0\n    -\n0\n-` | Block positions out of order. | Positions in source order. | Positions are not in HTML. |
+| Paragraph with trailing spaces, then a table | HTML keeps the space: `<p>0 </p>`. | No trailing space. | A table is markfmt grammar. |
+| HTML block at end of input without a final newline | HTML differs from the same input with a final newline. | The same HTML. | goldmark reads a final line ending. |
+| Lone CR | Not a line ending. | A line ending (CommonMark). | goldmark reads LF line endings. |
+| `*\r\n` | A paragraph. | An empty list item. | goldmark reads LF line endings. |
+| `[0]:\n0\n''0` | The destination line also appears as paragraph text. | Paragraph `''0` only (compare example 210). | Not yet: design 15, commit 57. |
 
 ## How to resume
 
