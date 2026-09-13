@@ -90,6 +90,7 @@ func TestGoldmarkDiffers(t *testing.T) {
 		{"skips a definition whose label spans lines and whose title fails", "[0\n]:0\n\"\"0", "goldmark deviates, spec section 4.7: a definition over several lines ends at its destination when the next line is not a title"},
 		{"skips a code block of one blank line at the end of a list item", "- 00000\n  ```\n\n-", "goldmark deviates, spec section 5.3: a blank line at the end of a code block in a list item leaves the list tight"},
 		{"skips a paragraph after lists that end in an empty item two levels down", "* 0)   *  \n\n  0", "goldmark deviates, spec section 5.2: a blank line after an empty nested list item continues the outer list item"},
+		{"skips an open parenthesis before a backslash and a space", "[]((\\ )", "goldmark deviates, spec sections 4.7 and 6.3: a parenthesis in a destination is escaped or in a balanced pair"},
 		{"skips a tab in the indentation after a list item prefix", "* 0\n  \t -", "goldmark deviates, spec sections 2.2 and 5.2: a tab after the prefix of a list item line stops at a column counted from the start of the line"},
 	}
 	for _, tt := range tests {
@@ -287,7 +288,9 @@ var goldmarkDeviations = []struct {
 			for ; j < len(src) && strings.IndexByte(" \t\n\r\v\f", src[j]) < 0 && depth >= 0; j++ {
 				switch src[j] {
 				case '\\':
-					j++
+					if j+1 < len(src) && isASCIIPunct(src[j+1]) {
+						j++
+					}
 				case '(':
 					depth++
 				case ')':

@@ -206,12 +206,15 @@ before a space or a line ending.
 [f]: g␀(
 
 [f]
+
+[h](i(\ )
 .
 <p>[](a(b )</p>
 <p>[c]: d(e</p>
 <p>[c]</p>
 <p>[f]: g�(</p>
 <p>[f]</p>
+<p>[h](i(\ )</p>
 ````````````````````````````````
 
 ## goldmark deviates, spec section 4.5: a content line of spaces in fenced code loses the fence and container indentation only
