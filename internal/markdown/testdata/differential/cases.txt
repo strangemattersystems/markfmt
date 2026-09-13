@@ -320,3 +320,23 @@ b
 <pre/>
 <p>b</p>
 ````````````````````````````````
+
+## goldmark deviates, spec section 4.5: an info string loses VT and FF at its ends, as cmark trims it
+
+goldmark keeps the form feeds in the info string and in its first word
+(design 8.4).
+
+```````````````````````````````` example
+~~~
+x
+~~~
+
+~~~ ab
+y
+~~~
+.
+<pre><code>x
+</code></pre>
+<pre><code class="language-a">y
+</code></pre>
+````````````````````````````````

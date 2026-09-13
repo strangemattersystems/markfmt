@@ -365,6 +365,21 @@ var goldmarkDeviations = []struct {
 	{"goldmark deviates, spec section 4.6: HTML block kind 1 needs a space, a tab, `>` or the end of the line after the tag name", func(t *Tree) bool {
 		return kind1SlashTag.Match(t.src)
 	}},
+	{"goldmark deviates, spec section 4.5: an info string loses VT and FF at its ends, as cmark trims it", func(t *Tree) bool {
+		for i, n := range t.nodes {
+			if n.kind != CodeBlock {
+				continue
+			}
+			line := t.Raw(NodeID(i))
+			if end := bytes.IndexAny(line, "\r\n"); end >= 0 {
+				line = line[:end]
+			}
+			if bytes.ContainsAny(line, "\v\f") {
+				return true
+			}
+		}
+		return false
+	}},
 	{"goldmark deviates, spec section 4.7: a definition with its destination on a later line ends at the destination when the next line is not a title", func(t *Tree) bool {
 		for i, n := range t.nodes {
 			if n.kind != LinkReferenceDefinition {

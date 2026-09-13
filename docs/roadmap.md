@@ -429,6 +429,7 @@ Use this list to triage stage 5 disagreements. The last column says how
 | `* `, then `   - b` | Two lists: the bullet list item does not go into the empty item. | A nested list (spec 5.2). | Predicate, differential case. |
 | `[a](b`, a form feed, `c)` | A link: a form feed does not end a destination. | Text, as cmark gives (spec 4.7, 6.3). | Predicate, differential case. |
 | `<pre/>`, a blank line, `b` | One HTML block of kind 1 to the end: kind 1 starts at `<pre/`. | HTML block kind 7, then paragraph `b` (spec 4.6). | Predicate, differential case. |
+| `~~~`, then a form feed | The class `language-` and the form feed: VT and FF stay in an info string. | No class, as cmark trims VT and FF (spec 4.5, design 8.4). | Predicate, differential case. |
 | `[0]:\n0\n''0` | The destination line also appears as paragraph text. | Paragraph `''0` only (compare example 210). | Predicate, differential case. |
 | `x<!x>`, `<!doctype html>` | Text: a declaration needs an uppercase letter after `<!`, as on GitHub. | Raw HTML and an HTML block (spec 4.6, 6.6). | Predicate, differential case. |
 | `a\n<meta>` | `<meta>` interrupts the paragraph: goldmark's HTML block kind 6 tag list has `meta`. | Paragraph with raw HTML (spec 4.6). | Predicate, differential case. |
