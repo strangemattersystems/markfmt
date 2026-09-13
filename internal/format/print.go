@@ -917,8 +917,10 @@ func (p *printer) delimiter(id markdown.NodeID, k markdown.Kind) []byte {
 		}
 		return []byte("**")
 	default:
-		// No '~' goes next to a "~~" delimiter (appendix B, trap 13).
-		if bytes.IndexByte(content, '~') >= 0 || before == '~' || after == '~' || p.inText('~') {
+		// No '~' goes next to a "~~" delimiter (appendix B, trap 13), and
+		// "~~" inside a strikethrough could close it.
+		if bytes.IndexByte(content, '~') >= 0 || before == '~' || after == '~' || p.inText('~') ||
+			slices.ContainsFunc(p.stack, func(f frame) bool { return f.kind == markdown.Strikethrough }) {
 			return nil
 		}
 		return []byte("~~")
