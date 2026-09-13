@@ -19,8 +19,10 @@ var (
 // FuzzDifferential compares the test HTML of [Parse] with the HTML of
 // goldmark v2.0.2 with no extensions (design 11.5).
 func FuzzDifferential(f *testing.F) {
-	for _, ex := range readExamples(f, "testdata/commonmark/spec.txt") {
-		f.Add([]byte(ex.markdown))
+	for _, c := range corpora {
+		for _, ex := range readExamples(f, c.path) {
+			f.Add([]byte(ex.markdown))
+		}
 	}
 
 	f.Fuzz(func(t *testing.T, src []byte) {
