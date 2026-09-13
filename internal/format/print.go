@@ -1211,10 +1211,14 @@ func (p *printer) thematicRun() []byte {
 // gets 4 columns of indentation when its content would otherwise start a
 // block (trap 1).
 func (p *printer) continuation(id markdown.NodeID) {
-	line := bytes.TrimRight(p.tree.RestOfLine(id), " \t")
-	// A hard break of spaces can print as a backslash, so the width leaves
-	// out a last backslash, and a second format decides the same.
-	width := len(bytes.TrimSuffix(line, []byte{'\\'}))
+	// A hard break of spaces can print as a backslash, so the decisions read
+	// the line without a last backslash and with one, and a second format
+	// decides the same.
+	line := bytes.TrimSuffix(bytes.TrimRight(p.tree.RestOfLine(id), " \t"), []byte{'\\'})
+	withBreak := append(bytes.Clone(line), '\\')
+	interrupts := func(lazy bool) bool {
+		return markdown.InterruptsParagraph(line, lazy) || markdown.InterruptsParagraph(withBreak, lazy)
+	}
 	open, full := 0, 0
 	for i := range p.stack {
 		if p.stack[i].container {
@@ -1223,11 +1227,11 @@ func (p *printer) continuation(id markdown.NodeID) {
 		}
 	}
 	p.indent = -1
-	if p.matched < open && full > width && !markdown.InterruptsParagraph(line, true) {
+	if p.matched < open && full > len(line) && !interrupts(true) {
 		return
 	}
 	p.matched = open
-	if markdown.InterruptsParagraph(line, false) {
+	if interrupts(false) {
 		p.pad = 4
 	}
 }
