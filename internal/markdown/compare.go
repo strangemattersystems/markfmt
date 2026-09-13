@@ -237,7 +237,6 @@ func equalPieces(a, b pieceReader) bool {
 	}
 }
 
-// appendPieces appends every piece that r reads to dst.
 func appendPieces(dst []byte, r pieceReader) []byte {
 	for b := r.next(); b != nil; b = r.next() {
 		dst = append(dst, b...)

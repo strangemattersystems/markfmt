@@ -200,7 +200,6 @@ func (s *inlineParser) trailingSpace() {
 	s.push(piece{kind: TrailingSpace, end: l.end})
 }
 
-// inlineTriggers holds the bytes that can start an inline construct.
 var inlineTriggers = [256]bool{'\\': true, '&': true, '`': true, '<': true, '*': true, '_': true, '[': true, ']': true, '!': true}
 
 // verbatim pushes pieces of kind text up to p, with a VerbatimLineEnding,
@@ -221,7 +220,6 @@ func (s *inlineParser) byteAt(p pos) (byte, bool) {
 	return 0, false
 }
 
-// expect returns the position after c at p, or false.
 func (s *inlineParser) expect(p pos, c byte) (pos, bool) {
 	if b, ok := s.byteAt(p); ok && b == c {
 		return pos{p.k, p.i + 1}, true
@@ -273,12 +271,10 @@ func (s *inlineParser) pushIf(k Kind, end uint32) {
 	}
 }
 
-// end returns the end of the last piece.
 func (s *inlineParser) end() uint32 {
 	return s.startOf(len(s.pieces))
 }
 
-// startOf returns the start of piece j.
 func (s *inlineParser) startOf(j int) uint32 {
 	if j == 0 {
 		return s.start
