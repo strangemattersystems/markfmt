@@ -72,6 +72,14 @@ type frame struct {
 	fence             []byte
 	opening, lineOpen bool
 
+	// A link reference definition outside a dialect span prints in the
+	// part def, puts one space before its destination with spaced, has an
+	// angle destination with angle, and writes its title in quotes.
+	def    defPart
+	spaced bool
+	angle  bool
+	quotes [2]byte
+
 	// A list numbers its items from start, and uses its second marker with
 	// alt. Its second item decides lazy numbering.
 	ordered, alt, lazy bool
@@ -233,6 +241,9 @@ func (p *printer) enter(id markdown.NodeID, k markdown.Kind) {
 			p.endLine()
 		}
 	}
+	if k == markdown.LinkReferenceDefinition && p.inSpan == 0 {
+		f.def, f.quotes = defLabel, p.titleQuotes(id)
+	}
 	if k == markdown.Heading && p.inSpan == 0 {
 		p.head, p.headLevel, p.headDone = headSingle, t.HeadingLevel(id), false
 		if p.multiLine(id) {
@@ -381,6 +392,10 @@ func (p *printer) leaf(id markdown.NodeID, k markdown.Kind, start, end int) {
 		}
 	case top.fence != nil:
 		p.codeLeaf(top, id, k, start)
+	case top.def != defNone:
+		p.definitionLeaf(top, id, k, start)
+	case top.kind == markdown.FrontMatter && k == markdown.Whitespace:
+		// Spaces after a fence line are not meaning.
 	case p.head == headSingle && p.headDone:
 		// The underline line of a setext heading that prints as ATX.
 	case p.head != headNone && top.kind == markdown.Heading && (k == markdown.ATXMarker || k == markdown.ATXClose || k == markdown.Whitespace):
@@ -562,6 +577,108 @@ func (p *printer) content(id markdown.NodeID, start int) {
 	p.writeLF(b)
 	p.written, p.afterBox = true, k == markdown.TaskBox
 	p.backslash = len(b) > 0 && b[len(b)-1] == '\\' && k != markdown.Escape
+}
+
+// defPart is the part of a link reference definition that prints.
+type defPart uint8
+
+const (
+	defNone        defPart = iota // no definition prints, or it is in a dialect span
+	defLabel                      // the label, up to the colon
+	defDestination                // the destination
+	defTitle                      // after the destination, before a title
+	defInTitle                    // the title
+	defEnd                        // after the title
+)
+
+// titleQuotes returns the quotes around the title of link reference
+// definition id: '"', or '\” when the title has '"', or parentheses when it
+// has both, or the input's quotes when it also has a parenthesis. A title
+// decodes the same in each (spec 4.7).
+func (p *printer) titleQuotes(id markdown.NodeID) [2]byte {
+	t := p.tree
+	end, _ := t.Next(id)
+	var title []byte
+	var source [2]byte
+	quotes := 0
+	for i := id + 1; i < end; i++ {
+		switch t.Kind(i) {
+		case markdown.Title:
+			title = append(title, t.Raw(i)...)
+		case markdown.TitleQuote:
+			if quotes < 2 {
+				source[quotes] = t.Raw(i)[0]
+				quotes++
+			}
+		}
+	}
+	switch {
+	case bytes.IndexByte(title, '"') < 0:
+		return [2]byte{'"', '"'}
+	case bytes.IndexByte(title, '\'') < 0:
+		return [2]byte{'\'', '\''}
+	case !bytes.ContainsAny(title, "()"):
+		return [2]byte{'(', ')'}
+	}
+	return source
+}
+
+// definitionLeaf prints leaf id of kind k, whose own columns start at column
+// start, in link reference definition f: the label as written, one space,
+// the destination as written, and one space and the title in f's quotes. The
+// whitespace and line endings between them are not written.
+func (p *printer) definitionLeaf(f *frame, id markdown.NodeID, k markdown.Kind, start int) {
+	switch f.def {
+	case defNone:
+	case defLabel:
+		switch k {
+		case markdown.Indent:
+			p.indent = -1
+		case markdown.VerbatimLineEnding:
+			p.endLine()
+		default:
+			p.content(id, start)
+			if k == markdown.Colon {
+				f.def = defDestination
+			}
+		}
+	case defDestination:
+		if k == markdown.Whitespace || k == markdown.LineEnding || k == markdown.Indent {
+			return
+		}
+		if !f.spaced {
+			p.write(spaces[:1])
+			f.spaced = true
+		}
+		p.indent = -1
+		p.content(id, start)
+		switch {
+		case k == markdown.AngleBracket && !f.angle:
+			f.angle = true
+		case k == markdown.AngleBracket, k == markdown.Destination && !f.angle:
+			f.def = defTitle
+		}
+	case defTitle:
+		if k == markdown.TitleQuote {
+			p.write(spaces[:1])
+			p.indent, p.replace = -1, f.quotes[:1]
+			p.content(id, start)
+			f.def = defInTitle
+		}
+	case defInTitle:
+		switch k {
+		case markdown.VerbatimLineEnding:
+			p.endLine()
+		case markdown.TitleQuote:
+			p.indent, p.replace = -1, f.quotes[1:]
+			p.content(id, start)
+			f.def = defEnd
+		default:
+			p.indent = -1
+			p.content(id, start)
+		}
+	case defEnd:
+	}
 }
 
 // codeFence returns the fence of code block id: backticks, or tildes when its
