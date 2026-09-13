@@ -84,6 +84,7 @@ func TestGoldmarkDiffers(t *testing.T) {
 		{"skips a thematic break that starts like a list item after an empty list item", "*\n  - --", "goldmark deviates, spec section 5.2: a list item that starts with a blank line takes a line indented to its content that starts like a bullet list item"},
 		{"skips an open parenthesis after a nul in a destination", "[0]:0\x00(", "goldmark deviates, spec sections 4.7 and 6.3: a parenthesis in a destination is escaped or in a balanced pair"},
 		{"skips a tab before a nested list marker after a list item prefix", "0) 0\n   \t* 0", "goldmark deviates, spec sections 2.2 and 5.2: a tab after the prefix of a list item line stops at a column counted from the start of the line"},
+		{"skips a control character in an unquoted value after whitespace", "<A A0000= \x01>0", "goldmark deviates, spec section 6.6: an unquoted attribute value takes ASCII control characters"},
 		{"skips a tab in the indentation after a list item prefix", "* 0\n  \t -", "goldmark deviates, spec sections 2.2 and 5.2: a tab after the prefix of a list item line stops at a column counted from the start of the line"},
 	}
 	for _, tt := range tests {
@@ -558,6 +559,6 @@ var (
 	kind1SlashTag        = regexp.MustCompile(`(?i)<(pre|script|style|textarea)/`)
 	quoteMarkerDelimiter = regexp.MustCompile(`>[*_]`)
 	emptyInstruction     = regexp.MustCompile(`<\?>`)
-	unquotedControl      = regexp.MustCompile(`<[A-Za-z][^<>]*=[^ \t\r\n"'=<>\x60]*[\x01-\x08\x0b\x0c\x0e-\x1f\x7f]`)
+	unquotedControl      = regexp.MustCompile(`<[A-Za-z][^<>]*=[ \t\r\n]*[^ \t\r\n"'=<>\x60]*[\x01-\x08\x0b\x0c\x0e-\x1f\x7f]`)
 	spacedClosingTag     = regexp.MustCompile(`</[ \t\r\n]+[A-Za-z]`)
 )

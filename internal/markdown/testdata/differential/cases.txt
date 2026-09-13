@@ -508,13 +508,16 @@ goldmark gives `<?>` as raw HTML.
 
 ## goldmark deviates, spec section 6.6: an unquoted attribute value takes ASCII control characters
 
-The value is U+0014. goldmark and commonmark.js leave control characters out
+The values are U+0014 and, after a space, U+0001. goldmark and commonmark.js leave control characters out
 of an unquoted value, and the spec text and cmark do not.
 
 ```````````````````````````````` example
 <A A=>
+
+<B B= >
 .
 <A A=>
+<B B= >
 ````````````````````````````````
 
 ## goldmark deviates, spec section 6.6: a closing tag has no whitespace after `</`
