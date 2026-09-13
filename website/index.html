@@ -76,17 +76,17 @@ pre::after { content: "```"; content: "```" / ""; display: block; color: var(--m
 }
 
 /* Radio inputs switch the install tabs, so they work without JavaScript. */
-.tabs { margin-top: 2rem; }
+.tabs { display: flex; flex-wrap: wrap; align-items: baseline; margin-top: 2rem; }
+.tabs > a { margin-left: auto; }
 .tabs input { position: absolute; opacity: 0; }
 .tabs label { display: inline-block; padding: 0 1ch; color: var(--mark); cursor: pointer; }
 .tabs label:hover { color: var(--fg); }
 .tabs input:checked + label { background: var(--fg); color: var(--bg); }
 .tabs input:focus-visible + label { outline: 2px solid var(--fg); outline-offset: 2px; }
-.panel { display: none; margin-top: 0.5rem; }
+.panel { display: none; flex-basis: 100%; min-width: 0; margin-top: 0.5rem; }
 #brew:checked ~ .brew, #download:checked ~ .download,
 #docker:checked ~ .docker, #go:checked ~ .go { display: block; }
 .download p { margin: 0; padding: 0.75rem 2ch; background: var(--code-bg); }
-.links { margin-top: 1rem; }
 
 footer { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0 2ch; margin-top: 4rem; color: var(--mark); }
 footer::before { content: "---"; content: "---" / ""; flex-basis: 100%; margin-bottom: 1rem; }
@@ -119,6 +119,7 @@ if (!matchMedia("(prefers-reduced-motion: reduce)").matches) {
   <input type="radio" name="install" id="download"><label for="download">download</label>
   <input type="radio" name="install" id="docker"><label for="docker">docker</label>
   <input type="radio" name="install" id="go"><label for="go">go</label>
+  <a href="https://github.com/strangemattersystems/markfmt">GitHub</a>
 
   <div class="panel brew">
     <pre data-lang="sh"><code>brew install strangemattersystems/tap/markfmt</code></pre>
@@ -140,8 +141,6 @@ if (!matchMedia("(prefers-reduced-motion: reduce)").matches) {
     <pre data-lang="sh"><code>go install github.com/strangemattersystems/markfmt/cmd/markfmt@latest</code></pre>
   </div>
 </div>
-
-<p class="links"><a href="https://github.com/strangemattersystems/markfmt">GitHub</a></p>
 
 <h2 id="why">Why markfmt</h2>
 <ul>
