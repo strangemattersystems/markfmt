@@ -588,6 +588,22 @@ var goldmarkDeviations = []struct {
 		}
 		return false
 	}},
+	{"goldmark deviates, spec sections 4.7 and 6.3: a link label has at most 999 characters", func(t *Tree) bool {
+		// A bracket text of more than 999 bytes.
+		start := -1
+		for i, c := range t.src {
+			switch c {
+			case '[':
+				start = i
+			case ']':
+				if start >= 0 && i-start-1 > 999 {
+					return true
+				}
+				start = -1
+			}
+		}
+		return false
+	}},
 }
 
 var (

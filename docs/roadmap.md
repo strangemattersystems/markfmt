@@ -128,7 +128,7 @@ The goldmark-based formatter is a stopgap. Stage 6 replaces it.
 | Differential fuzz budget: 1 CPU-hour at stage 5, 24 CPU-hours at stage 7 | The user wants no long run before the product is near v0.1. The long run must end before stage 7 deletes the differential test. |
 | No goldmark extensions in the differential test | goldmark's GFM extensions are not cmark-gfm: with them on, goldmark disagrees on 81 corpus examples with a GFM construct. The corpora and GitHub fixtures test GFM. Design 11.5. |
 | Control characters in destinations and absolute URIs follow cmark | The spec text excludes them, but no example tests it, and cmark, commonmark.js, cmark-gfm and goldmark all take them. The user chose cmark on 2026-09-13. Design 8.4. |
-| Code spans and definition titles follow the spec where cmark does not | cmark 0.31.1 and cmark-gfm leave the second code span of `a `` b `c` d `e`` as text, a bug in their search record. They also keep a failed definition title as the title of the link. The spec text and commonmark.js agree on both. The user asked to prefer the spec and the result users expect, 2026-09-13. `dialect.md` has the rows. |
+| Code spans, definition titles and label lengths follow the spec where cmark does not | cmark 0.31.1 and cmark-gfm leave the second code span of `a `` b `c` d `e`` as text, a bug in their search record. They also keep a failed definition title as the title of the link, and cap a link label at 1000 bytes, not 999 characters. The spec text and commonmark.js agree on all three. The user asked to prefer the spec and the result users expect, 2026-09-13. `dialect.md` has the rows. |
 | Canonical style by consensus | The style follows modern best practice across the major formatters and style guides, not personal preference. See Open decisions. |
 
 ## Open decisions
@@ -443,6 +443,7 @@ Use this list to triage stage 5 disagreements. The last column says how
 | `<p`, then a tab | A paragraph: kind 6 does not start at a tab after the tag name. | HTML block (spec 4.6). | Predicate, differential case. |
 | `![a`, a line ending, `b](/u)` | The alt text `a`, a line ending, `b`. | The alt text `a b`, as cmark writes it (spec 6.4). | Predicate, differential case. |
 | `[foo]: /url`, then `"title"ok`, then `[foo]` | A link with the title `title`, and the paragraph `"title"ok`. | A link without a title, as commonmark.js gives (spec 4.7, CM 210). | Predicate, differential case. |
+| A definition and a reference with a label of 1000 characters | A definition and a link: no cap on the label. | Text: a label has at most 999 characters (spec 4.7, 6.3). | Predicate, differential case. |
 | `[0]:\n0\n''0` | The destination line also appears as paragraph text. | Paragraph `''0` only (compare example 210). | Predicate, differential case. |
 | `x<!x>`, `<!doctype html>` | Text: a declaration needs an uppercase letter after `<!`, as on GitHub. | Raw HTML and an HTML block (spec 4.6, 6.6). | Predicate, differential case. |
 | `a\n<meta>` | `<meta>` interrupts the paragraph: goldmark's HTML block kind 6 tag list has `meta`. | Paragraph with raw HTML (spec 4.6). | Predicate, differential case. |
