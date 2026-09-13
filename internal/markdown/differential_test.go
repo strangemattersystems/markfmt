@@ -630,6 +630,22 @@ var goldmarkDeviations = []struct {
 		}
 		return false
 	}},
+	{"goldmark deviates, spec sections 2.4 and 6.7: a backslash escape starts the line after a backslash and a hard line break of spaces", func(t *Tree) bool {
+		for i := 1; i+1 < len(t.nodes); i++ {
+			if t.nodes[i].kind != HardBreak || t.nodes[i-1].kind != Text || t.nodes[i+1].kind != HardBreakMarker ||
+				!bytes.HasSuffix(t.Raw(NodeID(i-1)), []byte("\\")) || bytes.Contains(t.Raw(NodeID(i+1)), []byte("\\")) {
+				continue
+			}
+			next := int(t.nodes[i].link)
+			for next < len(t.nodes) && t.nodes[next].kind.class() == classSyntax {
+				next++
+			}
+			if next < len(t.nodes) && t.nodes[next].kind == Escape {
+				return true
+			}
+		}
+		return false
+	}},
 }
 
 var (

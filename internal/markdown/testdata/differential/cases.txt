@@ -648,3 +648,15 @@ item.
 <li>e</li>
 </ol>
 ````````````````````````````````
+
+## goldmark deviates, spec sections 2.4 and 6.7: a backslash escape starts the line after a backslash and a hard line break of spaces
+
+goldmark writes the escape as it is.
+
+```````````````````````````````` example
+a\  
+\!
+.
+<p>a\<br />
+!</p>
+````````````````````````````````
