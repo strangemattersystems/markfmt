@@ -110,6 +110,7 @@ func TestGoldmarkDiffers(t *testing.T) {
 		{"skips a blank line of an html block in a list item", "*\n\t<!A\n\t", "goldmark deviates, spec sections 4.4, 4.6 and 5.2: a blank line of indented code or of an HTML block in a list item keeps the spaces beyond the indentation"},
 		{"skips an escape after a backslash hard break after a backslash and a hard break", "\\  \n\\\n\\!", "goldmark deviates, spec sections 2.4 and 6.7: a backslash escape after a backslash, a hard line break of spaces and punctuation decodes"},
 		{"skips a paragraph after a block quote that ends with an empty list item", "* >+\n  >\n  0", "goldmark deviates, spec section 5.2: a blank line after an empty nested list item continues the outer list item"},
+		{"skips a setext underline after a block quote marker space and a tab", ">00\n> \t=", "goldmark deviates, spec sections 2.2 and 5.2: a tab after the space of a block quote marker stops at a column counted from the start of the line"},
 		{"skips a tab in the indentation after a list item prefix", "* 0\n  \t -", "goldmark deviates, spec sections 2.2 and 5.2: a tab after the prefix of a list item line stops at a column counted from the start of the line"},
 	}
 	for _, tt := range tests {
@@ -823,18 +824,14 @@ var goldmarkDeviations = []struct {
 	}},
 	{"goldmark deviates, spec sections 2.2 and 5.2: a tab after the space of a block quote marker stops at a column counted from the start of the line", func(t *Tree) bool {
 		for i, n := range t.nodes {
-			if n.kind != ListMarker {
+			if n.kind != QuoteMarker || !bytes.HasSuffix(t.Raw(NodeID(i)), []byte(" ")) {
 				continue
 			}
-			lead := t.src[n.start:n.end]
-			lead = lead[:len(lead)-len(bytes.TrimLeft(lead, " \t"))]
-			if bytes.IndexByte(lead, '\t') < 0 {
-				continue
-			}
-			// The leaf before the marker on its line.
-			for p := i - 1; p >= 0; p-- {
-				if m := t.nodes[p]; m.kind.class() != classStructure {
-					if m.kind == QuoteMarker && bytes.HasSuffix(t.Raw(NodeID(p)), []byte(" ")) {
+			// The next leaf on the line, whose indentation holds the tab.
+			for j := i + 1; j < len(t.nodes); j++ {
+				if m := t.nodes[j]; m.kind.class() != classStructure {
+					lead := t.src[m.start:m.end]
+					if bytes.IndexByte(lead[:len(lead)-len(bytes.TrimLeft(lead, " \t"))], '\t') >= 0 {
 						return true
 					}
 					break
