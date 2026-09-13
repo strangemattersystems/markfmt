@@ -211,6 +211,14 @@ var goldmarkDeviations = []struct {
 		}
 		return false
 	}},
+	{"goldmark deviates, spec section 4.5: the class of an info word that starts with `language-` gets no second prefix", func(t *Tree) bool {
+		for i, n := range t.nodes {
+			if n.kind == CodeBlock && bytes.HasPrefix(t.AppendInfo(nil, NodeID(i)), []byte("language-")) {
+				return true
+			}
+		}
+		return false
+	}},
 }
 
 var (

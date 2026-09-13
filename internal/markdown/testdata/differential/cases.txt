@@ -92,3 +92,16 @@ goldmark makes the list loose, as commonmark.js does. markfmt follows cmark
 <li>b</li>
 </ul>
 ````````````````````````````````
+
+## goldmark deviates, spec section 4.5: the class of an info word that starts with `language-` gets no second prefix
+
+goldmark writes the class `language-language-r` (commonmark.js regression 28).
+
+```````````````````````````````` example
+```language-r
+x
+```
+.
+<pre><code class="language-r">x
+</code></pre>
+````````````````````````````````
