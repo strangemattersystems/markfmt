@@ -101,6 +101,7 @@ func TestGoldmarkDiffers(t *testing.T) {
 		{"skips a form feed after a line ending in an html tag", "<A\n\f>", "goldmark deviates, spec section 6.6: FF is whitespace in an HTML tag, as cmark reads it"},
 		{"skips a form feed after the tag of an html block of kind 7", "<A>\f", "goldmark deviates, spec section 4.6: a tab or FF after the tag that starts HTML block kind 7 is whitespace"},
 		{"skips a link after open brackets split by text", strings.Repeat("[", 500) + "dddd" + strings.Repeat("[", 496) + "a](b)", "goldmark deviates, spec section 6.3: a link forms after any number of open brackets"},
+		{"skips a setext heading after a definition over several lines", "[0]:\n0\n''0\n-", "goldmark deviates, spec section 4.7: a definition over several lines ends at its destination when the next line is not a title"},
 		{"skips a tab in the indentation after a list item prefix", "* 0\n  \t -", "goldmark deviates, spec sections 2.2 and 5.2: a tab after the prefix of a list item line stops at a column counted from the start of the line"},
 	}
 	for _, tt := range tests {
@@ -608,7 +609,7 @@ var goldmarkDeviations = []struct {
 			for next < len(t.nodes) && (t.nodes[next].kind == QuoteMarker || t.nodes[next].kind == ListMarker || t.nodes[next].kind == ItemIndent || t.nodes[next].kind == FootnoteIndent) {
 				next++
 			}
-			if !lineEnding || !destination || title || next == len(t.nodes) || t.nodes[next].kind != Paragraph {
+			if !lineEnding || !destination || title || next == len(t.nodes) || t.nodes[next].kind != Paragraph && t.nodes[next].kind != Heading {
 				continue
 			}
 			if rest := bytes.TrimLeft(t.src[t.nodes[next].start:], " \t"); len(rest) > 0 && strings.IndexByte(`"'(`, rest[0]) >= 0 {
