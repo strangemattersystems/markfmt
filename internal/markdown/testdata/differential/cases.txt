@@ -150,3 +150,14 @@ markfmt read the NUL as an ASCII control character, which ends both.
 <p><a href="/%EF%BF%BD">b</a></p>
 <p><a href="/%EF%BF%BD">c</a></p>
 ````````````````````````````````
+
+## goldmark deviates, spec section 6.6: an attribute value can contain U+FFFD
+
+goldmark gives text for an open tag with U+FFFD in an attribute value, in
+each of the three value forms.
+
+```````````````````````````````` example
+a <b c="�"> <d e='�'> <f g=�>
+.
+<p>a <b c="�"> <d e='�'> <f g=�></p>
+````````````````````````````````

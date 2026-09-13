@@ -239,6 +239,17 @@ var goldmarkDeviations = []struct {
 		}
 		return false
 	}},
+	{"goldmark deviates, spec section 6.6: an attribute value can contain U+FFFD", func(t *Tree) bool {
+		for i, n := range t.nodes {
+			if n.kind != RawHTML {
+				continue
+			}
+			if v := t.AppendRawHTML(nil, NodeID(i)); len(v) > 1 && isASCIILetter(v[1]) && bytes.Contains(v, replacement) {
+				return true
+			}
+		}
+		return false
+	}},
 	{"goldmark deviates, spec section 4.7: a definition with its destination on a later line ends at the destination when the next line is not a title", func(t *Tree) bool {
 		for i, n := range t.nodes {
 			if n.kind != LinkReferenceDefinition {
