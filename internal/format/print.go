@@ -43,6 +43,11 @@ type printer struct {
 	afterBox  bool          // the last leaf written is a task box
 	replace   []byte        // bytes that content writes in place of the next leaf's bytes
 
+	// The last paragraph, heading or table cell that a strikethrough read,
+	// and whether its text has a '~'.
+	tildeScope markdown.NodeID
+	tildeText  bool
+
 	// The heading that is open: how it prints, its level, where its content
 	// starts in out, and whether its line is written.
 	head      headForm
@@ -888,12 +893,32 @@ func (p *printer) delimiter(id markdown.NodeID, k markdown.Kind) []byte {
 		}
 		return []byte("**")
 	default:
-		// No '~' goes next to a "~~" delimiter (appendix B, trap 13).
-		if bytes.IndexByte(content, '~') >= 0 || before == '~' || after == '~' {
+		// No '~' goes next to a "~~" delimiter (appendix B, trap 13), and
+		// "~~" could pair with a run of '~' that is text.
+		if bytes.IndexByte(content, '~') >= 0 || before == '~' || after == '~' || p.tildeInText() {
 			return nil
 		}
 		return []byte("~~")
 	}
+}
+
+// tildeInText reports whether the innermost open paragraph, heading or table
+// cell has a text leaf with a '~'.
+func (p *printer) tildeInText() bool {
+	t := p.tree
+	i := len(p.stack) - 1
+	for i > 0 && p.stack[i].kind != markdown.Paragraph && p.stack[i].kind != markdown.Heading && p.stack[i].kind != markdown.TableCell {
+		i--
+	}
+	scope := p.stack[i].id
+	if scope != p.tildeScope {
+		p.tildeScope, p.tildeText = scope, false
+		end, _ := t.Next(scope)
+		for j := scope + 1; j < end && !p.tildeText; j++ {
+			p.tildeText = t.Kind(j) == markdown.Text && bytes.IndexByte(t.Raw(j), '~') >= 0
+		}
+	}
+	return p.tildeText
 }
 
 // flanksLikeSpace reports whether c, the byte next to an emphasis
