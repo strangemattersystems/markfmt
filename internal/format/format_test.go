@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -38,7 +39,7 @@ func TestSource(t *testing.T) {
 		t.Parallel()
 
 		cases := readCases(t)
-		for _, name := range readSections(t, "../markdown/testdata/github/printer.txt") {
+		for name := range readFixtures(t, "../markdown/testdata/github/printer.txt") {
 			in, err := os.ReadFile("../markdown/testdata/github/input/printer/" + name + ".md")
 			if err != nil {
 				t.Fatal(err)
@@ -46,6 +47,26 @@ func TestSource(t *testing.T) {
 			want := "github-" + strings.ReplaceAll(name, "/", "-")
 			if !slices.ContainsFunc(cases, func(c testCase) bool { return c.name == want && bytes.Equal(c.in, in) }) {
 				t.Errorf("fixture %s has no case %s with its input", name, want)
+			}
+		}
+	})
+
+	t.Run("renders the output of each github printer fixture as github renders its input", func(t *testing.T) {
+		t.Parallel()
+
+		// The outputs and their HTML come from the GitHub Markdown API
+		// (testdata/github/README.md in internal/markdown).
+		inputs := readFixtures(t, "../markdown/testdata/github/printer.txt")
+		outputs := readFixtures(t, "../markdown/testdata/github/printer-output.txt")
+		cases := readCases(t)
+		for name, in := range inputs {
+			out, ok := outputs[name]
+			i := slices.IndexFunc(cases, func(c testCase) bool { return c.name == "github-"+strings.ReplaceAll(name, "/", "-") })
+			switch {
+			case !ok || i < 0 || out.markdown != string(cases[i].out):
+				t.Errorf("printer-output.txt has no current output of fixture %s: capture it again", name)
+			case runID.ReplaceAllString(out.html, "") != runID.ReplaceAllString(in.html, ""):
+				t.Errorf("GitHub renders the output of fixture %s differently from its input\n  input: %q\n output: %q", name, in.html, out.html)
 			}
 		}
 	})
@@ -105,24 +126,47 @@ func checkSource(t testing.TB, in []byte) []byte {
 	return once
 }
 
-// readSections returns the names of the sections of a GitHub fixture file.
-func readSections(t testing.TB, path string) []string {
+// runID matches the attribute that GitHub gives math with a new value for each
+// request.
+var runID = regexp.MustCompile(` data-run-id="[0-9a-f]*"`)
+
+type fixture struct {
+	markdown, html string
+}
+
+// readFixtures reads the examples of a GitHub fixture file, by section name.
+func readFixtures(t testing.TB, path string) map[string]fixture {
 	t.Helper()
 
 	data, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatal(err)
 	}
-	var names []string
+	const fence = "````````````````````````````````"
+	fixtures := make(map[string]fixture)
+	var name string
+	var f fixture
+	state := 0 // 0 text, 1 Markdown, 2 HTML
 	for line := range strings.Lines(string(data)) {
-		if name, ok := strings.CutPrefix(line, "## "); ok {
-			names = append(names, strings.TrimSpace(name))
+		switch {
+		case state == 0 && strings.HasPrefix(line, "## "):
+			name = strings.TrimSpace(line[3:])
+		case state == 0 && line == fence+" example\n":
+			state, f = 1, fixture{}
+		case state == 1 && line == ".\n":
+			state = 2
+		case state == 1:
+			f.markdown += line
+		case state == 2 && line == fence+"\n":
+			state, fixtures[name] = 0, f
+		case state == 2:
+			f.html += line
 		}
 	}
-	if len(names) == 0 {
-		t.Fatalf("%s: no sections", path)
+	if len(fixtures) == 0 {
+		t.Fatalf("%s: no fixtures", path)
 	}
-	return names
+	return fixtures
 }
 
 type testCase struct {

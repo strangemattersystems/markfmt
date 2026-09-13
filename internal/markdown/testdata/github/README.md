@@ -10,7 +10,13 @@ format, with one section per input.
   `../dialect.md`. The GitHub normalizer in `html_test.go` removes GitHub's
   decorations from both sides before the comparison.
 - `printer.txt` holds math, alert and plain text fixtures (emoji, mentions,
-  issue references) for the stage 6 printer. No test reads it yet.
+  issue references) for the printer. Each fixture has a case in
+  `internal/format/testdata/cases`, named `github-` and the section name with
+  `-` for `/`.
+- `printer-output.txt` holds the HTML that the API gives for the output of
+  each of those cases. `TestSource` in `internal/format` checks that each
+  output is current and that its HTML equals the HTML of the input, apart
+  from the `data-run-id` of math, which is new for each request.
 
 The API renders with `mode=gfm`, which renders task lists. That mode also
 writes `<br>` for each soft break, as GitHub renders comments, so the
@@ -63,4 +69,18 @@ for file in github printer; do
     done
   } > "$file.txt"
 done
+{
+  printf '# GitHub printer outputs\n\nCaptured %s with `gh api markdown -f mode=gfm -F text=@OUTPUT`.\n' "$(date -u +%F)"
+  for input in input/printer/*/*.md; do
+    name=${input#input/printer/}
+    name=${name%.md}
+    output=../../../format/testdata/cases/github-$(printf '%s' "$name" | tr / -).out.md
+    printf '\n## %s\n\n%s example\n' "$name" "$fence"
+    cat "$output"
+    printf '.\n'
+    html=$(gh api markdown -f mode=gfm -F text=@"$output")
+    if [ -n "$html" ]; then printf '%s\n' "$html"; fi
+    printf '%s\n' "$fence"
+  done
+} > printer-output.txt
 ```
