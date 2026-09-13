@@ -472,10 +472,24 @@ func (p *printer) leaf(id markdown.NodeID, k markdown.Kind, start, end int) {
 		// A hard break is a backslash, except after a backslash that is not
 		// an escape, which the backslash would escape (appendix B, trap 10),
 		// and in a paragraph that starts with '[', where the backslash could
-		// be the destination of a link reference definition.
-		if p.backslash || p.bracket0 {
+		// be the destination of a link reference definition. After a
+		// character of a delimiter run, the break keeps its input form: a
+		// backslash is punctuation and a line ending is whitespace, so the
+		// form decides whether the run flanks.
+		last := byte(0)
+		if len(p.out) > 0 {
+			last = p.out[len(p.out)-1]
+		}
+		switch {
+		case last == '*' || last == '_' || last == '~':
+			if t.Raw(id)[0] == '\\' {
+				p.write([]byte{'\\'})
+			} else {
+				p.write(spaces[:2])
+			}
+		case p.backslash || p.bracket0:
 			p.write(spaces[:2])
-		} else {
+		default:
 			p.write([]byte{'\\'})
 		}
 	case len(p.out) == 0 && len(p.stack) == 2 && k == markdown.Text && string(t.Raw(id)) == "+++":
