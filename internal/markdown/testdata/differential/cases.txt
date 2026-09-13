@@ -704,8 +704,8 @@ item.
 
 ## goldmark deviates, spec sections 2.4 and 6.7: a backslash escape after a backslash, a hard line break of spaces and punctuation decodes
 
-goldmark writes the first escape of the next line as it is, when only
-punctuation comes before it on that line.
+goldmark writes the first escape after the hard line break as it is, when
+only punctuation and soft line breaks come before it.
 
 ```````````````````````````````` example
 a\  
@@ -713,11 +713,18 @@ a\
 
 b\  
 *\!
+
+c\  
+*
+\!
 .
 <p>a\<br />
 !</p>
 <p>b\<br />
 *!</p>
+<p>c\<br />
+*
+!</p>
 ````````````````````````````````
 
 ## goldmark deviates, spec section 4.6: a tab or FF after the tag that starts HTML block kind 7 is whitespace

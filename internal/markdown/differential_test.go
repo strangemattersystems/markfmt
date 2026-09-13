@@ -103,6 +103,7 @@ func TestGoldmarkDiffers(t *testing.T) {
 		{"skips a link after open brackets split by text", strings.Repeat("[", 500) + "dddd" + strings.Repeat("[", 496) + "a](b)", "goldmark deviates, spec section 6.3: a link forms after any number of open brackets"},
 		{"skips a setext heading after a definition over several lines", "[0]:\n0\n''0\n-", "goldmark deviates, spec section 4.7: a definition over several lines ends at its destination when the next line is not a title"},
 		{"skips a link after open brackets that span 1000 bytes with nul as u+fffd", strings.Repeat("[", 497) + "\x00\x00\x00" + strings.Repeat("[", 496) + "a](b)", "goldmark deviates, spec section 6.3: a link forms after any number of open brackets"},
+		{"skips an escape after a line of punctuation after a backslash and a hard break", "\\  \n*\n\\!", "goldmark deviates, spec sections 2.4 and 6.7: a backslash escape after a backslash, a hard line break of spaces and punctuation decodes"},
 		{"skips a tab in the indentation after a list item prefix", "* 0\n  \t -", "goldmark deviates, spec sections 2.2 and 5.2: a tab after the prefix of a list item line stops at a column counted from the start of the line"},
 	}
 	for _, tt := range tests {
@@ -686,7 +687,7 @@ var goldmarkDeviations = []struct {
 				switch m := t.nodes[j]; {
 				case m.kind == Escape:
 					return true
-				case m.kind == SoftBreak || m.kind == HardBreak:
+				case m.kind == HardBreak:
 					break next
 				case m.kind == Text || m.kind == Delimiter:
 					for _, c := range t.src[m.start:m.end] {
