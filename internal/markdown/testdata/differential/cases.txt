@@ -29,3 +29,19 @@ a
 <p>a
 <meta></p>
 ````````````````````````````````
+
+## goldmark deviates, spec section 4.6: a closing tag of `pre`, `script` or `style` starts HTML block kind 7
+
+Kind 7 excludes these tag names only for an open tag.
+
+```````````````````````````````` example
+</script>
+
+</pre>
+
+</style>
+.
+</script>
+</pre>
+</style>
+````````````````````````````````
