@@ -85,6 +85,7 @@ func TestGoldmarkDiffers(t *testing.T) {
 		{"skips an open parenthesis after a nul in a destination", "[0]:0\x00(", "goldmark deviates, spec sections 4.7 and 6.3: a parenthesis in a destination is escaped or in a balanced pair"},
 		{"skips a tab before a nested list marker after a list item prefix", "0) 0\n   \t* 0", "goldmark deviates, spec sections 2.2 and 5.2: a tab after the prefix of a list item line stops at a column counted from the start of the line"},
 		{"skips a control character in an unquoted value after whitespace", "<A A0000= \x01>0", "goldmark deviates, spec section 6.6: an unquoted attribute value takes ASCII control characters"},
+		{"skips a paragraph after an empty nested list item that follows a paragraph", "0) 0\n\n   0)\n\n   0", "goldmark deviates, spec section 5.2: a blank line after an empty nested list item continues the outer list item"},
 		{"skips a tab in the indentation after a list item prefix", "* 0\n  \t -", "goldmark deviates, spec sections 2.2 and 5.2: a tab after the prefix of a list item line stops at a column counted from the start of the line"},
 	}
 	for _, tt := range tests {
@@ -495,19 +496,22 @@ var goldmarkDeviations = []struct {
 			if n.kind != ListItem {
 				continue
 			}
-			list := firstChild(i+1, int(n.link))
-			if list < 0 || t.nodes[list].kind != List || firstChild(int(t.nodes[list].link), int(n.link)) < 0 {
-				continue
-			}
-			empty := false
-			for j := list + 1; j < int(t.nodes[list].link); j++ {
-				if m := t.nodes[j]; m.kind == ListItem {
-					empty = firstChild(j+1, int(m.link)) < 0
-					j = int(m.link) - 1
+			// A child list of the item that ends with an empty item, and a
+			// later child.
+			for c := firstChild(i+1, int(n.link)); c >= 0; c = firstChild(int(t.nodes[c].link), int(n.link)) {
+				if t.nodes[c].kind != List || firstChild(int(t.nodes[c].link), int(n.link)) < 0 {
+					continue
 				}
-			}
-			if empty {
-				return true
+				empty := false
+				for j := c + 1; j < int(t.nodes[c].link); j++ {
+					if m := t.nodes[j]; m.kind == ListItem {
+						empty = firstChild(j+1, int(m.link)) < 0
+						j = int(m.link) - 1
+					}
+				}
+				if empty {
+					return true
+				}
 			}
 		}
 		return false
