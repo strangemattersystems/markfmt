@@ -224,6 +224,9 @@ item.
 
 - b
   -→→1
+
++ 0
+→+ →+
 .
 <ul>
 <li>a
@@ -241,6 +244,17 @@ item.
 <li>
 <pre><code>1
 </code></pre>
+</li>
+</ul>
+</li>
+</ul>
+<ul>
+<li>0
+<ul>
+<li>
+<ul>
+<li></li>
+</ul>
 </li>
 </ul>
 </li>
