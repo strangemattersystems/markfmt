@@ -34,6 +34,14 @@ type printer struct {
 	backslash bool          // the last byte written is a backslash that is not an escape
 	lead      bool          // the next leaf starts with columns that list item padding would take
 	afterBox  bool          // the last leaf written is a task box
+	replace   []byte        // bytes that content writes in place of the next leaf's bytes
+
+	// The heading that is open: how it prints, its level, where its content
+	// starts in out, and whether its line is written.
+	head      headForm
+	headLevel int
+	headStart int
+	headDone  bool
 
 	// The blocks that ended last, for the blank lines before the next block.
 	blanks      int           // the input's blank lines after the last leaf block
@@ -202,6 +210,14 @@ func (p *printer) enter(id markdown.NodeID, k markdown.Kind) {
 	if f.span {
 		p.inSpan++
 	}
+	if k == markdown.Heading && p.inSpan == 0 {
+		p.head, p.headLevel, p.headDone = headSingle, t.HeadingLevel(id), false
+		if p.multiLine(id) {
+			// A setext heading of more than one line stays setext (appendix B,
+			// trap 5).
+			p.head = headMulti
+		}
+	}
 	p.stack = append(p.stack, f)
 }
 
@@ -335,6 +351,20 @@ func (p *printer) leaf(id markdown.NodeID, k markdown.Kind, start, end int) {
 		if (k == markdown.LineEnding || k == markdown.VerbatimLineEnding) && top.children == 0 {
 			top.blankFirst = true
 		}
+	case p.head == headSingle && p.headDone:
+		// The underline line of a setext heading that prints as ATX.
+	case p.head != headNone && top.kind == markdown.Heading && (k == markdown.ATXMarker || k == markdown.ATXClose || k == markdown.Whitespace):
+		// The printer writes the markers from the level.
+	case p.head == headSingle && k == markdown.LineEnding:
+		p.endHeading()
+		p.endLine()
+	case p.head == headMulti && k == markdown.SetextUnderline:
+		p.indent = -1
+		p.replace = []byte("===")
+		if p.headLevel == 2 {
+			p.replace = []byte("---")
+		}
+		p.content(id, start)
 	case k == markdown.LineEnding, k == markdown.VerbatimLineEnding:
 		p.endLine()
 	case k == markdown.Indent && (top.kind == markdown.Paragraph || top.kind == markdown.Heading) && !p.written && p.inSpan == 0:
@@ -463,6 +493,9 @@ func (p *printer) indentAfter(id markdown.NodeID) int {
 func (p *printer) content(id markdown.NodeID, start int) {
 	t := p.tree
 	k, b := t.Kind(id), t.Raw(id)
+	if p.replace != nil {
+		b, p.replace = p.replace, nil
+	}
 	if k == markdown.ThematicRun && p.inSpan == 0 {
 		// A thematic break on the marker line of a bullet list item never uses
 		// the bullet, which would make one longer break (appendix B, trap 4).
@@ -493,6 +526,12 @@ func (p *printer) content(id markdown.NodeID, start int) {
 		p.lineStart = false
 		p.writeSpaces(p.pad)
 		p.pad = 0
+		if p.head == headSingle && !p.headDone {
+			// The columns of the input's markers and spaces are not written.
+			p.indent = -1
+			p.write(append(bytes.Repeat([]byte{'#'}, p.headLevel), ' '))
+			p.headStart = len(p.out)
+		}
 	}
 	if p.indent >= 0 {
 		p.writeSpaces(start - p.indent)
@@ -592,6 +631,12 @@ func (p *printer) exit() {
 	}
 	switch {
 	case isLeafBlock(g.kind):
+		if g.kind == markdown.Heading {
+			if p.head == headSingle && !p.headDone {
+				p.endHeading()
+			}
+			p.head = headNone
+		}
 		// A last line of code or HTML at the end of the input without a line
 		// ending is a line of the value, also when it holds only syntax
 		// (design 8.2).
@@ -636,4 +681,51 @@ func isBlock(k markdown.Kind) bool {
 		return true
 	}
 	return isLeafBlock(k)
+}
+
+// headForm is how the open heading prints.
+type headForm uint8
+
+const (
+	headNone   headForm = iota // no heading is open, or it is in a dialect span
+	headSingle                 // an ATX heading
+	headMulti                  // a setext heading of more than one line
+)
+
+// multiLine reports whether heading id has a line break in its content.
+func (p *printer) multiLine(id markdown.NodeID) bool {
+	t := p.tree
+	end, _ := t.Next(id)
+	for i := id + 1; i < end; i++ {
+		if k := t.Kind(i); k == markdown.SoftBreak || k == markdown.HardBreak {
+			return true
+		}
+	}
+	return false
+}
+
+// endHeading ends the line of a heading that prints as ATX: an empty heading
+// is its markers alone, and content that ends with number signs after a
+// space or a tab gets a closing sequence (appendix B, trap 6). No content is
+// only number signs: such a line is an ATX heading.
+func (p *printer) endHeading() {
+	p.headDone = true
+	marker := bytes.Repeat([]byte{'#'}, p.headLevel)
+	if p.lineStart {
+		p.writePrefix(false)
+		p.lineStart = false
+		p.write(marker)
+		return
+	}
+	if p.full {
+		return
+	}
+	content := p.out[p.headStart:]
+	if len(content) == 0 || content[len(content)-1] != '#' {
+		return
+	}
+	if rest := bytes.TrimRight(content, "#"); rest[len(rest)-1] == ' ' || rest[len(rest)-1] == '\t' {
+		p.write(spaces[:1])
+		p.write(marker)
+	}
 }
