@@ -160,6 +160,7 @@ func FuzzEqual(f *testing.F) {
 		"a\\|b\n| c\\|d | `e\\|` [f](g\\\\|h) |\n| - | - |\n",
 		"- [ ] a\n- [x] b\n- [X]\tc\n\n1. [ ] d\n",
 		"www.a.com http://b.c/(d) *www.e.f* HTTPS://g.h.\n",
+		"a\\_b@c.de mailto:x@y.zz &#104;@i.jj [e@f.gg](/u)\n",
 	} {
 		for op := range byte(mutations) {
 			f.Add([]byte(src), op)

@@ -6,6 +6,3 @@
 #   go test ./internal/markdown -run '^TestParse$/^gfm$' 2>&1 |
 #     sed -n 's/^ *--- FAIL: TestParse\/gfm\/gfm_example_\([0-9]*\) .*/\1/p' |
 #     sort -n
-629
-630
-631

@@ -294,3 +294,28 @@ https://example.com
 .
 <p><a href="https://example.com">https://example.com</a></p>
 ````````````````````````````````
+
+## commonmark 606
+
+The text between `<` and `>` is not an autolink, and its decoded text holds
+an extended email autolink. The expected HTML is the normalized output of the GitHub
+Markdown API, 2026-09-13, which equals the output of cmark-gfm with the
+autolink extension.
+
+```````````````````````````````` example
+<foo\+@bar.example.com>
+.
+<p>&lt;<a href="mailto:foo+@bar.example.com">foo+@bar.example.com</a>&gt;</p>
+````````````````````````````````
+
+## commonmark 612
+
+An email address is an extended email autolink. The expected HTML is the normalized output of the GitHub
+Markdown API, 2026-09-13, which equals the output of cmark-gfm with the
+autolink extension.
+
+```````````````````````````````` example
+foo@bar.example.com
+.
+<p><a href="mailto:foo@bar.example.com">foo@bar.example.com</a></p>
+````````````````````````````````

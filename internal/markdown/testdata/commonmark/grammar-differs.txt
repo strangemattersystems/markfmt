@@ -6,5 +6,7 @@
 96 front matter: commonmark 96
 98 front matter: commonmark 98
 602 extended url autolink: commonmark 602
+606 extended email autolink: commonmark 606
 608 extended url autolink: commonmark 608
 611 extended url autolink: commonmark 611
+612 extended email autolink: commonmark 612

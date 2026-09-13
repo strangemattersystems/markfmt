@@ -39,6 +39,7 @@ func TestRenderHTML(t *testing.T) {
 		{"writes entity references", "&ouml;&NotEqualTilde;&#0;&#xD800;&#1114112;&#x10FFFF;&amp;", "<p>ö\u2242\u0338\ufffd\ufffd\ufffd\U0010ffff&amp;</p>\n"},
 		{"writes code spans", "` a `` `\n``\nb\n`` ` ` `  `", "<p><code>a ``</code>\n<code>b</code> <code> </code> <code>  </code></p>\n"},
 		{"writes autolinks", "<https://a.b/\\[&amp;\u00e9'> <A@b.c>", "<p><a href=\"https://a.b/%5C%5B&amp;%C3%A9&#x27;\">https://a.b/\\[&amp;\u00e9'</a> <a href=\"mailto:A@b.c\">A@b.c</a></p>\n"},
+		{"writes extended email autolinks", "a\\_b@c.de mailto:x@y.zz xmpp:p@q.rr/s", "<p><a href=\"mailto:a_b@c.de\">a_b@c.de</a> <a href=\"mailto:x@y.zz\">mailto:x@y.zz</a> <a href=\"xmpp:p@q.rr/s\">xmpp:p@q.rr/s</a></p>\n"},
 		{"writes extended autolinks with their text as written", "www.a.com/b&c http://d.e/\\_f", "<p><a href=\"http://www.a.com/b&amp;c\">www.a.com/b&amp;c</a> <a href=\"http://d.e/%5C_f\">http://d.e/\\_f</a></p>\n"},
 		{"writes raw html", "a <b\n c='d'>e<!---->", "<p>a <b\nc='d'>e<!----></p>\n"},
 		{"writes emphasis", "*a* __b__", "<p><em>a</em> <strong>b</strong></p>\n"},
@@ -294,7 +295,7 @@ func renderHTML(tree *Tree, tagFilter bool) string {
 				b.WriteString("</a>")
 				break
 			}
-			href := string(autolinkURL(tree, e.ID))
+			href := string(tree.AppendAutolinkText(nil, e.ID))
 			switch {
 			case tree.AutolinkEmail(e.ID):
 				href = "mailto:" + href
@@ -529,17 +530,6 @@ func titleAttr(tree *Tree, id NodeID) string {
 // label, a code span or raw HTML, whose values it writes from their nodes.
 func written(n Node) bool {
 	return Kind(n.flags) == Text || Kind(n.flags) == AutolinkText
-}
-
-// autolinkURL returns the value of the content leaves of autolink id.
-func autolinkURL(tree *Tree, id NodeID) []byte {
-	var url []byte
-	for i := id + 1; i < NodeID(tree.nodes[id].link); i++ {
-		if tree.nodes[i].kind.class() == classContent {
-			url = tree.AppendValue(url, i)
-		}
-	}
-	return url
 }
 
 // alignAttr returns the align attribute of a table cell with alignment a.

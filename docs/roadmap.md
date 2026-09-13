@@ -267,14 +267,15 @@ markfmt parses faster than goldmark on every input.
 
 The scope is what GitHub renders, because most users expect it.
 
-- [ ] GFM extensions: tables, strikethrough, task list items (design 6.5),
+- [x] GFM extensions: tables, strikethrough, task list items (design 6.5),
   extended autolinks.
 - [ ] Footnote definitions and references (design 6.3, 9.2).
 - [ ] GitHub fixtures for footnotes, tasks, tables, strikethrough and every
   `dialect.md` row, with the GitHub normalizer.
 - [x] The test renderer applies the GFM tag filter (design 11.3).
-- [ ] `grammar-differs.txt` entries for regression examples that GFM rules
-  change (design 11.2).
+- [x] `grammar-differs.txt` entries for regression examples that GFM rules
+  change (design 11.2). No regression example changes; extended autolinks
+  change CommonMark 602, 606, 608, 611 and 612.
 - [x] Capture math and alert fixtures for stage 6. Math and alerts are GitHub
   HTML filters, not grammar (design 9.1, 9.3).
 - [x] Plain text that GitHub gives meaning to needs no grammar, but escaping

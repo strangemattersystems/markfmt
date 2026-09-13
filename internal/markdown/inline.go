@@ -1,5 +1,7 @@
 package markdown
 
+import "bytes"
+
 // inlineParser runs the inline phase on the lines of one block (design 6).
 // It writes pieces to a scratch buffer, then appends them to the builder in
 // one pass, so a later decision can change a piece that is already written.
@@ -32,6 +34,26 @@ type inlineParser struct {
 	// inlines clears pipes and task.
 	pipes, task bool
 	box         byte
+
+	// The spans that emit has open, and how many of them are links or
+	// autolinks. runEnd is the end of the last run of Text-group pieces that
+	// emit searched for email autolinks, cuts are the places where those
+	// open and close, and cut is the next cut to apply (design 6.6).
+	spans    []Kind
+	links    int
+	runEnd   int
+	cuts     []emailCut
+	cut      int
+	decoded  []byte   // the decoded text of the run
+	segments []int    // the end of the decoded bytes of each piece of the run
+	emails   []uint32 // the starts and ends of the email autolinks in the decoded text
+	entity   [8]byte  // the characters of an entity reference
+}
+
+// emailCut is a place where an extended email autolink opens or closes.
+type emailCut struct {
+	pos  uint32
+	open bool
 }
 
 // pos is a position in the lines of a block: offset i of line k, at most the
@@ -343,13 +365,23 @@ func (s *inlineParser) startOf(j int) uint32 {
 
 // emit appends the pieces to the builder, with their spans. A piece with
 // join, and a Text piece after a Text piece, extend the leaf before them.
+// Email autolinks open and close inside runs of Text-group pieces outside
+// links (design 6.6).
 func (s *inlineParser) emit() {
+	s.spans, s.links, s.runEnd, s.cuts, s.cut = s.spans[:0], 0, 0, s.cuts[:0], 0
 	for j, x := range s.pieces {
 		if x.open != Document {
 			s.b.open(x.open)
 			if x.flags != 0 {
 				s.b.flag(x.flags)
 			}
+			s.spans = append(s.spans, x.open)
+			if x.open == Link || x.open == Autolink {
+				s.links++
+			}
+		}
+		if j >= s.runEnd && s.links == 0 && isTextGroup(x) {
+			s.findEmails(j)
 		}
 		if j+1 < len(s.pieces) {
 			if y := s.pieces[j+1]; !x.close && y.open == Document && (y.join || x.kind == Text && y.kind == Text) {
@@ -360,13 +392,114 @@ func (s *inlineParser) emit() {
 		if _, ok := x.kind.owner(); ok {
 			s.b.prefix(x.kind, x.end, x.owner)
 		} else {
-			s.b.leaf(x.kind, x.end)
+			s.leafCut(x.kind, x.end)
 		}
 		if x.kind == CellPipeEscape {
 			s.b.flagLeaf(x.flags)
 		}
 		if x.close {
+			n := len(s.spans) - 1
+			if k := s.spans[n]; k == Link || k == Autolink {
+				s.links--
+			}
+			s.spans = s.spans[:n]
 			s.b.close()
 		}
+	}
+}
+
+// isTextGroup reports whether piece x is Text, Escape, EntityRef or a cell pipe
+// escape in text, which cmark-gfm reads as text nodes.
+func isTextGroup(x piece) bool {
+	return x.kind == Text || x.kind == Escape || x.kind == EntityRef || x.kind == CellPipeEscape && Kind(x.flags) == Text
+}
+
+// findEmails finds the extended email autolinks of the run of Text-group pieces
+// that starts at piece j, within one span, and records where they open and
+// close. It decodes the run only when the run can hold an '@'.
+func (s *inlineParser) findEmails(j int) {
+	k, at := j, false
+	for k < len(s.pieces) && isTextGroup(s.pieces[k]) && s.pieces[k].open == Document {
+		b := s.src[s.startOf(k):s.pieces[k].end]
+		at = at || bytes.IndexByte(b, '@') >= 0 ||
+			s.pieces[k].kind == EntityRef && bytes.IndexByte(appendEntityValue(s.entity[:0], b), '@') >= 0
+		k++
+		if s.pieces[k-1].close {
+			break
+		}
+	}
+	s.runEnd = k
+	if !at {
+		return
+	}
+	s.decoded, s.segments = s.decoded[:0], s.segments[:0]
+	for i := j; i < k; i++ {
+		b := s.src[s.startOf(i):s.pieces[i].end]
+		switch s.pieces[i].kind {
+		case Escape:
+			s.decoded = append(s.decoded, b[1])
+		case EntityRef:
+			s.decoded = appendEntityValue(s.decoded, b)
+		case CellPipeEscape:
+			s.decoded = append(s.decoded, '|')
+		default:
+			s.decoded = append(s.decoded, b...)
+		}
+		s.segments = append(s.segments, len(s.decoded))
+	}
+	s.emails = appendEmails(s.emails[:0], s.decoded)
+	p := 0 // the segment of the last position found
+	for m := 0; m < len(s.emails); m += 2 {
+		startPos, ok1 := s.cutPos(j, &p, int(s.emails[m]), true)
+		endPos, ok2 := s.cutPos(j, &p, int(s.emails[m+1]), false)
+		// A match does not start or end inside an escape or an entity reference,
+		// whose characters are one run of letters, digits or symbols.
+		if ok1 && ok2 {
+			s.cuts = append(s.cuts, emailCut{pos: startPos, open: true}, emailCut{pos: endPos})
+		}
+	}
+}
+
+// cutPos returns the source offset of offset d of the decoded run that starts
+// at piece j, from segment *p on, and whether it is at a byte of a Text piece
+// or at an edge of another piece. start tells a start, which belongs to the
+// segment after an edge, from an end.
+func (s *inlineParser) cutPos(j int, p *int, d int, start bool) (uint32, bool) {
+	for *p < len(s.segments) && (s.segments[*p] < d || start && s.segments[*p] == d) {
+		*p++
+	}
+	from := 0
+	if *p > 0 {
+		from = s.segments[*p-1]
+	}
+	i := j + *p
+	switch {
+	case s.pieces[i].kind == Text:
+		return s.startOf(i) + count(d-from), true
+	case d == from:
+		return s.startOf(i), true
+	case d == s.segments[*p]:
+		return s.pieces[i].end, true
+	}
+	return 0, false
+}
+
+// leafCut appends a leaf of kind k to end, split where an email autolink opens
+// or closes inside it. An autolink that closes at end closes after the leaf.
+func (s *inlineParser) leafCut(k Kind, end uint32) {
+	for s.cut < len(s.cuts) && s.cuts[s.cut].pos < end {
+		c := s.cuts[s.cut]
+		s.b.leafIf(k, c.pos)
+		if c.open {
+			s.b.open(Autolink)
+		} else {
+			s.b.close()
+		}
+		s.cut++
+	}
+	s.b.leaf(k, end)
+	for s.cut < len(s.cuts) && s.cuts[s.cut].pos == end && !s.cuts[s.cut].open {
+		s.b.close()
+		s.cut++
 	}
 }

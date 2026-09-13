@@ -587,10 +587,13 @@ preorder. The scratch buffer never inserts:
   Each piece opens at most one span, so emission is O(1) per leaf.
 - Spans never cross: links close at `]`, footnote references remove their inner
   entries, and emphasis nests.
-- GFM email autolinks are found here, when the emitter writes a maximal run of
-  Text-group leaves (Text, Escape, EntityRef) outside a Link subtree, on the
-  decoded run. The emitter splits the run and wraps the match in an Autolink
-  node, which can contain Escape and EntityRef leaves.
+- GFM email autolinks are found here, as cmark-gfm's `postprocess_text` finds
+  them in a text node: in a maximal run of Text-group pieces (Text, Escape,
+  EntityRef, and CellPipeEscape in text) within one span and outside Link and
+  Autolink spans, on the decoded run. The emitter splits a Text leaf where a
+  match starts or ends, and wraps the match in an Autolink node, which can
+  contain Escape and EntityRef leaves. It decodes a run only when the run can
+  hold `@`.
 
 ### 6.7 Characters and labels
 

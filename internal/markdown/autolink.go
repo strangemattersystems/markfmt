@@ -95,14 +95,119 @@ func (t *Tree) AutolinkAngle(id NodeID) bool {
 }
 
 // AutolinkEmail reports whether autolink id is an email address. An absolute
-// URI has a ':', and an email address has none. An extended www or URL
-// autolink is not an email address.
+// URI has a ':', and an email address has none. An extended autolink is a www
+// autolink, a URL, or an email address, which has a ':' when it starts with
+// "mailto:" or "xmpp:".
 func (t *Tree) AutolinkEmail(id NodeID) bool {
-	if !t.AutolinkAngle(id) {
+	if t.AutolinkAngle(id) {
+		m := t.nodes[id+2]
+		return bytes.IndexByte(t.src[m.start:m.end], ':') < 0
+	}
+	text := t.AppendAutolinkText(nil, id)
+	return !bytes.HasPrefix(text, []byte("www.")) && bytes.IndexByte(text, ':') < 0
+}
+
+// AppendAutolinkText appends the text of autolink id to dst: the values of its
+// content leaves.
+func (t *Tree) AppendAutolinkText(dst []byte, id NodeID) []byte {
+	for i := id + 1; i < NodeID(t.nodes[id].link); i++ {
+		if t.nodes[i].kind.class() == classContent {
+			dst = t.AppendValue(dst, i)
+		}
+	}
+	return dst
+}
+
+// appendEmails appends to dst the start and the end of each extended email
+// autolink in text, the decoded text of a run, as cmark-gfm's postprocess_text
+// finds them (design 6.6): an '@' after letters, digits, '.', '+', '-' and '_',
+// which "mailto:" or "xmpp:" can precede when no letter or digit precedes it,
+// then letters, digits, '-', '_', '/' after "xmpp:", and '.' before a letter or
+// digit, with at least one such '.', ending with a letter or '.', and then
+// autolinkDelim. An '@' in the domain restarts the search from it, with the
+// protocol and the dots found so far.
+func appendEmails(dst []uint32, text []byte) []uint32 {
+	start, offset := 0, 0
+	for offset < len(text)-start {
+		i := bytes.IndexByte(text[start+offset:], '@')
+		if i < 0 {
+			break
+		}
+		maxRewind, xmpp, dots, found := i, false, 0, false
+		var rewind, linkEnd int
+	scan:
+		for {
+			at := start + offset + maxRewind
+			if rewind = emailRewind(text, at, maxRewind, &xmpp); rewind == 0 {
+				offset += maxRewind + 1
+				break
+			}
+			for linkEnd = 1; linkEnd < len(text)-at; linkEnd++ {
+				c := text[at+linkEnd]
+				switch {
+				case isASCIIAlphanumeric(c), c == '-', c == '_', c == '/' && xmpp:
+					continue
+				case c == '@':
+					offset += maxRewind + 1
+					maxRewind = linkEnd - 1
+					continue scan
+				case c == '.' && linkEnd < len(text)-at-1 && isASCIIAlphanumeric(text[at+linkEnd+1]):
+					dots++
+					continue
+				}
+				break
+			}
+			found = true
+			break
+		}
+		if !found {
+			continue
+		}
+		at := start + offset + maxRewind
+		if last := text[at+linkEnd-1]; linkEnd < 2 || dots == 0 || !isASCIILetter(last) && last != '.' {
+			offset += maxRewind + linkEnd
+			continue
+		}
+		if linkEnd = int(autolinkDelim(text, count(at), count(at+linkEnd))) - at; linkEnd == 0 {
+			offset += maxRewind + 1
+			continue
+		}
+		dst = append(dst, count(at-rewind), count(at+linkEnd))
+		start += offset + maxRewind + linkEnd
+		offset = 0
+	}
+	return dst
+}
+
+// emailRewind returns how many of the maxRewind bytes before the '@' at
+// text[at] belong to an email address: letters, digits, '.', '+', '-' and '_',
+// and "mailto:" or "xmpp:" with no letter or digit before it. It sets *xmpp
+// when it passes "xmpp:".
+func emailRewind(text []byte, at, maxRewind int, xmpp *bool) int {
+	for rewind := range maxRewind {
+		switch c := text[at-rewind-1]; {
+		case isASCIIAlphanumeric(c), strings.IndexByte(".+-_", c) >= 0,
+			c == ':' && validProtocol(text, at, rewind, maxRewind, "mailto:"):
+		case c == ':' && validProtocol(text, at, rewind, maxRewind, "xmpp:"):
+			*xmpp = true
+		default:
+			return rewind
+		}
+	}
+	return maxRewind
+}
+
+// validProtocol reports whether protocol, which ends with ':', ends before the
+// rewind bytes before the '@' at text[at], within the maxRewind bytes before
+// it, with no letter or digit before it, as cmark-gfm's validate_protocol
+// checks.
+func validProtocol(text []byte, at, rewind, maxRewind int, protocol string) bool {
+	n := len(protocol)
+	if n > maxRewind-rewind {
 		return false
 	}
-	m := t.nodes[id+2]
-	return bytes.IndexByte(t.src[m.start:m.end], ':') < 0
+	p := at - rewind - n
+	return string(text[p:at-rewind]) == protocol && (n == maxRewind-rewind || !isASCIIAlphanumeric(text[p-1]))
 }
 
 // wwwAutolink pushes the extended www autolink at i, on a line that ends at
