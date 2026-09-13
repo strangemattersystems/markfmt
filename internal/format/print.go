@@ -2,6 +2,7 @@ package format
 
 import (
 	"bytes"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -540,9 +541,11 @@ func (p *printer) listMarker(f *frame, id markdown.NodeID, start int) {
 		minIndent = max(minIndent, f.indent)
 	}
 	padding := max(minIndent-len(f.marker), 1)
-	if padding > 4 {
-		// No padding lets the item continue on so many columns: the item keeps
-		// its indentation, marker and padding.
+	rest := p.tree.RestOfLine(id)[len(p.tree.Raw(id)):]
+	if padding > 4 || padding > 1 && len(bytes.Trim(rest, " \t\r\n")) == 0 {
+		// No padding lets the item continue on so many columns, and an item
+		// whose marker line is blank continues after one column of padding
+		// (spec 5.2): the item keeps its indentation, marker and padding.
 		f.marker = p.sourceMarker(f, id, start)
 	} else {
 		f.marker = append(f.marker, spaces[:padding]...)
@@ -666,15 +669,15 @@ func (p *printer) lazyItems() map[markdown.NodeID]bool {
 }
 
 // indentAfter returns the columns of indentation of the first line of the
-// block after node id, when that block is an HTML block, whose indentation is
-// content. Otherwise it returns 0.
+// block after node id, when that block is an HTML block or a dialect span,
+// whose indentation stays. Otherwise it returns 0.
 func (p *printer) indentAfter(id markdown.NodeID) int {
 	t := p.tree
 	next, ok := t.Next(id)
 	for ok && (t.Kind(next) == markdown.BlankLine || isPrefix(t.Kind(next))) {
 		next, ok = t.Next(next)
 	}
-	if !ok || t.Kind(next) != markdown.HTMLBlock {
+	if _, span := slices.BinarySearch(p.spans, next); !ok || t.Kind(next) != markdown.HTMLBlock && !span {
 		return 0
 	}
 	leaf := next + 1
