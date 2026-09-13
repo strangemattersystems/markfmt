@@ -113,6 +113,7 @@ func TestGoldmarkDiffers(t *testing.T) {
 		{"skips a setext underline after a block quote marker space and a tab", ">00\n> \t=", "goldmark deviates, spec sections 2.2 and 5.2: a tab after the space of a block quote marker stops at a column counted from the start of the line"},
 		{"skips a setext heading after a definition whose title fails", "[0]:0\n\"\"[0]:0\n-", "goldmark deviates, spec section 4.7: a title that other characters follow on its line is not the title of the definition"},
 		{"skips an escape after a code span after a backslash and a hard break", "\\  \n``0``\\!", "goldmark deviates, spec sections 2.4 and 6.7: a backslash escape after a backslash and a hard line break of spaces decodes"},
+		{"skips a tab in the indentation of an html block after a list item prefix", "*\n  \t<!A", "goldmark deviates, spec sections 2.2 and 5.2: a tab after the prefix of a list item line stops at a column counted from the start of the line"},
 		{"skips a tab in the indentation after a list item prefix", "* 0\n  \t -", "goldmark deviates, spec sections 2.2 and 5.2: a tab after the prefix of a list item line stops at a column counted from the start of the line"},
 	}
 	for _, tt := range tests {
@@ -395,12 +396,15 @@ var goldmarkDeviations = []struct {
 				prefix = true
 			case ItemIndent:
 				prefix = true
-			case Indent, CodeIndent, Whitespace:
-				if prefix && lead && bytes.IndexByte(src[n.start:n.end], '\t') >= 0 {
-					return true
-				}
 			default:
-				if n.kind.class() != classStructure {
+				// An HTML block holds its indentation in its first leaf.
+				if n.kind.class() != classStructure && prefix && lead {
+					b := src[n.start:n.end]
+					if bytes.IndexByte(b[:len(b)-len(bytes.TrimLeft(b, " \t"))], '\t') >= 0 {
+						return true
+					}
+				}
+				if n.kind.class() != classStructure && n.kind != Indent && n.kind != CodeIndent && n.kind != Whitespace {
 					lead = false
 				}
 			}

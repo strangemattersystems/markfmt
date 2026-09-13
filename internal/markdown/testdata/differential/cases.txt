@@ -274,6 +274,9 @@ goldmark counts the columns of the tabs from the content of the list item.
 
 1) 0
    →* 0
+
+-
+  →<!A
 .
 <ul>
 <li>a
@@ -318,6 +321,11 @@ goldmark counts the columns of the tabs from the content of the list item.
 </ul>
 </li>
 </ol>
+<ul>
+<li>
+	<!A
+</li>
+</ul>
 ````````````````````````````````
 
 ## goldmark deviates, spec section 5.2: a list item that starts with a blank line takes a line indented to its content that starts like a bullet list item
