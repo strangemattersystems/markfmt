@@ -235,7 +235,7 @@ from the same byte-level function, and `Verify` checks them against the bytes
 | Link and image form | `link.go` | `flags` |
 | Reference label | `chars.go` | label leaves, normalized |
 | Footnote reference resolved | `link.go` | `flags` |
-| Autolink URL or email | `autolink.go` | AutolinkText leaves |
+| Autolink form, URL or email | `autolink.go` | its first leaf and its text leaves |
 | Code content | `code.go` | CodeText and VerbatimLineEnding leaves, with `virt` spaces |
 | Destination, title | `link.go`, `linkref.go` | their leaves, decoded |
 | Footnote definition label | `footnote.go` | FootnoteLabel leaves, raw |
@@ -491,8 +491,17 @@ delimiter entries to a scratch buffer:
 - `*`, `_` and `~` runs push delimiter entries. `[` and `![` push bracket
   entries with a push sequence number.
 - At `]`, look for a link or image immediately (section 6.3).
-- GFM extended autolinks match at `w` and `:`, and only when the bracket stack
-  is empty: any `[` or `![` entry, active or not, blocks them.
+- GFM extended www and URL autolinks match at `w` and `:`, as cmark-gfm's
+  `www_match` and `url_match` find them, and only when the bracket stack is
+  empty: any `[` or `![` entry, active or not, blocks them. A www autolink
+  needs a line start, a space, `*`, `_`, `~` or `(` before it. A URL
+  autolink takes the letters before `:` back from the last Text piece as its
+  scheme: `http`, `https` or `ftp`, in any case. The domain scan stops at a
+  byte that is not a host character, `-`, `_` or `.`, reads the byte after a
+  `\`, and never reads the last byte of the block's content; `_` in one of
+  the last two segments rejects a domain with at most 10 dots. The link then
+  runs to a space or `<`, and loses trailing punctuation, extra `)` and an
+  entity-like `&letters;`. Its text is not decoded, so it is Text leaves.
 
 ### 6.3 Links, images, footnote references
 
@@ -628,7 +637,7 @@ preorder. The scratch buffer never inserts:
 | `[ (](` repeated | Parenthesized title stops at an unescaped `(` |
 | `[a]: b 'c` lines | Definition parse stops at the first failure (section 5.4); an inline title opener closes the scan of the title before it |
 | `<a x="1"` lines | A failed tag reads only its own attributes: no paragraph line is blank, so tag whitespace holds at most one line ending |
-| Extended autolinks | Domain scan stops at whitespace, `<` and `@`; scheme rewind stops at a non-letter |
+| Extended autolinks, `_www.` × n | A domain with more than 10 dots is accepted despite underscores, as cmark-gfm does, so no candidate after it scans again; a scheme rewind stops at a non-letter |
 | `***a*** ` × n, `a@b.cc ` × n | Side records; spans indexed by opener piece |
 | Many definitions and references | Go map; label cap |
 | `- `×n `a` on one line | Per-line memos (section 5.1) |
@@ -785,7 +794,7 @@ research (section 17).
 | Code span | CodeFence, CodeText (content), VerbatimLineEnding (content), CellPipeEscape, CodeFence | code span value |
 | Emphasis, strong, strikethrough | Delimiter | none |
 | Link, image | Bracket, inlines, Bracket, Paren, AngleBracket, Destination, TitleQuote, Title, Paren; or Bracket, LinkLabel, Bracket | form; normalized label for references |
-| Autolink | AngleBracket, AutolinkText (content), AngleBracket; or AutolinkText, Escape, EntityRef | angle or extended; URL or email |
+| Autolink | AngleBracket, AutolinkText (content), AngleBracket; or, extended, Text, Escape, EntityRef | angle or extended; URL or email |
 | Raw HTML | HTMLText (content), VerbatimLineEnding (content) | none |
 | Hard break | HardBreakMarker, LineEnding | none |
 | Soft break | LineEnding | none |

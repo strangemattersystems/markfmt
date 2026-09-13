@@ -115,6 +115,8 @@ func TestParse(t *testing.T) {
 		{"gives a split tab before a paragraph to its indent leaf", ">\tfoo", "Document{BlockQuote{QuoteMarker@1 \">\", Paragraph{Indent+2 \"\\t\", Text \"foo\"}}}"},
 		{"gives a split tab before a nested block quote marker to that marker", ">\t>\t\tfoo", "Document{BlockQuote{QuoteMarker@1 \">\", BlockQuote{QuoteMarker@3+2 \"\\t>\", CodeBlock{CodeIndent+2 \"\\t\", CodeText+2 \"\\tfoo\"}}}}"},
 		{"splits a tab to remove the indentation of fenced code", "  ```\n\tx\n```", "Document{CodeBlock{Indent \"  \", FenceMarker \"```\", LineEnding \"\\n\", CodeText+2 \"\\tx\", VerbatimLineEnding \"\\n\", FenceMarker \"```\"}}"},
+		{"gives extended www and url autolinks", "*www.a.com* (http://b.c/d_(e)). HTTPS://F.G", `Document{Paragraph{Emphasis{Delimiter "*", Autolink{Text "www.a.com"}, Delimiter "*"}, Text " (", Autolink{Text "http://b.c/d_(e)"}, Text "). ", Autolink{Text "HTTPS://F.G"}}}`},
+		{"gives no extended autolink in brackets, after a letter, or with an underscore in the last two domain segments", "[www.a.com] xwww.a.com ahttp://b.c www.a.b_c www.a_b.c.d", `Document{Paragraph{Text "[www.a.com] xwww.a.com ahttp://b.c www.a.b_c ", Autolink{Text "www.a_b.c.d"}}}`},
 		{"gives task list items, unchecked and checked", "- [ ] a\n- [X]\tb", `Document{List{ListItem[1]{ListMarker@2 "- ", Paragraph{TaskBox "[ ]", Whitespace " ", Text "a", LineEnding "\n"}}, ListItem[3]{ListMarker@9 "- ", Paragraph{TaskBox "[X]", Whitespace "\t", Text "b"}}}}`},
 		{"gives a task after link reference definitions in a list item", "- [a]: /u\n  [ ] b", `Document{List{ListItem[1]{ListMarker@2 "- ", LinkReferenceDefinition{Bracket "[", LinkLabel "a", Bracket "]", Colon ":", Whitespace " ", Destination "/u", LineEnding "\n"}, ItemIndent@2 "  ", Paragraph{TaskBox "[ ]", Whitespace " ", Text "b"}}}}`},
 		{"gives a task to the first paragraph of a list item after definitions and a blank line", "- [a]: /u\n\n  [ ] b", `Document{List[1]{ListItem[1]{ListMarker@2 "- ", LinkReferenceDefinition{Bracket "[", LinkLabel "a", Bracket "]", Colon ":", Whitespace " ", Destination "/u", LineEnding "\n"}, BlankLine "\n", ItemIndent@2 "  ", Paragraph{TaskBox "[ ]", Whitespace " ", Text "b"}}}}`},
@@ -376,6 +378,15 @@ var pathologicalInputs = []struct {
 	}},
 	{"strikethrough closers after emphasis openers", func(n int) []byte {
 		return []byte(strings.Repeat("*a ", n/6) + strings.Repeat("a~ ", n/6))
+	}},
+	{"extended autolinks", func(n int) []byte {
+		return []byte(strings.Repeat("www.a.com http://b.c ", n/21))
+	}},
+	{"www domains with underscores and no spaces", func(n int) []byte {
+		return []byte(strings.Repeat("_www.", n/5))
+	}},
+	{"an extended autolink with closing parentheses", func(n int) []byte {
+		return []byte("www.a.com/" + strings.Repeat(")", n))
 	}},
 	{"tables with many rows", func(n int) []byte {
 		return []byte("| a |\n| - |\n" + strings.Repeat("| b |\n", n/6))

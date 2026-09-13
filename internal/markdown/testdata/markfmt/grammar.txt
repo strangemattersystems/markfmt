@@ -256,3 +256,41 @@ a <!--> b --> <!-- c -- d --->
 .
 <p>a <!--> b --&gt; <!-- c -- d ---></p>
 ````````````````````````````````
+
+## commonmark 602
+
+The text between `<` and `>` is not an autolink, and the URL in it is an
+extended URL autolink. The expected HTML is the normalized output of the GitHub
+Markdown API, 2026-09-13, which equals the output of cmark-gfm with the
+autolink extension.
+
+```````````````````````````````` example
+<https://foo.bar/baz bim>
+.
+<p>&lt;<a href="https://foo.bar/baz">https://foo.bar/baz</a> bim&gt;</p>
+````````````````````````````````
+
+## commonmark 608
+
+The text between `<` and `>` is not an autolink, and the URL in it is an
+extended URL autolink. The expected HTML is the normalized output of the GitHub
+Markdown API, 2026-09-13, which equals the output of cmark-gfm with the
+autolink extension.
+
+```````````````````````````````` example
+< https://foo.bar >
+.
+<p>&lt; <a href="https://foo.bar">https://foo.bar</a> &gt;</p>
+````````````````````````````````
+
+## commonmark 611
+
+A URL is an extended URL autolink. The expected HTML is the normalized output of the GitHub
+Markdown API, 2026-09-13, which equals the output of cmark-gfm with the
+autolink extension.
+
+```````````````````````````````` example
+https://example.com
+.
+<p><a href="https://example.com">https://example.com</a></p>
+````````````````````````````````

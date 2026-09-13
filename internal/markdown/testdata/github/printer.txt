@@ -133,7 +133,7 @@ a</p>
 ```````````````````````````````` example
 *$a$* [$b$](/u) ~~$c$~~
 .
-<p><em>$a$</em> <a href="/u">$b$</a> <del><math-renderer class="js-inline-math" style="display: inline-block" data-run-id="03230979d8557f8bc79bdfb45e75c009">$c$</math-renderer></del></p>
+<p><em>$a$</em> <a href="/u">$b$</a> <del><math-renderer class="js-inline-math" style="display: inline-block" data-run-id="7c2c3b2987afc20909df5f4ce3b61378">$c$</math-renderer></del></p>
 ````````````````````````````````
 
 ## math/display
@@ -143,7 +143,7 @@ $$
 a
 $$
 .
-<p><math-renderer class="js-display-math" style="display: block" data-run-id="1c0b1a359be82c94d761594bb7789816">$$
+<p><math-renderer class="js-display-math" style="display: block" data-run-id="38c430ee9e0ffe3e80ad3732e1ea8158">$$
 a
 $$</math-renderer></p>
 ````````````````````````````````
@@ -155,7 +155,7 @@ $$</math-renderer></p>
 $$\left( \sum_{k=1}^n a_k b_k \right)^2 \leq \left( \sum_{k=1}^n a_k^2 \right) \left( \sum_{k=1}^n b_k^2 \right)$$
 .
 <p><strong>The Cauchy-Schwarz Inequality</strong><br>
-<math-renderer class="js-inline-math" style="display: inline-block" data-run-id="416955d58d198921dcd169bed98fb8fd">$$\left( \sum_{k=1}^n a_k b_k \right)^2 \leq \left( \sum_{k=1}^n a_k^2 \right) \left( \sum_{k=1}^n b_k^2 \right)$$</math-renderer></p>
+<math-renderer class="js-inline-math" style="display: inline-block" data-run-id="c4f8d3004b81142a06841a70fd9be300">$$\left( \sum_{k=1}^n a_k b_k \right)^2 \leq \left( \sum_{k=1}^n a_k^2 \right) \left( \sum_{k=1}^n b_k^2 \right)$$</math-renderer></p>
 ````````````````````````````````
 
 ## math/docs-dollar-in-math
@@ -163,7 +163,7 @@ $$\left( \sum_{k=1}^n a_k b_k \right)^2 \leq \left( \sum_{k=1}^n a_k^2 \right) \
 ```````````````````````````````` example
 This expression uses `\$` to display a dollar sign: $`\sqrt{\$4}`$
 .
-<p>This expression uses <code class="notranslate">\$</code> to display a dollar sign: <math-renderer class="js-inline-math" style="display: inline-block" data-run-id="2d4445595a5069d0c89a68cc8d94c70d">$\sqrt{\$4}$</math-renderer></p>
+<p>This expression uses <code class="notranslate">\$</code> to display a dollar sign: <math-renderer class="js-inline-math" style="display: inline-block" data-run-id="9c9dbd8adb0c54fdd620ec86dc080749">$\sqrt{\$4}$</math-renderer></p>
 ````````````````````````````````
 
 ## math/docs-dollar-span
@@ -171,7 +171,7 @@ This expression uses `\$` to display a dollar sign: $`\sqrt{\$4}`$
 ```````````````````````````````` example
 To split <span>$</span>100 in half, we calculate $100/2$
 .
-<p>To split <span>$</span>100 in half, we calculate <math-renderer class="js-inline-math" style="display: inline-block" data-run-id="69847e4ab8abb7990ac057843f762ccf">$100/2$</math-renderer></p>
+<p>To split <span>$</span>100 in half, we calculate <math-renderer class="js-inline-math" style="display: inline-block" data-run-id="13f82c3a330a37eb1781c852923e8b03">$100/2$</math-renderer></p>
 ````````````````````````````````
 
 ## math/docs-fence
@@ -184,7 +184,7 @@ To split <span>$</span>100 in half, we calculate $100/2$
 ```
 .
 <p><strong>The Cauchy-Schwarz Inequality</strong></p>
-<math-renderer class="js-display-math" style="display: block" data-run-id="efc4e24ef8c5b3a9f1aab6d839cee95c">$$\left( \sum_{k=1}^n a_k b_k \right)^2 \leq \left( \sum_{k=1}^n a_k^2 \right) \left( \sum_{k=1}^n b_k^2 \right)$$</math-renderer>
+<math-renderer class="js-display-math" style="display: block" data-run-id="bbb116bf80f583d4ffd9b7aedecf4471">$$\left( \sum_{k=1}^n a_k b_k \right)^2 \leq \left( \sum_{k=1}^n a_k^2 \right) \left( \sum_{k=1}^n b_k^2 \right)$$</math-renderer>
 ````````````````````````````````
 
 ## math/docs-inline-backtick
@@ -192,7 +192,7 @@ To split <span>$</span>100 in half, we calculate $100/2$
 ```````````````````````````````` example
 This sentence uses $\` and \`$ delimiters to show math inline: $`\sqrt{3x-1}+(1+x)^2`$
 .
-<p>This sentence uses <math-renderer class="js-inline-math" style="display: inline-block" data-run-id="18f7f0143be2e7673844a60c530a38d8">$` and `$</math-renderer> delimiters to show math inline: <math-renderer class="js-inline-math" style="display: inline-block" data-run-id="18f7f0143be2e7673844a60c530a38d8">$\sqrt{3x-1}+(1+x)^2$</math-renderer></p>
+<p>This sentence uses <math-renderer class="js-inline-math" style="display: inline-block" data-run-id="086e1c062965ebf67dc089562a0f70ba">$` and `$</math-renderer> delimiters to show math inline: <math-renderer class="js-inline-math" style="display: inline-block" data-run-id="086e1c062965ebf67dc089562a0f70ba">$\sqrt{3x-1}+(1+x)^2$</math-renderer></p>
 ````````````````````````````````
 
 ## math/docs-inline-dollar
@@ -200,7 +200,7 @@ This sentence uses $\` and \`$ delimiters to show math inline: $`\sqrt{3x-1}+(1+
 ```````````````````````````````` example
 This sentence uses `$` delimiters to show math inline: $\sqrt{3x-1}+(1+x)^2$
 .
-<p>This sentence uses <code class="notranslate">$</code> delimiters to show math inline: <math-renderer class="js-inline-math" style="display: inline-block" data-run-id="491f983821a0f3b227f779ca36f49f29">$\sqrt{3x-1}+(1+x)^2$</math-renderer></p>
+<p>This sentence uses <code class="notranslate">$</code> delimiters to show math inline: <math-renderer class="js-inline-math" style="display: inline-block" data-run-id="7ec658993bd83672aff79571de00169d">$\sqrt{3x-1}+(1+x)^2$</math-renderer></p>
 ````````````````````````````````
 
 ## math/escaped
@@ -208,7 +208,7 @@ This sentence uses `$` delimiters to show math inline: $\sqrt{3x-1}+(1+x)^2$
 ```````````````````````````````` example
 \$a$ $a\$ $a$
 .
-<p><math-renderer class="js-inline-math" style="display: inline-block" data-run-id="b90581be1e0fa440a0ac34d58bc9756d">$a$</math-renderer> <math-renderer class="js-inline-math" style="display: inline-block" data-run-id="b90581be1e0fa440a0ac34d58bc9756d">$a$</math-renderer> <math-renderer class="js-inline-math" style="display: inline-block" data-run-id="b90581be1e0fa440a0ac34d58bc9756d">$a$</math-renderer></p>
+<p><math-renderer class="js-inline-math" style="display: inline-block" data-run-id="384867feb1fa5ad79a07ac25463748e1">$a$</math-renderer> <math-renderer class="js-inline-math" style="display: inline-block" data-run-id="384867feb1fa5ad79a07ac25463748e1">$a$</math-renderer> <math-renderer class="js-inline-math" style="display: inline-block" data-run-id="384867feb1fa5ad79a07ac25463748e1">$a$</math-renderer></p>
 ````````````````````````````````
 
 ## math/inline
@@ -216,7 +216,7 @@ This sentence uses `$` delimiters to show math inline: $\sqrt{3x-1}+(1+x)^2$
 ```````````````````````````````` example
 $a$ x$b$ $c$x ($d$) $e $ $ f$
 .
-<p><math-renderer class="js-inline-math" style="display: inline-block" data-run-id="f47ca43793ac7cd0605d124e15556fab">$a$</math-renderer> x$b$ $c$x (<math-renderer class="js-inline-math" style="display: inline-block" data-run-id="f47ca43793ac7cd0605d124e15556fab">$d$</math-renderer>) $e $ $ f$</p>
+<p><math-renderer class="js-inline-math" style="display: inline-block" data-run-id="df328961963542f49595b12920a1253e">$a$</math-renderer> x$b$ $c$x (<math-renderer class="js-inline-math" style="display: inline-block" data-run-id="df328961963542f49595b12920a1253e">$d$</math-renderer>) $e $ $ f$</p>
 ````````````````````````````````
 
 ## math/soft-break

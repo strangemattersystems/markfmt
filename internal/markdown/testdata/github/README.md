@@ -16,6 +16,8 @@ The API renders with `mode=gfm`, which renders task lists. That mode also
 writes `<br>` for each soft break, as GitHub renders comments, so the
 normalizer does not tell soft breaks from hard breaks. `mode=markdown` renders
 task list items as text. Without a repository context, `#1` is not a link.
+GitHub's HTML sanitizer removes raw HTML it does not allow and links whose
+scheme it does not allow, such as `ftp:` and `irc:`, so inputs avoid both.
 
 ## Rules for inputs
 

@@ -15,6 +15,7 @@ type inlineParser struct {
 	k          int    // the line being scanned
 	start      uint32 // start of the first piece
 	lineStart  uint32 // start of the content of the line being scanned, after its Indent leaf
+	contentEnd uint32 // end of the content of the block, before its trailing spaces
 	delims     []delimiter
 	brackets   []bracket
 	seq        int // push sequence number of the last bracket
@@ -92,6 +93,11 @@ func (s *inlineParser) begin(lines []pendingLine) {
 	s.lines, s.pieces, s.delims, s.brackets, s.k = lines, s.pieces[:0], s.delims[:0], s.brackets[:0], 0
 	s.seq, s.linkFormed = 0, 0
 	s.start = lines[0].rest.start
+	last := lines[len(lines)-1].rest
+	s.contentEnd = last.end
+	for s.contentEnd > last.start && isSpaceChar(s.src[s.contentEnd-1]) {
+		s.contentEnd--
+	}
 	s.ticks, s.ticksAll, s.failed = s.ticks[:0], false, [len(closers)]uint32{}
 	s.startLine()
 }
@@ -164,6 +170,14 @@ func (s *inlineParser) scan(i, end uint32) {
 		if !s.autolink(i, end) && !s.rawHTML(i, end) {
 			s.text(i + 1)
 		}
+	case 'w':
+		if !s.wwwAutolink(i, end) {
+			s.text(s.textEnd(i, end))
+		}
+	case ':':
+		if !s.urlAutolink(i, end) {
+			s.text(s.textEnd(i, end))
+		}
 	default:
 		s.text(s.textEnd(i, end))
 	}
@@ -216,7 +230,7 @@ func (s *inlineParser) trailingSpace() {
 	s.push(piece{kind: TrailingSpace, end: l.end})
 }
 
-var inlineTriggers = [256]bool{'\\': true, '&': true, '`': true, '<': true, '*': true, '_': true, '~': true, '[': true, ']': true, '!': true}
+var inlineTriggers = [256]bool{'\\': true, '&': true, '`': true, '<': true, '*': true, '_': true, '~': true, '[': true, ']': true, '!': true, 'w': true, ':': true}
 
 // verbatim pushes pieces of kind text up to p, with a VerbatimLineEnding,
 // the prefix leaves and the Indent leaf at each line boundary.

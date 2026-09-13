@@ -86,6 +86,16 @@ func TestEqual(t *testing.T) {
 		}
 	})
 
+	t.Run("rejects an angle autolink against an extended autolink", func(t *testing.T) {
+		t.Parallel()
+
+		// No pair holds this case: both render equal test HTML, but the form is
+		// in the key of an autolink (design 10.2).
+		if err := Equal(Parse([]byte("<http://a.b>")), Parse([]byte("http://a.b"))); err == nil {
+			t.Fatal("Equal = nil, want a difference")
+		}
+	})
+
 	t.Run("rejects a table cell beyond the header count against no cell", func(t *testing.T) {
 		t.Parallel()
 
@@ -149,6 +159,7 @@ func FuzzEqual(f *testing.F) {
 		"| a | b |\n|:-|-:|\n| c |\nd | e | f\n\n> x | y\n> --- | ---\n",
 		"a\\|b\n| c\\|d | `e\\|` [f](g\\\\|h) |\n| - | - |\n",
 		"- [ ] a\n- [x] b\n- [X]\tc\n\n1. [ ] d\n",
+		"www.a.com http://b.c/(d) *www.e.f* HTTPS://g.h.\n",
 	} {
 		for op := range byte(mutations) {
 			f.Add([]byte(src), op)

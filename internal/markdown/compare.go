@@ -104,7 +104,7 @@ func (c *comparer) equalKeys(ia, ib NodeID) bool {
 		ra, rb := newVerbatimReader(a, ia, HTMLText), newVerbatimReader(b, ib, HTMLText)
 		return equalPieces(&ra, &rb)
 	case Autolink:
-		return a.AutolinkEmail(ia) == b.AutolinkEmail(ib)
+		return a.AutolinkAngle(ia) == b.AutolinkAngle(ib) && a.AutolinkEmail(ia) == b.AutolinkEmail(ib)
 	case Link, Image:
 		form := a.LinkForm(ia)
 		if form != b.LinkForm(ib) {
