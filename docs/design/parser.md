@@ -1114,8 +1114,10 @@ adds its set of `Dialect(row)` values to its Enter event. `Equal` requires:
 
 - `internal/markdown/differential_test.go` holds `FuzzDifferential`. It
   compares the test HTML of `Parse` with the HTML of goldmark v2.0.2, both
-  after `normalizeHTML`. goldmark runs with `html.WithUnsafe` and with no
-  extensions.
+  after `normalizeHTML`. goldmark runs with `html.WithUnsafe`, with
+  `html.WithXHTML` so that a void element inside script or style content,
+  which `normalizeHTML` keeps as written, has the form of the test renderer,
+  and with no extensions.
 - goldmark reads the input with LF line endings, a final line ending, and
   U+FFFD for NUL and for each maximal invalid UTF-8 subsequence. CommonMark
   gives the line ending forms the same meaning (product rule 7) and replaces

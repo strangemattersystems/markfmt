@@ -16,7 +16,7 @@ import (
 
 var (
 	goldmarkParser   = parser.New()
-	goldmarkRenderer = html.New(html.WithUnsafe())
+	goldmarkRenderer = html.New(html.WithUnsafe(), html.WithXHTML())
 )
 
 // FuzzDifferential compares the test HTML of [Parse] with the HTML of
@@ -51,6 +51,7 @@ func TestGoldmarkHTML(t *testing.T) {
 		{"reads a final line ending", "<div>\nx", "<div>\nx\n"},
 		{"reads invalid utf-8 as u+fffd", "[\xa6]: /u\n\n[\ufffd]", "<p><a href=\"/u\">\ufffd</a></p>\n"},
 		{"reads nul as u+fffd", "[a](/\x00)", "<p><a href=\"/%EF%BF%BD\">a</a></p>\n"},
+		{"writes void elements as xhtml, as the test renderer does", "a\\\nb", "<p>a<br />\nb</p>\n"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
