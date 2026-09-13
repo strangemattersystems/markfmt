@@ -83,12 +83,14 @@ type frame struct {
 	// A list numbers its items from start, and uses its second marker with
 	// alt. Its second item decides lazy numbering.
 	ordered, alt, lazy bool
+	bullet             byte // the bullet of a bullet list
 	start              int
 	minIndent          int // the columns that the list's items must continue on at least
 	indent             int // the columns that a list item of the input continues on
 
 	// The last list that ended in the node.
 	listOrdered, listAlt bool
+	listBullet           byte
 
 	// A block quote, list item or footnote definition writes marker on its
 	// first line and rest on its other lines. With blankFirst, its first
@@ -219,6 +221,9 @@ func (p *printer) enter(id markdown.NodeID, k markdown.Kind) {
 		// Adjacent sibling lists of one type alternate their markers
 		// (appendix B, trap 3).
 		f.alt = prev.children > 0 && prev.lastChild == markdown.List && prev.listOrdered == f.ordered && !prev.listAlt
+		if !f.ordered {
+			f.bullet = p.bullet(id, prev)
+		}
 		// The block after the list must not continue its last item.
 		f.minIndent = p.indentAfter(id) + 1
 	}
@@ -453,10 +458,8 @@ func (p *printer) listMarker(f *frame, id markdown.NodeID, start int) {
 	list := &p.stack[len(p.stack)-2]
 	i := list.children - 1
 	switch {
-	case !list.ordered && list.alt:
-		f.marker = []byte("*")
 	case !list.ordered:
-		f.marker = []byte("-")
+		f.marker = []byte{list.bullet}
 	default:
 		if i == 1 && list.start == 1 {
 			raw := bytes.TrimLeft(p.tree.Raw(id), " \t")
@@ -484,6 +487,51 @@ func (p *printer) listMarker(f *frame, id markdown.NodeID, start int) {
 		f.marker = append(f.marker, spaces[:padding]...)
 	}
 	f.rest = spaces[:len(f.marker)]
+}
+
+// bullet returns the bullet of bullet list id, whose parent frame is prev:
+// '-', or '*' after an adjacent sibling list with '-' (appendix B, trap 3),
+// or '+' when neither works. A bullet does not work when an item's first line
+// is only that character with spaces, which the bullet would make one
+// thematic break: "- --" is a break.
+func (p *printer) bullet(id markdown.NodeID, prev frame) byte {
+	var avoid byte
+	if prev.children > 0 && prev.lastChild == markdown.List && !prev.listOrdered {
+		avoid = prev.listBullet
+	}
+	dashes, stars := p.breakItems(id)
+	switch {
+	case avoid != '-' && !dashes:
+		return '-'
+	case avoid != '*' && !stars:
+		return '*'
+	}
+	return '+'
+}
+
+// breakItems reports whether an item of list id has a first line of at least
+// two '-' and spaces only, and whether one has such a line of '*'.
+func (p *printer) breakItems(id markdown.NodeID) (dashes, stars bool) {
+	t := p.tree
+	end, _ := t.Next(id)
+	for item := id + 1; item < end; item, _ = t.Next(item) {
+		if t.Kind(item) != markdown.ListItem {
+			continue
+		}
+		itemEnd, _ := t.Next(item)
+		i := item + 1
+		for i < itemEnd && (!t.Kind(i).Leaf() || isPrefix(t.Kind(i)) || t.Kind(i) == markdown.Indent || t.Kind(i) == markdown.BlankLine) {
+			i++
+		}
+		if i == itemEnd || t.Kind(i) == markdown.ThematicRun {
+			// The printer writes a thematic break without the bullet.
+			continue
+		}
+		line := bytes.Trim(t.RestOfLine(i), " \t")
+		dashes = dashes || len(bytes.Trim(line, "- \t")) == 0 && bytes.Count(line, []byte("-")) >= 2
+		stars = stars || len(bytes.Trim(line, "* \t")) == 0 && bytes.Count(line, []byte("*")) >= 2
+	}
+	return dashes, stars
 }
 
 // sourceMarker returns the indentation, marker and padding of list item f of
@@ -854,7 +902,7 @@ func (p *printer) exit() {
 	case g.kind == markdown.List:
 		p.span = p.span || g.span
 		parent := &p.stack[len(p.stack)-1]
-		parent.listOrdered, parent.listAlt = g.ordered, g.alt
+		parent.listOrdered, parent.listAlt, parent.listBullet = g.ordered, g.alt, g.bullet
 	case isBlock(g.kind):
 		p.span = p.span || g.span
 	case g.kind == markdown.Document:
