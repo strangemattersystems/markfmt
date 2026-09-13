@@ -1017,8 +1017,11 @@ adds its set of `Dialect(row)` values to its Enter event. `Equal` requires:
     be fixed. `FuzzFormat` lives in `internal/markdown` as an external test
     (`package markdown_test`) that imports `internal/format` and reaches the
     test renderer through `export_test.go`.
-- Stage 6 adds a dialect mutation test: for each `dialect.md` row, rewrite a
-  neighbour and assert a dialect span or a rejection.
+- Stage 6 checks the dialect predicates: the GitHub fixture of each
+  `dialect.md` row has a span of its row, and a pair for each row that has a
+  rewrite that keeps markfmt's meaning and changes GitHub's. `Equal` compares
+  row sets in both directions, so a rewrite next to a span keeps the span or
+  is rejected, and a mutation test would only repeat that check.
 
 ## 11. Testing
 
