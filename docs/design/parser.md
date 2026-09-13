@@ -604,7 +604,7 @@ preorder. The scratch buffer never inserts:
 | `[a](b` repeated | Parenthesis depth limit of 32 |
 | `[ (](` repeated | Parenthesized title stops at an unescaped `(` |
 | `[a]: b 'c` lines | Definition parse stops at the first failure (section 5.4); an inline title opener closes the scan of the title before it |
-| `<a x="1"` lines | Tag scan bounded by one line ending per attribute gap |
+| `<a x="1"` lines | A failed tag reads only its own attributes: no paragraph line is blank, so tag whitespace holds at most one line ending |
 | Extended autolinks | Domain scan stops at whitespace, `<` and `@`; scheme rewind stops at a non-letter |
 | `***a*** ` × n, `a@b.cc ` × n | Side records; spans indexed by opener piece |
 | Many definitions and references | Go map; label cap |

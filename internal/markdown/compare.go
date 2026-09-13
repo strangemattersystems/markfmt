@@ -69,7 +69,7 @@ func (c *comparer) equalKeys(ia, ib NodeID) bool {
 	a, b := c.a, c.b
 	//exhaustive:enforce
 	switch a.nodes[ia].kind {
-	case Document, BlockQuote, ListItem, Paragraph, ThematicBreak, SoftBreak, HardBreak:
+	case Document, BlockQuote, ListItem, Paragraph, ThematicBreak, SoftBreak, HardBreak, RawHTML:
 		return true
 	case FrontMatter:
 		return a.FrontMatterTOML(ia) == b.FrontMatterTOML(ib)
@@ -189,6 +189,8 @@ func (p *projection) group(m Node, parent Kind) (Kind, bool) {
 		return m.kind, true
 	case parent == FrontMatter:
 		return FrontMatterText, true
+	case parent == RawHTML:
+		return HTMLText, true
 	case parent == LinkReferenceDefinition:
 		return Title, true
 	}

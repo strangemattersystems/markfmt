@@ -15,6 +15,15 @@ type inlineParser struct {
 
 	ticks    []uint32 // one past the start of the last backtick run of each length that a search passed
 	ticksAll bool     // a backtick search reached the end of the block
+
+	failed [len(closers)]uint32 // one past the start of the last failed search for each raw HTML closer
+}
+
+// pos is a position in the lines of a block: offset i of line k, at most the
+// end of the line.
+type pos struct {
+	k int
+	i uint32
 }
 
 // piece is a leaf in the scratch buffer. It starts at the end of the piece
@@ -35,7 +44,7 @@ type piece struct {
 func (s *inlineParser) inlines(lines []pendingLine) {
 	s.lines, s.pieces, s.k = lines, s.pieces[:0], 0
 	s.start = lines[0].rest.start
-	s.ticks, s.ticksAll = s.ticks[:0], false
+	s.ticks, s.ticksAll, s.failed = s.ticks[:0], false, [len(closers)]uint32{}
 	s.startLine()
 	for {
 		l := s.lines[s.k].rest
@@ -80,7 +89,9 @@ func (s *inlineParser) scan(i, end uint32) {
 	case '`':
 		s.codeSpan(i, end)
 	case '<':
-		s.autolink(i, end)
+		if !s.autolink(i, end) && !s.rawHTML(i, end) {
+			s.text(i + 1)
+		}
 	default:
 		s.text(s.textEnd(i, end))
 	}
@@ -134,6 +145,51 @@ func (s *inlineParser) trailingSpace() {
 
 // inlineTriggers holds the bytes that can start an inline construct.
 var inlineTriggers = [256]bool{'\\': true, '&': true, '`': true, '<': true}
+
+// verbatim pushes pieces of kind text up to p, with a VerbatimLineEnding,
+// the prefix leaves and the Indent leaf at each line boundary.
+func (s *inlineParser) verbatim(p pos, text Kind) {
+	for s.k < p.k {
+		l := s.lines[s.k].rest
+		s.pushIf(text, l.end)
+		s.push(piece{kind: VerbatimLineEnding, end: l.eol})
+		s.k++
+		s.startLine()
+	}
+	s.pushIf(text, p.i)
+}
+
+// byteAt returns the byte at p, or false at the end of its line.
+func (s *inlineParser) byteAt(p pos) (byte, bool) {
+	if p.i < s.lines[p.k].rest.end {
+		return s.src[p.i], true
+	}
+	return 0, false
+}
+
+// expect returns the position after c at p, or false.
+func (s *inlineParser) expect(p pos, c byte) (pos, bool) {
+	if b, ok := s.byteAt(p); ok && b == c {
+		return pos{p.k, p.i + 1}, true
+	}
+	return pos{}, false
+}
+
+// skipSpace returns the position after the spaces and tabs at p, with at
+// most one line ending, and whether it moved.
+func (s *inlineParser) skipSpace(p pos) (pos, bool) {
+	q := p
+	for c, ok := s.byteAt(q); ok && isSpaceOrTab(c); c, ok = s.byteAt(q) {
+		q.i++
+	}
+	if _, ok := s.byteAt(q); !ok && q.k+1 < len(s.lines) {
+		q = pos{q.k + 1, s.lines[q.k+1].rest.start}
+		for c, ok := s.byteAt(q); ok && isSpaceOrTab(c); c, ok = s.byteAt(q) {
+			q.i++
+		}
+	}
+	return q, q != p
+}
 
 // textEnd returns the end of the run of bytes from i that no inline construct
 // starts in, before end.

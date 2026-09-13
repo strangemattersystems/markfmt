@@ -7,14 +7,11 @@
 #     sed -n 's/^ *--- FAIL: TestParse\/cmark-gfm-regression\/cmark-gfm-regression_example_\([0-9]*\) .*/\1/p' |
 #     sort -n
 5
-6
 8
-9
 10
 11
 12
 13
-14
 20
 21
 22

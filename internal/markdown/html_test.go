@@ -36,6 +36,7 @@ func TestRenderHTML(t *testing.T) {
 		{"writes entity references", "&ouml;&NotEqualTilde;&#0;&#xD800;&#1114112;&#x10FFFF;&amp;", "<p>ö\u2242\u0338\ufffd\ufffd\ufffd\U0010ffff&amp;</p>\n"},
 		{"writes code spans", "` a `` `\n``\nb\n`` ` ` `  `", "<p><code>a ``</code>\n<code>b</code> <code> </code> <code>  </code></p>\n"},
 		{"writes autolinks", "<https://a.b/\\[&amp;\u00e9'> <A@b.c>", "<p><a href=\"https://a.b/%5C%5B&amp;%C3%A9&#x27;\">https://a.b/\\[&amp;\u00e9'</a> <a href=\"mailto:A@b.c\">A@b.c</a></p>\n"},
+		{"writes raw html", "a <b\n c='d'>e<!---->", "<p>a <b\nc='d'>e<!----></p>\n"},
 		{"writes line breaks", "a\\\nb  \nc \nd  ", "<p>a<br />\nb<br />\nc\nd</p>\n"},
 		{"writes paragraphs", "\xEF\xBB\xBFa\r\n b\n \nc", "<p>a\nb</p>\n<p>c</p>\n"},
 	}
@@ -170,6 +171,10 @@ func renderHTML(tree *Tree) string {
 			b.WriteString(`<a href="` + escapeHref(href) + `">`)
 		case Text, Escape, EntityRef, AutolinkText:
 			b.WriteString(htmlEscaper.Replace(string(tree.AppendValue(nil, e.ID))))
+		case RawHTML:
+			if !e.Exit {
+				b.Write(tree.AppendRawHTML(nil, e.ID))
+			}
 		case CodeSpan:
 			if !e.Exit {
 				b.WriteString("<code>" + htmlEscaper.Replace(string(tree.AppendCodeSpan(nil, e.ID))) + "</code>")

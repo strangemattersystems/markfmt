@@ -37,6 +37,9 @@ func TestParse(t *testing.T) {
 		{"gives a code span over lines with their prefix and indent leaves", "> `a  \n>   b\\`", "Document{BlockQuote{QuoteMarker@1 \"> \", Paragraph{CodeSpan{CodeFence \"`\", CodeText \"a  \", VerbatimLineEnding \"\\n\", QuoteMarker@1 \"> \", Indent \"  \", CodeText \"b\\\\\", CodeFence \"`\"}}}}"},
 		{"gives a backtick run with no closer of its length as text", "``a`b\n```c`", "Document{Paragraph{Text \"``a\", CodeSpan{CodeFence \"`\", CodeText \"b\", VerbatimLineEnding \"\\n\", CodeText \"```c\", CodeFence \"`\"}}}"},
 		{"gives angle autolinks", "<https://a.b/c?d&amp;e> <foo@bar.example.com>` <m:abc> <a@b-.c> <a@b>`", "Document{Paragraph{Autolink{AngleBracket \"<\", AutolinkText \"https://a.b/c?d&amp;e\", AngleBracket \">\"}, Text \" \", Autolink{AngleBracket \"<\", AutolinkText \"foo@bar.example.com\", AngleBracket \">\"}, CodeSpan{CodeFence \"`\", CodeText \" <m:abc> <a@b-.c> <a@b>\", CodeFence \"`\"}}}"},
+		{"gives raw html over lines with their prefix and indent leaves", "> a <b\n>  c='d\n> e'>f", "Document{BlockQuote{QuoteMarker@1 \"> \", Paragraph{Text \"a \", RawHTML{HTMLText \"<b\", VerbatimLineEnding \"\\n\", QuoteMarker@1 \"> \", Indent \" \", HTMLText \"c='d\", VerbatimLineEnding \"\\n\", QuoteMarker@1 \"> \", HTMLText \"e'>\"}, Text \"f\"}}}"},
+		{"gives raw html comments, processing instructions, declarations and cdata sections", "a <!--> <!---> <!-- b -- c ---> <?x?> <!X y> <![CDATA[>]]> </d >", "Document{Paragraph{Text \"a \", RawHTML{HTMLText \"<!-->\"}, Text \" \", RawHTML{HTMLText \"<!--->\"}, Text \" \", RawHTML{HTMLText \"<!-- b -- c --->\"}, Text \" \", RawHTML{HTMLText \"<?x?>\"}, Text \" \", RawHTML{HTMLText \"<!X y>\"}, Text \" \", RawHTML{HTMLText \"<![CDATA[>]]>\"}, Text \" \", RawHTML{HTMLText \"</d >\"}}}"},
+		{"gives text for a tag that does not close", "a <33> </a x> <a b='c> <a\n\nb>", "Document{Paragraph{Text \"a <33> </a x> <a b='c> <a\", LineEnding \"\\n\"}, BlankLine \"\\n\", Paragraph{Text \"b>\"}}"},
 		{"gives no break at the end of a block", "a\\\n\n# b\\", `Document{Paragraph{Text "a\\", LineEnding "\n"}, BlankLine "\n", Heading{ATXMarker "#", Whitespace " ", Text "b\\"}}`},
 		{"gives breaks between setext heading lines", "a  \nb \n==", `Document{Heading{Text "a", HardBreak{HardBreakMarker "  ", LineEnding "\n"}, Text "b", TrailingSpace " ", LineEnding "\n", SetextUnderline "=="}}`},
 		{"gives the indentation of a first line", "   a", `Document{Paragraph{Indent "   ", Text "a"}}`},
@@ -72,8 +75,8 @@ func TestParse(t *testing.T) {
 		{"starts an html block of kind 4 with any ascii letter", "<!doctype html>", "Document{HTMLBlock[4]{HTMLText \"<!doctype html>\"}}"},
 		{"interrupts a paragraph with a search html block", "a\n<search>", "Document{Paragraph{Text \"a\", LineEnding \"\\n\"}, HTMLBlock[6]{HTMLText \"<search>\"}}"},
 		{"gives a complete tag an html block of kind 7", "<source src='x' a>  \n</b >\n\n<a b=c/>", "Document{HTMLBlock[7]{HTMLText \"<source src='x' a>  \", VerbatimLineEnding \"\\n\", HTMLText \"</b >\", VerbatimLineEnding \"\\n\"}, BlankLine \"\\n\", HTMLBlock[7]{HTMLText \"<a b=c/>\"}}"},
-		{"does not interrupt a paragraph with an html block of kind 7", "a\n<source>", "Document{Paragraph{Text \"a\", SoftBreak{LineEnding \"\\n\"}, Text \"<source>\"}}"},
-		{"needs only spaces and tabs after the tag of an html block of kind 7", "<a> b\n\n<a b='>\n\n<pre/>", "Document{Paragraph{Text \"<a> b\", LineEnding \"\\n\"}, BlankLine \"\\n\", Paragraph{Text \"<a b='>\", LineEnding \"\\n\"}, BlankLine \"\\n\", Paragraph{Text \"<pre/>\"}}"},
+		{"does not interrupt a paragraph with an html block of kind 7", "a\n<source>", "Document{Paragraph{Text \"a\", SoftBreak{LineEnding \"\\n\"}, RawHTML{HTMLText \"<source>\"}}}"},
+		{"needs only spaces and tabs after the tag of an html block of kind 7", "<a> b\n\n<a b='>\n\n<pre/>", "Document{Paragraph{RawHTML{HTMLText \"<a>\"}, Text \" b\", LineEnding \"\\n\"}, BlankLine \"\\n\", Paragraph{Text \"<a b='>\", LineEnding \"\\n\"}, BlankLine \"\\n\", Paragraph{RawHTML{HTMLText \"<pre/>\"}}}"},
 		{"gives a block quote", "> a\n > b", "Document{BlockQuote{QuoteMarker@1 \"> \", Paragraph{Text \"a\", SoftBreak{LineEnding \"\\n\"}, QuoteMarker@1 \" > \", Text \"b\"}}}"},
 		{"gives an empty block quote", ">", "Document{BlockQuote{QuoteMarker@1 \">\"}}"},
 		{"continues a paragraph in a block quote on a lazy line", "> a\nb", "Document{BlockQuote{QuoteMarker@1 \"> \", Paragraph{Text \"a\", SoftBreak{LineEnding \"\\n\"}, Text \"b\"}}}"},
@@ -83,7 +86,7 @@ func TestParse(t *testing.T) {
 		{"puts the prefix leaves of later code lines inside the code block", ">     a\n>     b", "Document{BlockQuote{QuoteMarker@1 \"> \", CodeBlock{CodeIndent \"    \", CodeText \"a\", VerbatimLineEnding \"\\n\", QuoteMarker@1 \"> \", CodeIndent \"    \", CodeText \"b\"}}}"},
 		{"keeps the prefix leaves of pending blank code lines", ">     a\n>\n>     b\n>\nc", "Document{BlockQuote{QuoteMarker@1 \"> \", CodeBlock{CodeIndent \"    \", CodeText \"a\", VerbatimLineEnding \"\\n\", QuoteMarker@1 \">\", VerbatimLineEnding \"\\n\", QuoteMarker@1 \"> \", CodeIndent \"    \", CodeText \"b\", VerbatimLineEnding \"\\n\"}, QuoteMarker@1 \">\", BlankLine \"\\n\"}, Paragraph{Text \"c\"}}"},
 		{"does not start indented code on a lazy line", "> a\n    b", "Document{BlockQuote{QuoteMarker@1 \"> \", Paragraph{Text \"a\", SoftBreak{LineEnding \"\\n\"}, Indent \"    \", Text \"b\"}}}"},
-		{"does not start an html block of kind 7 on a lazy line", "> a\n<del>", "Document{BlockQuote{QuoteMarker@1 \"> \", Paragraph{Text \"a\", SoftBreak{LineEnding \"\\n\"}, Text \"<del>\"}}}"},
+		{"does not start an html block of kind 7 on a lazy line", "> a\n<del>", "Document{BlockQuote{QuoteMarker@1 \"> \", Paragraph{Text \"a\", SoftBreak{LineEnding \"\\n\"}, RawHTML{HTMLText \"<del>\"}}}}"},
 		{"closes a block quote at a thematic break", "> a\n---", "Document{BlockQuote{QuoteMarker@1 \"> \", Paragraph{Text \"a\", LineEnding \"\\n\"}}, ThematicBreak{ThematicRun \"---\"}}"},
 		{"gives a setext heading in a block quote", "> a\n> ---\n> b\n===", "Document{BlockQuote{QuoteMarker@1 \"> \", Heading{Text \"a\", LineEnding \"\\n\", QuoteMarker@1 \"> \", SetextUnderline \"---\", LineEnding \"\\n\"}, QuoteMarker@1 \"> \", Paragraph{Text \"b\", SoftBreak{LineEnding \"\\n\"}, Text \"===\"}}}"},
 		{"closes fenced code and html blocks with their block quote", "> ```\n> a\nb\n> <div>\nc", "Document{BlockQuote{QuoteMarker@1 \"> \", CodeBlock{FenceMarker \"```\", LineEnding \"\\n\", QuoteMarker@1 \"> \", CodeText \"a\", VerbatimLineEnding \"\\n\"}}, Paragraph{Text \"b\", LineEnding \"\\n\"}, BlockQuote{QuoteMarker@12 \"> \", HTMLBlock[6]{HTMLText \"<div>\", VerbatimLineEnding \"\\n\"}}, Paragraph{Text \"c\"}}"},
@@ -116,7 +119,7 @@ func TestParse(t *testing.T) {
 		{"gives a title over several lines", "[foo]: /url '\ntitle\n'", "Document{LinkReferenceDefinition{Bracket \"[\", LinkLabel \"foo\", Bracket \"]\", Colon \":\", Whitespace \" \", Destination \"/url\", Whitespace \" \", TitleQuote \"'\", VerbatimLineEnding \"\\n\", Title \"title\", VerbatimLineEnding \"\\n\", TitleQuote \"'\"}}"},
 		{"gives an empty angle destination", "[foo]: <>", "Document{LinkReferenceDefinition{Bracket \"[\", LinkLabel \"foo\", Bracket \"]\", Colon \":\", Whitespace \" \", AngleBracket \"<\", AngleBracket \">\"}}"},
 		{"rewinds a failed title to the end of the destination", "[foo]: /url\n\"title\" ok", "Document{LinkReferenceDefinition{Bracket \"[\", LinkLabel \"foo\", Bracket \"]\", Colon \":\", Whitespace \" \", Destination \"/url\", LineEnding \"\\n\"}, Paragraph{Text \"\\\"title\\\" ok\"}}"},
-		{"needs only spaces and tabs after a definition on its line", "[foo]: /url \"title\" ok\n\n[foo]: <bar>(baz)", "Document{Paragraph{Text \"[foo]: /url \\\"title\\\" ok\", LineEnding \"\\n\"}, BlankLine \"\\n\", Paragraph{Text \"[foo]: <bar>(baz)\"}}"},
+		{"needs only spaces and tabs after a definition on its line", "[foo]: /url \"title\" ok\n\n[foo]: <bar>(baz)", "Document{Paragraph{Text \"[foo]: /url \\\"title\\\" ok\", LineEnding \"\\n\"}, BlankLine \"\\n\", Paragraph{Text \"[foo]: \", RawHTML{HTMLText \"<bar>\"}, Text \"(baz)\"}}"},
 		{"needs a label that is not blank and has no unescaped bracket", "[ ]: /u\n\n[a[b]: /u\n\n[a\\]b]: /u", "Document{Paragraph{Text \"[ ]: /u\", LineEnding \"\\n\"}, BlankLine \"\\n\", Paragraph{Text \"[a[b]: /u\", LineEnding \"\\n\"}, BlankLine \"\\n\", LinkReferenceDefinition{Bracket \"[\", LinkLabel \"a\\\\]b\", Bracket \"]\", Colon \":\", Whitespace \" \", Destination \"/u\"}}"},
 		{"needs balanced parentheses in a destination", "[a]: (b)c\n[a]: (b", "Document{LinkReferenceDefinition{Bracket \"[\", LinkLabel \"a\", Bracket \"]\", Colon \":\", Whitespace \" \", Destination \"(b)c\", LineEnding \"\\n\"}, Paragraph{Text \"[a]: (b\"}}"},
 		{"needs a destination", "[a]:\n\n[a]:", "Document{Paragraph{Text \"[a]:\", LineEnding \"\\n\"}, BlankLine \"\\n\", Paragraph{Text \"[a]:\"}}"},
@@ -295,6 +298,21 @@ var pathologicalInputs = []struct {
 	}},
 	{"definitions with unclosed titles", func(n int) []byte {
 		return []byte(strings.Repeat("[a]: b 'c\n", n/10))
+	}},
+	{"unclosed html comments", func(n int) []byte {
+		return []byte("a " + strings.Repeat("<!--", n/4))
+	}},
+	{"unclosed processing instructions", func(n int) []byte {
+		return []byte("a " + strings.Repeat("<?", n/2))
+	}},
+	{"unclosed cdata sections", func(n int) []byte {
+		return []byte("a " + strings.Repeat("<![CDATA[", n/9))
+	}},
+	{"unclosed declarations", func(n int) []byte {
+		return []byte("a " + strings.Repeat("<!X", n/3))
+	}},
+	{"tags with an attribute on each line", func(n int) []byte {
+		return []byte("a " + strings.Repeat("<a x=\"1\"\n", n/9))
 	}},
 	{"backtick runs of every length", func(n int) []byte {
 		var b []byte

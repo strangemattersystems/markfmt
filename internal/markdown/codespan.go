@@ -13,14 +13,7 @@ func (s *inlineParser) codeSpan(i, end uint32) {
 		return
 	}
 	s.push(piece{kind: CodeFence, open: CodeSpan, end: open})
-	for s.k < k {
-		l := s.lines[s.k].rest
-		s.pushIf(CodeText, l.end)
-		s.push(piece{kind: VerbatimLineEnding, end: l.eol})
-		s.k++
-		s.startLine()
-	}
-	s.pushIf(CodeText, closer)
+	s.verbatim(pos{k, closer}, CodeText)
 	s.push(piece{kind: CodeFence, close: true, end: closer + open - i})
 }
 

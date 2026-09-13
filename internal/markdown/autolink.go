@@ -5,17 +5,17 @@ import (
 	"strings"
 )
 
-// autolink pushes the angle autolink at i, on a line that ends at end, or
-// its '<' as text.
-func (s *inlineParser) autolink(i, end uint32) {
+// autolink pushes the angle autolink at i, on a line that ends at end, and
+// reports whether there is one.
+func (s *inlineParser) autolink(i, end uint32) bool {
 	j := autolinkEnd(s.src, i, end)
 	if j == 0 {
-		s.text(i + 1)
-		return
+		return false
 	}
 	s.push(piece{kind: AngleBracket, open: Autolink, end: i + 1})
 	s.push(piece{kind: AutolinkText, end: j - 1})
 	s.push(piece{kind: AngleBracket, close: true, end: j})
+	return true
 }
 
 // autolinkEnd returns the end of the angle autolink at src[i:end], which
