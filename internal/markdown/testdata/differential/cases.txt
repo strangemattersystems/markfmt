@@ -505,3 +505,14 @@ goldmark gives `<?>` as raw HTML.
 .
 <p>0&lt;?&gt;</p>
 ````````````````````````````````
+
+## goldmark deviates, spec section 6.6: an unquoted attribute value takes ASCII control characters
+
+The value is U+0014. goldmark and commonmark.js leave control characters out
+of an unquoted value, and the spec text and cmark do not.
+
+```````````````````````````````` example
+<A A=>
+.
+<A A=>
+````````````````````````````````

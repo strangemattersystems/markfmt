@@ -438,6 +438,7 @@ Use this list to triage stage 5 disagreements. The last column says how
 | `- -`, a blank line, `  b` | The paragraph `b` after the list: the outer item ends. | The paragraph `b` in the outer item (spec 5.2). | Predicate, differential case. |
 | `>0*0`, then `>*` | Emphasis: the `>` before the second `*` counts as the character before it. | Text: a line ending comes before the `*` (spec 6.2). | Predicate, differential case. |
 | `0<?>` | Raw HTML: `<?` and `?>` share the `?`. | Text (spec 6.6). | Predicate, differential case. |
+| `<A A=`, U+0014, `>` | Text: an unquoted attribute value cannot hold a control character. | HTML block (spec 6.6). | Predicate, differential case. |
 | `[0]:\n0\n''0` | The destination line also appears as paragraph text. | Paragraph `''0` only (compare example 210). | Predicate, differential case. |
 | `x<!x>`, `<!doctype html>` | Text: a declaration needs an uppercase letter after `<!`, as on GitHub. | Raw HTML and an HTML block (spec 4.6, 6.6). | Predicate, differential case. |
 | `a\n<meta>` | `<meta>` interrupts the paragraph: goldmark's HTML block kind 6 tag list has `meta`. | Paragraph with raw HTML (spec 4.6). | Predicate, differential case. |
