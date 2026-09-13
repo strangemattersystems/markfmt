@@ -59,3 +59,5 @@ dialect-search-blank-line different a blank line before an HTML block named sear
 dialect-source-lazy-line different GitHub starts an HTML block of kind 6 named source on a lazy line and closes the block quote (github 18)
 dialect-kind-7-lazy-line different GitHub starts an HTML block of kind 7 on a lazy line and closes the block quote (github 16)
 dialect-declaration-blank-line different GitHub continues the paragraph with a declaration that starts with a lowercase letter (github 15)
+dialect-flanking-delimiter different GitHub reads an underscore next to a Unicode symbol as text and an asterisk as emphasis (github 14)
+dialect-code-span-fence different GitHub reads the last code span as text with a fence of one backtick, and as code with two (github 10)

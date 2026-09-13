@@ -5,6 +5,8 @@ import (
 	"cmp"
 	"slices"
 	"strings"
+	"unicode"
+	"unicode/utf8"
 )
 
 // dialectRow is a row of testdata/dialect.md: a rule where GitHub and
@@ -26,6 +28,19 @@ const (
 	rowLazyKind7
 	// rowComment: GitHub reads the older comment grammar.
 	rowComment
+	// rowFlanking: GitHub reads only Unicode P and ASCII punctuation as
+	// punctuation for flanking.
+	rowFlanking
+	// rowCodeSpan: cmark-gfm misses a closing backtick run that its search
+	// after an unmatched run recorded.
+	rowCodeSpan
+	// rowDestinationVTFF: GitHub keeps VT and FF in a destination.
+	rowDestinationVTFF
+	// rowLabelVTFF: GitHub keeps VT and FF in a link label.
+	rowLabelVTFF
+	// rowLabelLength: GitHub reads at most 1000 bytes as a label, and markfmt
+	// at most 999 characters.
+	rowLabelLength
 )
 
 // dialectRows is a set of dialect rows.
@@ -42,7 +57,7 @@ type dialectSpan struct {
 // is conservative: a span where GitHub gives the same meaning only keeps
 // bytes that the printer could have changed.
 func (t *Tree) dialectSpans() []dialectSpan {
-	f := spanFinder{t: t, lineStart: true, newLine: true}
+	f := spanFinder{t: t, lineStart: true, newLine: true, vtff: bytes.ContainsAny(t.src, "\v\f")}
 	f.walk.t = t
 	for i := range t.nodes {
 		f.node(uint32(i))
@@ -75,6 +90,7 @@ type spanFinder struct {
 	newLine   bool   // no leaf follows the last line ending
 	lineFirst uint32 // the first leaf of the line
 	walk      containerWalk
+	vtff      bool // the input has VT or FF
 }
 
 func (f *spanFinder) add(id uint32, row dialectRow) {
@@ -124,6 +140,9 @@ func (f *spanFinder) enter(id uint32, n Node) {
 	switch n.kind {
 	case Paragraph, Heading, TableCell:
 		f.block = id
+		f.inlineBlock(id, n)
+	case LinkReferenceDefinition:
+		f.inlineBlock(id, n)
 	case Table:
 		f.table = id
 	case HTMLBlock:
@@ -141,6 +160,29 @@ func (f *spanFinder) enter(id uint32, n Node) {
 		case bytes.HasPrefix(b, []byte("<!--")) && !isGitHubComment(t.AppendRawHTML(nil, NodeID(id))):
 			f.add(f.block, rowComment)
 		}
+	}
+}
+
+// inlineBlock runs the predicates that read the bytes of block id, a block
+// with inline content or a link reference definition.
+func (f *spanFinder) inlineBlock(id uint32, n Node) {
+	b := f.t.src[n.start:n.end]
+	if n.kind != LinkReferenceDefinition {
+		if flankingDiffers(b) {
+			f.add(id, rowFlanking)
+		}
+		if f.t.codeSpanAfterText(id) {
+			f.add(id, rowCodeSpan)
+		}
+	}
+	// A definition with VT or FF can resolve a reference in one reading only,
+	// so every block that can hold a reference is a span.
+	if f.vtff && bytes.ContainsAny(b, "[]\v\f") {
+		f.add(id, rowDestinationVTFF)
+		f.add(id, rowLabelVTFF)
+	}
+	if hasLongLabel(b) {
+		f.add(id, rowLabelLength)
 	}
 }
 
@@ -221,4 +263,78 @@ func isGitHubComment(v []byte) bool {
 	text := v[4 : len(v)-3]
 	return !bytes.HasPrefix(text, []byte(">")) && !bytes.HasPrefix(text, []byte("->")) &&
 		!bytes.HasSuffix(text, []byte("-")) && !bytes.Contains(text, []byte("--"))
+}
+
+// flankingDiffers reports whether a run of '*' or '_' in b is next to a
+// character that markfmt reads as punctuation for flanking and GitHub does
+// not: a Unicode symbol that is neither ASCII nor punctuation, or U+FFFD,
+// which NUL and invalid UTF-8 also give (design 6.7).
+func flankingDiffers(b []byte) bool {
+	for i := 0; i < len(b); {
+		c := b[i]
+		if c != '*' && c != '_' {
+			i++
+			continue
+		}
+		j := i
+		for j < len(b) && b[j] == c {
+			j++
+		}
+		if r, _ := utf8.DecodeLastRune(b[:i]); i > 0 && symbolDiffers(r) {
+			return true
+		}
+		if j < len(b) {
+			if r, _ := decodeRune(b[j:]); symbolDiffers(r) {
+				return true
+			}
+		}
+		i = j
+	}
+	return false
+}
+
+func symbolDiffers(r rune) bool {
+	return r == 0 || r >= utf8.RuneSelf && unicode.Is(unicode.S, r) && !unicode.Is(unicode.P, r)
+}
+
+// codeSpanAfterText reports whether block id has a code span after a Text
+// leaf with a backtick.
+func (t *Tree) codeSpanAfterText(id uint32) bool {
+	text := false
+	for i := id + 1; i < t.nodes[id].link; i++ {
+		switch m := t.nodes[i]; m.kind {
+		case Text:
+			text = text || bytes.IndexByte(t.src[m.start:m.end], '`') >= 0
+		case CodeSpan:
+			if text {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// hasLongLabel reports whether b has a bracket pair with at least 1000 bytes
+// between its brackets.
+func hasLongLabel(b []byte) bool {
+	if bytes.IndexByte(b, ']') < 0 {
+		return false
+	}
+	var open []int
+	for i := 0; i < len(b); i++ {
+		switch b[i] {
+		case '\\':
+			i++
+		case '[':
+			open = append(open, i)
+		case ']':
+			if n := len(open); n > 0 {
+				if i-open[n-1]-1 >= 1000 {
+					return true
+				}
+				open = open[:n-1]
+			}
+		}
+	}
+	return false
 }

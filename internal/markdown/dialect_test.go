@@ -3,6 +3,7 @@ package markdown
 import (
 	"slices"
 	"strconv"
+	"strings"
 	"testing"
 )
 
@@ -29,6 +30,18 @@ func TestTree_DialectSpans(t *testing.T) {
 		{"finds no span for a paragraph line that starts html block kind 7 and is not lazy", "> a\n> <del>\n\n- b\n  <del>", nil},
 		{"finds raw html comments that github does not read", "a <!--> b <!---> c <!-- -- --> d <!-- - --> e <!--->-->", []string{"Paragraph 10000"}},
 		{"finds no span for raw html comments that github reads", "a <!-- b --> <!----> <!-- c - d -->", nil},
+		{"finds a delimiter run next to a unicode symbol", "£_a_£", []string{"Paragraph 100000"}},
+		{"finds delimiter runs next to nul, invalid utf-8 and u+fffd", "a\x00*b*\n\nc*d*\xa6\n\ne\ufffd_f_", []string{"Paragraph 100000", "Paragraph 100000", "Paragraph 100000"}},
+		{"finds a delimiter run next to an emoji in a table cell", "| a |\n| - |\n| 😀*b* |", []string{"TableCell 100000"}},
+		{"finds no span for delimiter runs next to ascii punctuation or spaces", "$*a*$ £ _b_ £", nil},
+		{"finds a code span after a backtick run that is text", "a `` b `c` d `e`", []string{"Paragraph 1000000"}},
+		{"finds no span for a backtick run after a code span or an escaped backtick", "`c` a `` b\n\na \\` `b`", nil},
+		{"finds blocks with brackets, vt or ff in a document with vt or ff", "[a](b\fc)\n\n[a]\n\n[a\v]: /u\n\nd\fe\n\nf", []string{"Paragraph 110000000", "Paragraph 110000000", "LinkReferenceDefinition 110000000", "Paragraph 110000000"}},
+		{"finds no span for brackets in a document without vt or ff", "[a](b)", nil},
+		{"finds brackets with 1000 bytes between them", "[" + strings.Repeat("a", 1000) + "]", []string{"Paragraph 1000000000"}},
+		{"finds a definition whose label has 1000 bytes", "[" + strings.Repeat("é", 500) + "]: /u", []string{"LinkReferenceDefinition 1000000000"}},
+		{"finds brackets with 1000 bytes between them across an escaped bracket", "[" + strings.Repeat("a", 998) + "\\]]", []string{"Paragraph 1000000000"}},
+		{"finds no span for brackets with 999 bytes between them", "[" + strings.Repeat("a", 999) + "](/u)", nil},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -49,11 +62,16 @@ func TestTree_DialectSpans(t *testing.T) {
 		t.Parallel()
 
 		rows := map[string]dialectRow{
-			"dialect/html-block-search":      rowSearch,
-			"dialect/html-block-source":      rowSource,
-			"dialect/html-block-declaration": rowDeclaration,
-			"dialect/html-block-lazy-line":   rowLazyKind7,
-			"dialect/html-comment":           rowComment,
+			"dialect/html-block-search":       rowSearch,
+			"dialect/html-block-source":       rowSource,
+			"dialect/html-block-declaration":  rowDeclaration,
+			"dialect/html-block-lazy-line":    rowLazyKind7,
+			"dialect/html-comment":            rowComment,
+			"dialect/flanking-symbol":         rowFlanking,
+			"dialect/code-span-unmatched-run": rowCodeSpan,
+			"dialect/destination-vt-ff":       rowDestinationVTFF,
+			"dialect/label-vt-ff":             rowLabelVTFF,
+			"dialect/label-length":            rowLabelLength,
 		}
 		for _, ex := range readExamples(t, "testdata/github/github.txt") {
 			row, ok := rows[ex.section]
