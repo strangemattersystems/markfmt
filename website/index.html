@@ -5,27 +5,26 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>markfmt</title>
 <meta name="description" content="A fast, zero-config formatter that rewrites Markdown into one canonical style.">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text x='2' y='13' font-family='monospace' font-size='15' font-weight='bold' fill='%238250df'>%23</text></svg>">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text x='2' y='13' font-family='monospace' font-size='15' font-weight='bold' fill='%23777'>%23</text></svg>">
 <style>
 :root {
   color-scheme: light dark;
-  --bg: light-dark(#fdfcf8, #0f1115);
-  --fg: light-dark(#1f2328, #d7dae0);
-  --mark: light-dark(#6e7781, #7d8590);
-  --accent: light-dark(#8250df, #d2a8ff);
-  --code-bg: light-dark(#f3f1ea, #171a21);
+  --bg: light-dark(#fafafa, #111111);
+  --fg: light-dark(#1a1a1a, #e6e6e6);
+  --mark: light-dark(#6b6b6b, #8a8a8a);
+  --code-bg: light-dark(#f0f0f0, #1b1b1b);
 }
 * { box-sizing: border-box; }
 body {
   margin: 0 auto;
-  max-width: 80ch;
+  max-width: 100ch;
   padding: 3rem 2ch;
   background: var(--bg);
   color: var(--fg);
   font: 1rem/1.6 ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
 }
-h1, h2, h3 { color: var(--accent); line-height: 1.3; margin: 2.5rem 0 1rem; }
-h1 { font-size: 2rem; margin-top: 0; }
+h1, h2, h3 { line-height: 1.3; margin: 2.5rem 0 1rem; }
+h1 { font-size: clamp(2.5rem, 12vw, 4rem); margin-top: 0; }
 h2 { font-size: 1.35rem; }
 h3 { font-size: 1rem; }
 
@@ -40,7 +39,7 @@ ul { list-style: none; padding: 0; }
 li { padding-left: 2ch; text-indent: -2ch; }
 li::before { content: "- "; content: "- " / ""; color: var(--mark); }
 strong::before, strong::after { content: "**"; content: "**" / ""; color: var(--mark); }
-a { color: var(--accent); text-decoration-color: var(--mark); text-underline-offset: 0.2em; }
+a { color: inherit;text-decoration-color: var(--mark); text-underline-offset: 0.2em; }
 a:hover { text-decoration-color: currentColor; }
 a::before { content: "["; content: "[" / ""; color: var(--mark); }
 a::after { content: "]"; content: "]" / ""; color: var(--mark); }
@@ -53,8 +52,9 @@ pre {
 pre::before { content: "```" attr(data-lang); content: "```" attr(data-lang) / ""; display: block; color: var(--mark); }
 pre::after { content: "```"; content: "```" / ""; display: block; color: var(--mark); }
 pre code::before, pre code::after { content: none; }
-footer { margin-top: 3rem; color: var(--mark); }
-footer::before { content: "---"; content: "---" / ""; display: block; margin-bottom: 1rem; }
+footer { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0 2ch; margin-top: 3rem; color: var(--mark); }
+footer::before { content: "---"; content: "---" / ""; flex-basis: 100%; margin-bottom: 1rem; }
+footer a { margin-left: auto; }
 </style>
 </head>
 <body>
@@ -111,6 +111,7 @@ markfmt -check $(git ls-files '*.md')</code></pre>
 </main>
 
 <footer>
+<span>© 2026 Strange Matter Systems</span>
 <a href="https://github.com/strangemattersystems/markfmt">GitHub</a>
 </footer>
 </body>
