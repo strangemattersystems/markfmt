@@ -828,6 +828,9 @@ var goldmarkDeviations = []struct {
 		}
 		return false
 	}},
+	{"goldmark deviates, spec section 6.5: the scheme of an absolute URI has at most 32 characters", func(t *Tree) bool {
+		return longScheme.Match(t.src)
+	}},
 }
 
 var (
@@ -845,4 +848,5 @@ var (
 	tabAfterTag          = regexp.MustCompile(`<[A-Za-z/][^<>\r\n]*>[ \t\f]*[\t\f][ \t\f]*(?:\r|\n|$)`)
 	angleTitle           = regexp.MustCompile(`\]\([ \t\r\n]*<[^<>\r\n]*>["'(]`)
 	slashClosingTag      = regexp.MustCompile(`</[A-Za-z][A-Za-z0-9-]*[ \t\r\n]*/`)
+	longScheme           = regexp.MustCompile(`<[A-Za-z][A-Za-z0-9+.-]{32,}:`)
 )

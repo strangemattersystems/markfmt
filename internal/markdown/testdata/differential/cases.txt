@@ -900,3 +900,13 @@ b
 </li>
 </ul>
 ````````````````````````````````
+
+## goldmark deviates, spec section 6.5: the scheme of an absolute URI has at most 32 characters
+
+The scheme has 33 letters. goldmark gives an autolink.
+
+```````````````````````````````` example
+<abcdefghijklmnopqrstuvwxyzabcdefg:h>
+.
+<p>&lt;abcdefghijklmnopqrstuvwxyzabcdefg:h&gt;</p>
+````````````````````````````````
