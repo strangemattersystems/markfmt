@@ -376,7 +376,7 @@ func (p *printer) firstLine(id markdown.NodeID) []byte {
 // container that the input line matched, so that a lazy line stays lazy. A
 // blank line gets the prefixes without trailing spaces.
 func (p *printer) writePrefix(blank bool) {
-	start, n := len(p.out), 0
+	start, n, opened := len(p.out), 0, 0
 prefixes:
 	for i := range p.stack {
 		f := &p.stack[i]
@@ -387,18 +387,19 @@ prefixes:
 		case !f.started && blank:
 			break prefixes
 		case !f.started:
+			if opened >= 99 && f.kind != markdown.BlockQuote && p.inSpan == 0 {
+				// GitHub starts no list item or footnote definition after 99
+				// blocks on a line (appendix B, trap 21).
+				p.nextPrefixLine(start, i)
+				start, opened = len(p.out), 0
+			}
 			p.write(f.marker)
 			f.started = true
+			opened++
 			// Padding would take the columns that the content starts with.
 			if f.blankFirst && f.kind != markdown.BlockQuote && p.lead {
-				p.trimSpaces(start)
-				p.write(lineFeed)
-				start = len(p.out)
-				for j := range p.stack[:i+1] {
-					if p.stack[j].container {
-						p.write(p.stack[j].rest)
-					}
-				}
+				p.nextPrefixLine(start, i+1)
+				start, opened = len(p.out), 0
 			}
 		case blank || n < p.matched:
 			p.write(f.rest)
@@ -409,6 +410,18 @@ prefixes:
 	}
 	if blank {
 		p.trimSpaces(start)
+	}
+}
+
+// nextPrefixLine ends the line of prefixes that starts at offset start, and
+// writes the rest of each container in the first end frames of the stack.
+func (p *printer) nextPrefixLine(start, end int) {
+	p.trimSpaces(start)
+	p.write(lineFeed)
+	for j := range p.stack[:end] {
+		if p.stack[j].container {
+			p.write(p.stack[j].rest)
+		}
 	}
 }
 
