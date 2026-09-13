@@ -59,3 +59,15 @@ Kind 7 excludes these tag names only for an open tag.
 <p>[d]: &lt;e<f></p>
 <p>[d]</p>
 ````````````````````````````````
+
+## goldmark deviates, spec sections 4.3 and 4.7: a setext underline after link reference definitions alone is paragraph text
+
+goldmark gives a thematic break, as commonmark.js does. markfmt follows cmark
+(`../dialect.md`).
+
+```````````````````````````````` example
+[foo]: /url
+---
+.
+<p>---</p>
+````````````````````````````````

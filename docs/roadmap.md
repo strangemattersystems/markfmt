@@ -427,6 +427,7 @@ Use this list to triage stage 5 disagreements. The last column says how
 | `a\n<meta>` | `<meta>` interrupts the paragraph: goldmark's HTML block kind 6 tag list has `meta`. | Paragraph with raw HTML (spec 4.6). | Predicate, differential case. |
 | `</script>` | A paragraph with raw HTML: no HTML block of kind 7 starts at a closing tag of `pre`, `script` or `style`. | An HTML block (spec 4.6). | Predicate, differential case. |
 | `[a](<b<c>)` | A link: an angle destination can contain `<`. | Text (spec 4.7, 6.3). | Predicate, differential case. |
+| `[foo]: /url\n---` | A thematic break, as commonmark.js gives. | Paragraph `---`, as cmark gives (`dialect.md`). | Predicate, differential case. |
 
 ## How to resume
 

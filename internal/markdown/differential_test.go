@@ -177,6 +177,23 @@ var goldmarkDeviations = []struct {
 	{"goldmark deviates, spec sections 4.7 and 6.3: an angle destination contains no unescaped `<`", func(t *Tree) bool {
 		return angleDestinationLT.Match(t.src)
 	}},
+	{"goldmark deviates, spec sections 4.3 and 4.7: a setext underline after link reference definitions alone is paragraph text", func(t *Tree) bool {
+		// Only this rule gives a paragraph whose first line is a thematic
+		// break of "-".
+		for i, n := range t.nodes {
+			if n.kind != Paragraph {
+				continue
+			}
+			line := t.Raw(NodeID(i))
+			if end := bytes.IndexAny(line, "\r\n"); end >= 0 {
+				line = line[:end]
+			}
+			if line = bytes.Trim(line, " \t"); len(line) >= 3 && len(bytes.Trim(line, "-")) == 0 {
+				return true
+			}
+		}
+		return false
+	}},
 }
 
 var (
