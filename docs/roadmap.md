@@ -441,6 +441,7 @@ Use this list to triage stage 5 disagreements. The last column says how
 | `<A A=`, U+0014, `>` | Text: an unquoted attribute value cannot hold a control character. | HTML block (spec 6.6). | Predicate, differential case. |
 | `</ A0>` | An HTML block: whitespace can follow `</`. | Paragraph (spec 6.6). | Predicate, differential case. |
 | `<p`, then a tab | A paragraph: kind 6 does not start before a tab at the end of the line. | HTML block (spec 4.6). | Predicate, differential case. |
+| `![a`, a line ending, `b](/u)` | The alt text `a`, a line ending, `b`. | The alt text `a b`, as cmark writes it (spec 6.4). | Predicate, differential case. |
 | `[0]:\n0\n''0` | The destination line also appears as paragraph text. | Paragraph `''0` only (compare example 210). | Predicate, differential case. |
 | `x<!x>`, `<!doctype html>` | Text: a declaration needs an uppercase letter after `<!`, as on GitHub. | Raw HTML and an HTML block (spec 4.6, 6.6). | Predicate, differential case. |
 | `a\n<meta>` | `<meta>` interrupts the paragraph: goldmark's HTML block kind 6 tag list has `meta`. | Paragraph with raw HTML (spec 4.6). | Predicate, differential case. |

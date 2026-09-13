@@ -560,3 +560,15 @@ line.
 <p	
 </div	>
 ````````````````````````````````
+
+## goldmark deviates, spec section 6.4: a line break in an image description is a space in the alt text, as cmark writes it
+
+goldmark writes the line ending into the alt attribute. The alt text is
+rendering, not grammar.
+
+```````````````````````````````` example
+![a
+b](/u)
+.
+<p><img src="/u" alt="a b" /></p>
+````````````````````````````````

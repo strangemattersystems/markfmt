@@ -531,6 +531,19 @@ var goldmarkDeviations = []struct {
 	{"goldmark deviates, spec section 4.6: a tab after the tag name starts HTML block kind 6", func(t *Tree) bool {
 		return tabAfterTagName.Match(t.src)
 	}},
+	{"goldmark deviates, spec section 6.4: a line break in an image description is a space in the alt text, as cmark writes it", func(t *Tree) bool {
+		for i, n := range t.nodes {
+			if n.kind != Image {
+				continue
+			}
+			for _, m := range t.nodes[i+1 : n.link] {
+				if m.kind == SoftBreak || m.kind == HardBreak {
+					return true
+				}
+			}
+		}
+		return false
+	}},
 	{"goldmark deviates, spec section 4.7: a definition with its destination on a later line ends at the destination when the next line is not a title", func(t *Tree) bool {
 		for i, n := range t.nodes {
 			if n.kind != LinkReferenceDefinition {
