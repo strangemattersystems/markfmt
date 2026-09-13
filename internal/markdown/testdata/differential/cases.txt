@@ -189,3 +189,26 @@ before a space or a line ending.
 <p>[c]: d(e</p>
 <p>[c]</p>
 ````````````````````````````````
+
+## goldmark deviates, spec section 4.5: a content line of spaces in fenced code loses the fence and container indentation only
+
+goldmark keeps the spaces of a line shorter than the fence indentation, and
+removes the spaces beyond the indentation of a list item.
+
+```````````````````````````````` example
+  ```
+ 
+```
+
+- ```
+   
+.
+<pre><code>
+</code></pre>
+<ul>
+<li>
+<pre><code> 
+</code></pre>
+</li>
+</ul>
+````````````````````````````````

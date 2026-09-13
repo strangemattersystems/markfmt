@@ -3,6 +3,7 @@ package markdown
 import (
 	"bytes"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -280,6 +281,38 @@ var goldmarkDeviations = []struct {
 				}
 			}
 			if depth > 0 {
+				return true
+			}
+		}
+		return false
+	}},
+	{"goldmark deviates, spec section 4.5: a content line of spaces in fenced code loses the fence and container indentation only", func(t *Tree) bool {
+		for i, n := range t.nodes {
+			if n.kind != CodeBlock {
+				continue
+			}
+			leaves := t.nodes[i+1 : n.link]
+			if !slices.ContainsFunc(leaves, func(m Node) bool { return m.kind == FenceMarker }) {
+				continue
+			}
+			// A content line has only spaces and tabs when its CodeIndent and
+			// CodeText leaves have bytes and no other byte.
+			spaces, other := false, false
+			for _, m := range leaves {
+				switch m.kind {
+				case CodeIndent:
+					spaces = true
+				case CodeText:
+					spaces = true
+					other = other || len(bytes.Trim(t.src[m.start:m.end], " \t")) > 0
+				case VerbatimLineEnding, LineEnding, FenceMarker:
+					if m.kind == VerbatimLineEnding && spaces && !other {
+						return true
+					}
+					spaces, other = false, false
+				}
+			}
+			if spaces && !other {
 				return true
 			}
 		}
