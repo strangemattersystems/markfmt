@@ -86,6 +86,16 @@ func TestEqual(t *testing.T) {
 		}
 	})
 
+	t.Run("rejects a table cell beyond the header count against no cell", func(t *testing.T) {
+		t.Parallel()
+
+		// No pair holds this case: the test HTML writes no cell beyond the header
+		// count, but such cells are content (design 8.4).
+		if err := Equal(Parse([]byte("| a |\n| - |\n| b | c |")), Parse([]byte("| a |\n| - |\n| b |"))); err == nil {
+			t.Fatal("Equal = nil, want a difference")
+		}
+	})
+
 	t.Run("lists every pair", func(t *testing.T) {
 		t.Parallel()
 
@@ -136,6 +146,7 @@ func FuzzEqual(f *testing.F) {
 		"[a *b*](<c> \"d\") ![e](f\n'g')\n",
 		"[a][Bc] [b][] ![c]\n\n[b]: /u\n[bc]: /v\n[c]: /w\n",
 		"~a~ ~~b~~ *~c~* ~~d~\n",
+		"| a | b |\n|:-|-:|\n| c |\nd | e | f\n\n> x | y\n> --- | ---\n",
 	} {
 		for op := range byte(mutations) {
 			f.Add([]byte(src), op)
@@ -158,15 +169,17 @@ func FuzzEqual(f *testing.F) {
 	})
 }
 
-const mutations = 14
+const mutations = 17
 
 // mutateSyntax returns the source of tree with one kind of block syntax
 // changed everywhere, chosen by op: bullet characters, line endings, ordered
 // delimiters, fence characters, the number of blank lines, the space after a
 // block quote marker, trailing spaces, the backslash of escapes, entity
 // references as their characters, the length of code span fences, the
-// emphasis character, the quotes of titles, the case of labels, or the number
-// of tildes of strikethrough (design 10.5). A mutation may change meaning.
+// emphasis character, the quotes of titles, the case of labels, the number of
+// tildes of strikethrough, the outer pipes of table rows, the spaces of
+// Whitespace leaves, or the dashes of delimiter row cells (design 10.5). A
+// mutation may change meaning.
 func mutateSyntax(tree *Tree, op byte) []byte {
 	var out []byte
 	for i, n := range tree.nodes {
@@ -235,10 +248,40 @@ func mutateSyntax(tree *Tree, op byte) []byte {
 			if n.kind == Delimiter && b[0] == '~' {
 				b = []byte("~~")[:3-len(b)]
 			}
+		case 14:
+			if n.kind == TablePipe && (lineEdge(tree, i, -1) || lineEdge(tree, i, 1)) {
+				continue
+			}
+		case 15:
+			if n.kind == Whitespace {
+				b = bytes.Repeat(b, 2)
+			}
+		case 16:
+			if n.kind == TableDelimiter {
+				j := bytes.IndexByte(b, '-')
+				b = append(append(bytes.Clone(b[:j]), '-'), b[j:]...)
+			}
 		}
 		out = append(out, b...)
 	}
 	return out
+}
+
+// lineEdge reports whether only structure, Whitespace, Indent and prefix
+// leaves are between leaf i and the start of its line, for dir -1, or the end
+// of its line, for dir 1.
+func lineEdge(tree *Tree, i, dir int) bool {
+	for j := i + dir; j >= 0 && j < len(tree.nodes); j += dir {
+		switch k := tree.nodes[j].kind; {
+		case k.class() == classStructure, k == Whitespace, k == Indent:
+		case k == LineEnding:
+			return true
+		default:
+			_, prefix := k.owner()
+			return prefix && dir < 0
+		}
+	}
+	return true
 }
 
 // swapBytes returns a copy of b with each byte in from replaced by the byte at

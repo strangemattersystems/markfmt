@@ -31,6 +31,9 @@ type blockParser struct {
 
 	pending []pendingLine // lines of the open leaf block that are not appended yet (design 5.3)
 	arena   []prefixLeaf  // prefix leaves of the pending lines
+
+	aligns []Alignment    // the alignments of the columns of the open table
+	cell   [1]pendingLine // the content of a table cell, for the inline phase
 }
 
 // container is an open container. It is 16 bytes: a line of n '>' opens n
@@ -53,6 +56,7 @@ const (
 	indentedCodeLeaf
 	fencedCodeLeaf
 	htmlLeaf
+	tableLeaf
 )
 
 type leafBlock struct {
@@ -60,6 +64,11 @@ type leafBlock struct {
 	blank bool      // the last line that the leaf block received was blank
 	fence codeFence // the opening fence of fenced code
 	html  uint8     // the kind of an HTML block
+	tried bool      // a paragraph tried a table header
+
+	// A table's columns, its rows with the header row, and the cells of its
+	// rows up to the column count.
+	columns, rows, cells int
 }
 
 type prefixLeaf struct {
@@ -150,6 +159,9 @@ starts:
 	if !blank && p.startLeaf(first, indent, matched) {
 		return
 	}
+	if !blank && allMatched && p.tableLine(first, indent) {
+		return
+	}
 
 	if p.leaf.kind == paragraphLeaf && !blank {
 		// A continuation line, which is lazy when a container did not match.
@@ -230,7 +242,7 @@ func (p *blockParser) continueLeaf() bool {
 			p.codeLine(p.rest(), p.col, p.used, 4)
 			return true
 		}
-	case noLeaf, paragraphLeaf:
+	case noLeaf, paragraphLeaf, tableLeaf:
 	}
 	return false
 }
@@ -418,7 +430,7 @@ func (p *blockParser) closeLeaf() {
 			p.b.leafIf(BlankLine, pl.rest.eol)
 		}
 		p.clearPending()
-	case fencedCodeLeaf, htmlLeaf:
+	case fencedCodeLeaf, htmlLeaf, tableLeaf:
 		p.b.close()
 	}
 	p.orBlank(p.leaf.blank)
@@ -441,20 +453,26 @@ func (p *blockParser) addPending() {
 }
 
 // appendParagraph opens a block of kind k, Paragraph or Heading, appends the
-// pending lines as its inline content and clears them. The prefix leaves of
-// its first line come before its node.
+// pending lines as its inline content and clears them.
 func (p *blockParser) appendParagraph(k Kind) {
-	p.appendPendingPrefix(p.pending[0])
+	p.appendLines(k, p.pending)
+	p.clearPending()
+}
+
+// appendLines opens a block of kind k, Paragraph or Heading, and appends
+// lines, pending lines, as its inline content. The prefix leaves of its first
+// line come before its node.
+func (p *blockParser) appendLines(k Kind, lines []pendingLine) {
+	p.appendPendingPrefix(lines[0])
 	p.b.open(k)
-	last := p.pending[len(p.pending)-1].rest
+	last := lines[len(lines)-1].rest
 	if p.pass1 {
 		p.b.leaf(Text, last.end)
 	} else {
 		p.inline.arena = p.arena
-		p.inline.inlines(p.pending)
+		p.inline.inlines(lines)
 	}
 	p.b.leafIf(LineEnding, last.eol)
-	p.clearPending()
 }
 
 func (p *blockParser) appendPendingPrefix(pl pendingLine) {

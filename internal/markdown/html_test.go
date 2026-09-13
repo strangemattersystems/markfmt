@@ -42,6 +42,7 @@ func TestRenderHTML(t *testing.T) {
 		{"writes raw html", "a <b\n c='d'>e<!---->", "<p>a <b\nc='d'>e<!----></p>\n"},
 		{"writes emphasis", "*a* __b__", "<p><em>a</em> <strong>b</strong></p>\n"},
 		{"writes strikethrough", "~a~ ~~b~~", "<p><del>a</del> <del>b</del></p>\n"},
+		{"writes tables with missing cells and without cells beyond the header count", "| a | b |\n| :-: | - |\n| c |\n| d | e | f |", "<table>\n<thead>\n<tr>\n<th align=\"center\">a</th>\n<th>b</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td align=\"center\">c</td>\n<td></td>\n</tr>\n<tr>\n<td align=\"center\">d</td>\n<td>e</td>\n</tr>\n</tbody>\n</table>\n"},
 		{"writes links and images", "[a *b*](/u&amp; \"t\\\"\") ![c *d* `e`\n<f>](g 'h')", "<p><a href=\"/u&amp;\" title=\"t&quot;\">a <em>b</em></a> <img src=\"g\" alt=\"c d e &lt;f&gt;\" title=\"h\" /></p>\n"},
 		{"writes reference links", "[a][B] [b][] [b] ![b]\n\n[B]: /u \"t\"\n[b]: /v", "<p><a href=\"/u\" title=\"t\">a</a> <a href=\"/u\" title=\"t\">b</a> <a href=\"/u\" title=\"t\">b</a> <img src=\"/u\" alt=\"b\" title=\"t\" /></p>\n"},
 		{"writes line breaks", "a\\\nb  \nc \nd  ", "<p>a<br />\nb<br />\nc\nd</p>\n"},
@@ -150,6 +151,10 @@ func renderHTML(tree *Tree, tagFilter bool) string {
 	var b strings.Builder
 	var open []NodeID // entered interior nodes, innermost last
 	var plain NodeID  // the image whose alt text is being written, or 0
+	var skip NodeID   // the table cell beyond the header count that is not written, or 0
+	var aligns []Alignment
+	var columns, rows, cells int // of the table and of the row being written
+	var body, header bool        // the table has a body, and the row is its header row
 	// cr starts a line unless one is started, as cmark does before a block.
 	cr := func() {
 		if out := b.String(); out != "" && out[len(out)-1] != '\n' {
@@ -200,12 +205,21 @@ func renderHTML(tree *Tree, tagFilter bool) string {
 			}
 			continue
 		}
+		if skip != 0 {
+			if e.Exit && e.ID == skip {
+				skip = 0
+			}
+			if !e.Exit && n.kind.class() == classStructure {
+				open = append(open, e.ID)
+			}
+			continue
+		}
 		//exhaustive:enforce
 		switch n.kind {
 		case Document, BOM, BlankLine, Indent, LineEnding, TrailingSpace, HardBreakMarker, CodeFence, Delimiter, Paren, ThematicRun, ATXMarker, ATXClose, Whitespace,
 			CodeIndent, CodeText, VerbatimLineEnding, FenceMarker, InfoString, SetextUnderline, HTMLText, QuoteMarker, ListMarker, ItemIndent,
 			LinkReferenceDefinition, LinkLabel, Destination, Title, Bracket, Colon, AngleBracket, TitleQuote,
-			FrontMatter, FrontMatterFence, FrontMatterText:
+			FrontMatter, FrontMatterFence, FrontMatterText, TablePipe, TableDelimiter:
 		case CodeBlock:
 			if e.Exit {
 				break
@@ -299,6 +313,63 @@ func renderHTML(tree *Tree, tagFilter bool) string {
 			b.WriteString(inlineTag("strong", e.Exit))
 		case Strikethrough:
 			b.WriteString(inlineTag("del", e.Exit))
+		case Table:
+			if e.Exit {
+				if body {
+					cr()
+					b.WriteString("</tbody>")
+				}
+				cr()
+				b.WriteString("</table>\n")
+				break
+			}
+			cr()
+			b.WriteString("<table>")
+			columns, rows, aligns, body = tree.TableColumns(e.ID), 0, aligns[:0], false
+		case TableRow:
+			// cmark-gfm writes the cells missing from a row as empty cells.
+			if e.Exit {
+				for ; cells < columns; cells++ {
+					cr()
+					b.WriteString("<td" + alignAttr(aligns[cells]) + "></td>")
+				}
+				cr()
+				b.WriteString("</tr>")
+				if header {
+					cr()
+					b.WriteString("</thead>")
+				}
+				break
+			}
+			cr()
+			header, cells = rows == 0, 0
+			rows++
+			switch {
+			case header:
+				b.WriteString("<thead>\n")
+			case !body:
+				b.WriteString("<tbody>\n")
+				body = true
+			}
+			b.WriteString("<tr>")
+		case TableCell:
+			name := "td"
+			if header {
+				name = "th"
+			}
+			switch {
+			case e.Exit:
+				b.WriteString("</" + name + ">")
+			case cells == columns:
+				skip = e.ID
+			default:
+				if header {
+					aligns = append(aligns, tree.CellAlignment(e.ID))
+				}
+				cr()
+				b.WriteString("<" + name + alignAttr(tree.CellAlignment(e.ID)) + ">")
+				cells++
+			}
 		case RawHTML:
 			if !e.Exit {
 				b.WriteString(filterTags(tree.AppendRawHTML(nil, e.ID), tagFilter, false))
@@ -434,6 +505,19 @@ func titleAttr(tree *Tree, id NodeID) string {
 		return ""
 	}
 	return ` title="` + htmlEscaper.Replace(string(title)) + `"`
+}
+
+// alignAttr returns the align attribute of a table cell with alignment a.
+func alignAttr(a Alignment) string {
+	switch a {
+	case AlignLeft:
+		return ` align="left"`
+	case AlignCenter:
+		return ` align="center"`
+	case AlignRight:
+		return ` align="right"`
+	}
+	return ""
 }
 
 // inlineTag returns the start or end tag of an inline element.

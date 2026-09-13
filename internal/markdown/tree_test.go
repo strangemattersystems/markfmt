@@ -189,6 +189,17 @@ func TestTree_Verify(t *testing.T) {
 				{kind: HTMLBlock, flags: 7, start: 0, end: 4, link: 3},
 				{kind: HTMLText, start: 0, end: 4},
 			}}},
+			{"rejects a table cell alignment that its delimiter row cell does not give", Tree{src: []byte("a|\n-|"), nodes: []Node{
+				{kind: Document, start: 0, end: 5, link: 9},
+				{kind: Table, start: 0, end: 5, link: 9},
+				{kind: TableRow, start: 0, end: 3, link: 7},
+				{kind: TableCell, flags: 5, start: 0, end: 1, link: 5},
+				{kind: Text, start: 0, end: 1},
+				{kind: TablePipe, start: 1, end: 2},
+				{kind: LineEnding, start: 2, end: 3},
+				{kind: TableDelimiter, start: 3, end: 4},
+				{kind: TablePipe, start: 4, end: 5},
+			}}},
 		}},
 		{"invariant 8", []badTree{
 			{"rejects more than 3 nodes per byte plus 3", Tree{nodes: []Node{

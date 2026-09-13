@@ -6,21 +6,8 @@
 #   go test ./internal/markdown -run '^TestParse$/^cmark-gfm-extensions$' 2>&1 |
 #     sed -n 's/^ *--- FAIL: TestParse\/cmark-gfm-extensions\/cmark-gfm-extensions_example_\([0-9]*\) .*/\1/p' |
 #     sort -n
-1
-2
-3
-4
-5
-6
-8
 9
-10
 11
-12
-13
-14
-15
-16
 19
 23
 24

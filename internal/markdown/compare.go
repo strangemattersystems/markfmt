@@ -16,6 +16,17 @@ func Equal(a, b *Tree) error {
 	for {
 		ea, okA := pa.next()
 		eb, okB := pb.next()
+		for okA && okB && ea.op != eb.op {
+			switch {
+			case ea.op == exitEvent && pb.skipEmptyCell(eb, a.nodes[ea.id].kind):
+				eb, okB = pb.next()
+				continue
+			case eb.op == exitEvent && pa.skipEmptyCell(ea, b.nodes[eb.id].kind):
+				ea, okA = pa.next()
+				continue
+			}
+			break
+		}
 		if !okA && !okB {
 			return nil
 		}
@@ -69,8 +80,12 @@ func (c *comparer) equalKeys(ia, ib NodeID) bool {
 	a, b := c.a, c.b
 	//exhaustive:enforce
 	switch a.nodes[ia].kind {
-	case Document, BlockQuote, ListItem, Paragraph, ThematicBreak, SoftBreak, HardBreak, RawHTML, Emphasis, Strong, Strikethrough:
+	case Document, BlockQuote, ListItem, Paragraph, ThematicBreak, SoftBreak, HardBreak, RawHTML, Emphasis, Strong, Strikethrough, TableRow:
 		return true
+	case Table:
+		return a.TableColumns(ia) == b.TableColumns(ib)
+	case TableCell:
+		return a.nodes[ia].flags == b.nodes[ib].flags
 	case FrontMatter:
 		return a.FrontMatterTOML(ia) == b.FrontMatterTOML(ib)
 	case List:
@@ -107,7 +122,8 @@ func (c *comparer) equalKeys(ia, ib NodeID) bool {
 	case Text, CodeText, VerbatimLineEnding, InfoString, HTMLText, LinkLabel, Destination, Title,
 		FrontMatterText, BOM, LineEnding, BlankLine, Indent, ThematicRun, ATXMarker, ATXClose,
 		Whitespace, CodeIndent, FenceMarker, SetextUnderline, QuoteMarker, ListMarker, ItemIndent,
-		Bracket, Colon, AngleBracket, TitleQuote, FrontMatterFence, TrailingSpace, HardBreakMarker, Escape, EntityRef, CodeFence, AutolinkText, Delimiter, Paren:
+		Bracket, Colon, AngleBracket, TitleQuote, FrontMatterFence, TrailingSpace, HardBreakMarker, Escape, EntityRef, CodeFence, AutolinkText, Delimiter, Paren,
+		TablePipe, TableDelimiter:
 	}
 	panic(fmt.Sprintf("markdown: key of node %d of kind %v, which is not a structure kind", ia, a.nodes[ia].kind))
 }
@@ -135,6 +151,9 @@ type projection struct {
 	i     uint32   // the next node
 	stack []uint32 // entered structure nodes
 	label bool     // the walk is in the label of a link reference definition
+
+	columns int // the columns of the last table entered
+	cell    int // the cells entered in the last table row entered
 }
 
 func (p *projection) next() (event, bool) {
@@ -153,6 +172,14 @@ func (p *projection) next() (event, bool) {
 		if n.kind.class() == classStructure {
 			p.stack = append(p.stack, i)
 			p.label = false
+			switch n.kind {
+			case Table:
+				p.columns = p.t.TableColumns(NodeID(i))
+			case TableRow:
+				p.cell = 0
+			case TableCell:
+				p.cell++
+			}
 			if n.kind == CodeBlock || n.kind == HTMLBlock || n.kind == CodeSpan {
 				// All their content is in their key.
 				p.i = n.link
@@ -178,6 +205,25 @@ func (p *projection) next() (event, bool) {
 		}
 		return event{op: contentEvent, id: NodeID(i), end: NodeID(p.i), group: group}, true
 	}
+}
+
+// skipEmptyCell skips e, the event that next returned last, and reports true,
+// when e enters an empty table cell within the column count while the other
+// tree exits a table row, of kind other: an empty cell equals a missing cell
+// (design 10.3).
+func (p *projection) skipEmptyCell(e event, other Kind) bool {
+	n := p.t.nodes[e.id]
+	if other != TableRow || e.op != enterEvent || n.kind != TableCell || p.cell > p.columns {
+		return false
+	}
+	for _, m := range p.t.nodes[e.id+1 : n.link] {
+		if m.kind.class() != classSyntax {
+			return false
+		}
+	}
+	p.stack = p.stack[:len(p.stack)-1]
+	p.i = n.link
+	return true
 }
 
 func (p *projection) observe(m Node) {

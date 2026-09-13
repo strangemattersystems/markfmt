@@ -43,3 +43,7 @@ link-destination-angle equal the angle brackets of a destination are not content
 link-tail-line-ending equal whitespace in a link tail is not content (CM 510)
 reference-label-case equal a reference label matches after case folding (CM 539)
 strikethrough-tilde-count equal the number of tildes of strikethrough is not in its key (GFM 491, cmark-gfm extensions 17)
+table-pipes equal the leading and trailing pipes of table rows are not content (GFM 199)
+table-padding equal spaces around the content of a table cell are not content (GFM 198)
+table-short-row equal a missing table cell is an empty cell (GFM 204, design 10.3)
+table-alignment different the delimiter row gives each column its alignment (GFM 199)

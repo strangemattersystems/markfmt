@@ -101,9 +101,22 @@ func (t *Tree) Verify() error {
 		return nil
 	}
 
+	var aligns []Alignment // the alignments of the columns of the last table entered
+	row, col := -1, 0      // the index of the last row entered in its table, and of the next cell in that row
 	for i, n := range nodes {
 		if err := exit(i); err != nil {
 			return err
+		}
+		switch n.kind {
+		case Table:
+			aligns, row = t.appendAlignments(aligns[:0], NodeID(i)), -1
+		case TableRow:
+			row, col = row+1, 0
+		case TableCell:
+			if want := cellFlags(aligns, row, col); n.flags != want {
+				return fmt.Errorf("markdown: invariant 7: table cell %d has flags %#x, which its delimiter row and row do not give", i, n.flags)
+			}
+			col++
 		}
 		if i > 0 && len(open) == 0 {
 			return fmt.Errorf("markdown: invariant 4: node %d is after the document", i)

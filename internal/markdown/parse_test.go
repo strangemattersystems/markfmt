@@ -42,6 +42,10 @@ func TestParse(t *testing.T) {
 		{"gives raw html over lines with their prefix and indent leaves", "> a <b\n>  c='d\n> e'>f", "Document{BlockQuote{QuoteMarker@1 \"> \", Paragraph{Text \"a \", RawHTML{HTMLText \"<b\", VerbatimLineEnding \"\\n\", QuoteMarker@1 \"> \", Indent \" \", HTMLText \"c='d\", VerbatimLineEnding \"\\n\", QuoteMarker@1 \"> \", HTMLText \"e'>\"}, Text \"f\"}}}"},
 		{"gives raw html comments, processing instructions, declarations and cdata sections", "a <!--> <!---> <!-- b -- c ---> <?x?> <!X y> <![CDATA[>]]> </d >", "Document{Paragraph{Text \"a \", RawHTML{HTMLText \"<!-->\"}, Text \" \", RawHTML{HTMLText \"<!--->\"}, Text \" \", RawHTML{HTMLText \"<!-- b -- c --->\"}, Text \" \", RawHTML{HTMLText \"<?x?>\"}, Text \" \", RawHTML{HTMLText \"<!X y>\"}, Text \" \", RawHTML{HTMLText \"<![CDATA[>]]>\"}, Text \" \", RawHTML{HTMLText \"</d >\"}}}"},
 		{"gives text for a tag that does not close", "a <33> </a x> <a b='c> <a\n\nb>", "Document{Paragraph{Text \"a <33> </a x> <a b='c> <a\", LineEnding \"\\n\"}, BlankLine \"\\n\", Paragraph{Text \"b>\"}}"},
+		{"gives a table with a header row, a delimiter row and a body row", "| a | b |\n| :- | -: |\nc | d", `Document{Table{TableRow{TablePipe "|", Whitespace " ", TableCell[5]{Text "a", Whitespace " "}, TablePipe "|", Whitespace " ", TableCell[7]{Text "b", Whitespace " "}, TablePipe "|", LineEnding "\n"}, TablePipe "|", Whitespace " ", TableDelimiter ":-", Whitespace " ", TablePipe "|", Whitespace " ", TableDelimiter "-:", Whitespace " ", TablePipe "|", LineEnding "\n", TableRow{TableCell[1]{Text "c", Whitespace " "}, TablePipe "|", Whitespace " ", TableCell[3]{Text "d"}}}}`},
+		{"gives the paragraph lines above a table header, and empty cells and cells beyond the header count", "a\n b\n||\n|-|\n|| c |", `Document{Paragraph{Text "a", SoftBreak{LineEnding "\n"}, Indent " ", Text "b", LineEnding "\n"}, Table{TableRow{TablePipe "|", TableCell[4]{}, TablePipe "|", LineEnding "\n"}, TablePipe "|", TableDelimiter "-", TablePipe "|", LineEnding "\n", TableRow{TablePipe "|", TableCell{}, TablePipe "|", Whitespace " ", TableCell{Text "c", Whitespace " "}, TablePipe "|"}}}`},
+		{"tries a table header once per paragraph", "| a | b |\n| - |\n| a |\n| - |", `Document{Paragraph{Text "| a | b |", SoftBreak{LineEnding "\n"}, Text "| - |", SoftBreak{LineEnding "\n"}, Text "| a |", SoftBreak{LineEnding "\n"}, Text "| - |"}}`},
+		{"ends a table at a lazy line", "> | a |\n> | - |\n| b |", `Document{BlockQuote{QuoteMarker@1 "> ", Table{TableRow{TablePipe "|", Whitespace " ", TableCell[4]{Text "a", Whitespace " "}, TablePipe "|", LineEnding "\n"}, QuoteMarker@1 "> ", TablePipe "|", Whitespace " ", TableDelimiter "-", Whitespace " ", TablePipe "|", LineEnding "\n"}}, Paragraph{Text "| b |"}}`},
 		{"gives strikethrough for runs of one or two tildes of equal length", "~a~ ~~b~~ ~~~c~~~ ~d~~ *~e*~", "Document{Paragraph{Strikethrough{Delimiter \"~\", Text \"a\", Delimiter \"~\"}, Text \" \", Strikethrough{Delimiter \"~~\", Text \"b\", Delimiter \"~~\"}, Text \" ~~~c~~~ ~d~~ \", Emphasis{Delimiter \"*\", Text \"~e\", Delimiter \"*\"}, Text \"~\"}}"},
 		{"gives emphasis and strong emphasis", "***a*** *b** __c__", "Document{Paragraph{Emphasis{Delimiter \"*\", Strong{Delimiter \"**\", Text \"a\", Delimiter \"**\"}, Delimiter \"*\"}, Text \" \", Emphasis{Delimiter \"*\", Text \"b\", Delimiter \"*\"}, Text \"* \", Strong{Delimiter \"__\", Text \"c\", Delimiter \"__\"}}}"},
 		{"gives text for delimiter runs that are not flanking", "a * b _c_d*\n*e", "Document{Paragraph{Text \"a * b _c_d*\", SoftBreak{LineEnding \"\\n\"}, Text \"*e\"}}"},
@@ -163,6 +167,29 @@ func TestParse(t *testing.T) {
 			}
 		})
 	}
+
+	t.Run("ends a table above 524,288 missing cells", func(t *testing.T) {
+		t.Parallel()
+
+		src := strings.Repeat("|a", 1000) + "|\n" + strings.Repeat("|-", 1000) + "|\n" + strings.Repeat("|b|\n", 530)
+		tree := Parse([]byte(src))
+		if err := tree.Verify(); err != nil {
+			t.Fatal(err)
+		}
+		// After 525 body rows, 999 × 525 = 524,475 cells are missing.
+		rows, paragraphs := 0, 0
+		for _, n := range tree.nodes {
+			switch n.kind {
+			case TableRow:
+				rows++
+			case Paragraph:
+				paragraphs++
+			}
+		}
+		if rows != 526 || paragraphs != 1 {
+			t.Fatalf("Parse gives %d table rows and %d paragraphs, want 526 and 1", rows, paragraphs)
+		}
+	})
 
 	t.Run("pathological", func(t *testing.T) {
 		for _, in := range pathologicalInputs {
@@ -344,6 +371,16 @@ var pathologicalInputs = []struct {
 	}},
 	{"strikethrough closers after emphasis openers", func(n int) []byte {
 		return []byte(strings.Repeat("*a ", n/6) + strings.Repeat("a~ ", n/6))
+	}},
+	{"tables with many rows", func(n int) []byte {
+		return []byte("| a |\n| - |\n" + strings.Repeat("| b |\n", n/6))
+	}},
+	{"a header of many cells and one-cell rows", func(n int) []byte {
+		c := min(n/8, 65535)
+		return []byte(strings.Repeat("|a", c) + "|\n" + strings.Repeat("|-", c) + "|\n" + strings.Repeat("b\n", (n-4*c)/2))
+	}},
+	{"a table row of pipes", func(n int) []byte {
+		return []byte("|a|\n|-|\n" + strings.Repeat("|", n))
 	}},
 	{"nested strong emphasis", func(n int) []byte {
 		return []byte(strings.Repeat("*a **a ", n/14) + "b" + strings.Repeat(" a** a*", n/14))

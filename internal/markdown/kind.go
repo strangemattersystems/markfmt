@@ -64,6 +64,11 @@ const (
 	Delimiter
 	Paren
 	Strikethrough
+	Table
+	TableRow
+	TableCell
+	TablePipe
+	TableDelimiter
 )
 
 type class uint8
@@ -81,12 +86,13 @@ func (k Kind) class() class {
 	//exhaustive:enforce
 	switch k {
 	case Document, FrontMatter, BlockQuote, List, ListItem, Paragraph, ThematicBreak, Heading, CodeBlock, HTMLBlock, LinkReferenceDefinition,
-		SoftBreak, HardBreak, CodeSpan, Autolink, RawHTML, Emphasis, Strong, Link, Image, Strikethrough:
+		SoftBreak, HardBreak, CodeSpan, Autolink, RawHTML, Emphasis, Strong, Link, Image, Strikethrough,
+		Table, TableRow, TableCell:
 		return classStructure
 	case Text, CodeText, VerbatimLineEnding, InfoString, HTMLText, LinkLabel, Destination, Title, FrontMatterText, Escape, EntityRef, AutolinkText:
 		return classContent
 	case BOM, LineEnding, BlankLine, Indent, ThematicRun, ATXMarker, ATXClose, Whitespace, CodeIndent, FenceMarker, SetextUnderline, QuoteMarker, ListMarker, ItemIndent, Bracket, Colon, AngleBracket, TitleQuote, FrontMatterFence,
-		TrailingSpace, HardBreakMarker, CodeFence, Delimiter, Paren:
+		TrailingSpace, HardBreakMarker, CodeFence, Delimiter, Paren, TablePipe, TableDelimiter:
 		return classSyntax
 	}
 	return classInvalid
@@ -113,6 +119,8 @@ func (k Kind) validFlags(f uint8) bool {
 		return f <= 1
 	case Link, Image:
 		return f <= 3
+	case TableCell:
+		return f <= 7
 	}
 	return f == 0
 }
@@ -234,6 +242,16 @@ func (k Kind) String() string {
 		return "Paren"
 	case Strikethrough:
 		return "Strikethrough"
+	case Table:
+		return "Table"
+	case TableRow:
+		return "TableRow"
+	case TableCell:
+		return "TableCell"
+	case TablePipe:
+		return "TablePipe"
+	case TableDelimiter:
+		return "TableDelimiter"
 	}
 	return "Kind(" + strconv.Itoa(int(k)) + ")"
 }

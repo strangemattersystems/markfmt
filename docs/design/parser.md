@@ -751,8 +751,17 @@ research (section 17).
 - Code blocks have no "fenced" or "closed" key: indented code and fenced code
   without an info string have equal meaning, and closing an unclosed fence
   keeps meaning when its content stays equal.
-- Table rows continue on each non-blank line where no block starts. A blank
-  line or a block start, indented code included, ends the table.
+- Table rows continue on each line that matches every open container, where
+  no block starts and whose cells cmark-gfm reads: an optional `|`, then cells,
+  each ended by a `|` or the end of the line. A blank line, a lazy line, a line
+  with no cell, or a block start, indented code included, ends the table.
+- A row of more than 65,535 cells is not a row: cmark-gfm counts cells in a
+  `uint16`. A header or delimiter row that long starts no table.
+- After 524,288 missing cells, the next line is not a row: cmark-gfm and
+  GitHub end the table there and read the line as a paragraph (GitHub API,
+  2026-09-13: a header of 1,000 cells and 530 one-cell rows gives 525 body
+  rows and a paragraph). The count is the column count times the rows, the
+  header row included, minus the cells present up to the column count.
 - A table cell splits at each `|` that does not directly follow a `\`. The pair
   `\|` never splits. The scanner reads a cell as cmark-gfm does: the backslash
   of each `\|` pair is removed first, then the inline grammar applies. Leaves
@@ -1031,9 +1040,10 @@ adds its set of `Dialect(row)` values to its Enter event. `Equal` requires:
 - `html_test.go` in `package markdown`: a test helper, not the test of one
   source file. It is not linked into any binary.
 - It normalizes HTML as cmark's `normalize.py` does.
-- It writes missing table cells up to cmark-gfm's cap. Stage 4 captures what
-  GitHub does above that cap; if structure changes there, the cap is grammar and
-  gets a `dialect.md` row.
+- It writes missing table cells, as cmark-gfm does. Above cmark-gfm's cap of
+  524,288 missing cells, cmark-gfm and GitHub read no more rows, so the cap is
+  grammar (section 8.2). markfmt follows GitHub there, so the cap is not a
+  `dialect.md` row. Appendix B trap 14 keeps the count.
 - It applies the GFM tag filter to raw HTML, as cmark-gfm's renderer does,
   where upstream enables the filter: examples whose fence names `tagfilter`,
   every `cmark-gfm-extensions` example, and the GitHub fixtures. The filter is
@@ -1404,7 +1414,9 @@ design, not parser gates.
 14. `|` in table cells is escaped, also in code spans. Short-row padding and
     column alignment together add no more bytes than the size of the unpadded
     canonical table. Otherwise rows stay short and columns unaligned (section
-    10.3 treats both as equal).
+    10.3 treats both as equal). Padding a short row lowers the count of missing
+    cells, so a table whose count reaches 524,288 keeps its short rows, and
+    no printed row grows beyond it (section 8.2).
 15. Blank lines inside lists come from looseness.
 16. GitHub math: no change to characters next to `$`, to line breaks, or to
     blank lines and looseness around a `$$` paragraph. Never convert between a
