@@ -487,8 +487,8 @@ b</p>
 ## goldmark deviates, spec section 5.2: a blank line after an empty nested list item continues the outer list item
 
 goldmark ends the outer item at a blank line after an empty item of a child
-list, at any depth. The content after the blank line leaves the list, also
-when it is another item of the child list.
+list, at any depth and also in a block quote. The content after the blank
+line leaves the list, also when it is another item of the child list.
 
 ```````````````````````````````` example
 - -
@@ -508,6 +508,10 @@ when it is another item of the child list.
 * -
  
   -
+
+- >+
+  >
+  d
 .
 <ul>
 <li>
@@ -545,6 +549,15 @@ when it is another item of the child list.
 <li></li>
 </ul>
 </li>
+</ul>
+<ul>
+<li>
+<blockquote>
+<ul>
+<li></li>
+</ul>
+</blockquote>
+d</li>
 </ul>
 ````````````````````````````````
 

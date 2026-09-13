@@ -109,6 +109,7 @@ func TestGoldmarkDiffers(t *testing.T) {
 		{"skips a form feed in a tag after a quoted >", "z <j k=\">\"\f>", "goldmark deviates, spec section 6.6: FF is whitespace in an HTML tag, as cmark reads it"},
 		{"skips a blank line of an html block in a list item", "*\n\t<!A\n\t", "goldmark deviates, spec sections 4.4, 4.6 and 5.2: a blank line of indented code or of an HTML block in a list item keeps the spaces beyond the indentation"},
 		{"skips an escape after a backslash hard break after a backslash and a hard break", "\\  \n\\\n\\!", "goldmark deviates, spec sections 2.4 and 6.7: a backslash escape after a backslash, a hard line break of spaces and punctuation decodes"},
+		{"skips a paragraph after a block quote that ends with an empty list item", "* >+\n  >\n  0", "goldmark deviates, spec section 5.2: a blank line after an empty nested list item continues the outer list item"},
 		{"skips a tab in the indentation after a list item prefix", "* 0\n  \t -", "goldmark deviates, spec sections 2.2 and 5.2: a tab after the prefix of a list item line stops at a column counted from the start of the line"},
 	}
 	for _, tt := range tests {
@@ -534,18 +535,22 @@ var goldmarkDeviations = []struct {
 			}
 			return last
 		}
-		// endsEmpty reports whether list item id is empty, or ends with a list
-		// whose last item ends empty.
+		// endsEmpty reports whether node id, a list item, a list or a block
+		// quote, ends with an empty list item through its last children.
 		endsEmpty := func(id int) bool {
 			for {
-				child := lastChild(id)
-				if child < 0 {
-					return true
-				}
-				if t.nodes[child].kind != List {
-					return false
-				}
-				if id = lastChild(child); id < 0 {
+				switch t.nodes[id].kind {
+				case ListItem:
+					child := lastChild(id)
+					if child < 0 {
+						return true
+					}
+					id = child
+				case List, BlockQuote:
+					if id = lastChild(id); id < 0 {
+						return false
+					}
+				default:
 					return false
 				}
 			}
@@ -555,18 +560,23 @@ var goldmarkDeviations = []struct {
 				continue
 			}
 			// An item of a child list that ends empty, with an item or a child
-			// of the outer item after it.
+			// of the outer item after it, or a child block quote that ends
+			// empty, with a child after it.
 			for c := firstChild(i+1, int(n.link)); c >= 0; c = firstChild(int(t.nodes[c].link), int(n.link)) {
-				if t.nodes[c].kind != List {
-					continue
-				}
 				later := firstChild(int(t.nodes[c].link), int(n.link)) >= 0
-				for item := firstChild(c+1, int(t.nodes[c].link)); item >= 0; {
-					next := firstChild(int(t.nodes[item].link), int(t.nodes[c].link))
-					if (next >= 0 || later) && endsEmpty(item) {
+				switch t.nodes[c].kind {
+				case List:
+					for item := firstChild(c+1, int(t.nodes[c].link)); item >= 0; {
+						next := firstChild(int(t.nodes[item].link), int(t.nodes[c].link))
+						if (next >= 0 || later) && endsEmpty(item) {
+							return true
+						}
+						item = next
+					}
+				case BlockQuote:
+					if later && endsEmpty(c) {
 						return true
 					}
-					item = next
 				}
 			}
 		}
