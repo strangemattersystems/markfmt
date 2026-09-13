@@ -443,7 +443,8 @@ Use this list to triage stage 5 disagreements. The last column says how
 | `<p`, then a tab | A paragraph: kind 6 does not start at a tab after the tag name. | HTML block (spec 4.6). | Predicate, differential case. |
 | `![a`, a line ending, `b](/u)` | The alt text `a`, a line ending, `b`. | The alt text `a b`, as cmark writes it (spec 6.4). | Predicate, differential case. |
 | `[foo]: /url`, then `"title"ok`, then `[foo]` | A link with the title `title`, and the paragraph `"title"ok`. | A link without a title, as commonmark.js gives (spec 4.7, CM 210). | Predicate, differential case. |
-| A definition and a reference with a label of 1000 characters | A definition and a link: no cap on the label. | Text: a label has at most 999 characters (spec 4.7, 6.3). | Predicate, differential case. |
+| A definition alone with a label of 1001 characters, or a reference label of 500 `é` | No output for the definition: a definition takes a label of any length. No link from the reference: a reference label has at most 999 bytes. | The paragraph with the text, and a link: a label has at most 999 characters (spec 4.7, 6.3). | Predicate, differential case. |
+| `* [a]: /u`, then `  b` | A loose list: a definition and a paragraph are two blocks. | A tight list (spec 5.3). | Predicate, differential case. |
 | `[0]:\n0\n''0` | The destination line also appears as paragraph text. | Paragraph `''0` only (compare example 210). | Predicate, differential case. |
 | `x<!x>`, `<!doctype html>` | Text: a declaration needs an uppercase letter after `<!`, as on GitHub. | Raw HTML and an HTML block (spec 4.6, 6.6). | Predicate, differential case. |
 | `a\n<meta>` | `<meta>` interrupts the paragraph: goldmark's HTML block kind 6 tag list has `meta`. | Paragraph with raw HTML (spec 4.6). | Predicate, differential case. |

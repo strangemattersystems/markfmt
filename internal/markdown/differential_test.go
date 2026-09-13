@@ -604,6 +604,28 @@ var goldmarkDeviations = []struct {
 		}
 		return false
 	}},
+	{"goldmark deviates, spec section 5.3: a link reference definition in a list item does not make the list loose", func(t *Tree) bool {
+		for i, n := range t.nodes {
+			if n.kind != ListItem {
+				continue
+			}
+			definition := false
+			for j := i + 1; j < int(n.link); j++ {
+				switch m := t.nodes[j]; m.kind {
+				case LinkReferenceDefinition:
+					definition = true
+				case Paragraph:
+					if definition {
+						return true
+					}
+				}
+				if m := t.nodes[j]; m.kind.class() == classStructure {
+					j = int(m.link) - 1
+				}
+			}
+		}
+		return false
+	}},
 }
 
 var (
