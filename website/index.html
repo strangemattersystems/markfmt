@@ -89,10 +89,27 @@ pre::after { content: "```"; content: "```" / ""; display: block; color: var(--m
 main > .tabs { margin-top: 2rem; }
 main > .tabs > a { margin-left: auto; }
 main > .tabs > .panel { margin-top: 0.5rem; }
-/* Three lines, as tall as a one-command code block, so switching tabs does not
-   move the page. */
-.os { padding: 0.75rem 1ch; background: var(--code-bg); }
-.os p { flex-basis: 100%; margin: 0; padding: 0 1ch; }
+/* As tall as a one-command code block (padding plus three lines), so switching
+   tabs does not move the page. */
+.os { min-height: 6.3rem; align-content: space-between; padding: 0.75rem 1ch; background: var(--code-bg); }
+.os .more { margin-left: auto; padding: 0 1ch; color: var(--mark); }
+.os .panel { padding: 0 1ch; }
+.dl {
+  display: inline-block;
+  margin: 0.25rem 1ch 0 0;
+  padding: 0.15rem 1.5ch;
+  border: 1px solid var(--mark);
+  text-decoration: none;
+}
+.dl:hover { background: var(--fg); color: var(--bg); }
+.dl::before { content: "↓ "; content: "↓ " / ""; color: inherit; }
+.dl::after { content: none; }
+.dl small { margin-left: 1ch; color: var(--mark); font-size: 0.85em; }
+.dl:hover small { color: inherit; }
+/* On a phone both buttons fit on one row only without these. */
+@media (max-width: 30em) {
+  .os .more, .dl small { display: none; }
+}
 
 footer { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0 2ch; margin-top: 4rem; color: var(--mark); }
 footer::before { content: "---"; content: "---" / ""; flex-basis: 100%; margin-bottom: 1rem; }
@@ -136,10 +153,10 @@ if (!matchMedia("(prefers-reduced-motion: reduce)").matches) {
       <input type="radio" name="os" id="macos" checked><label for="macos">macos</label>
       <input type="radio" name="os" id="linux"><label for="linux">linux</label>
       <input type="radio" name="os" id="windows"><label for="windows">windows</label>
-      <p class="panel macos"><a href="https://github.com/strangemattersystems/markfmt/releases/latest/download/markfmt_darwin_arm64.tar.gz">arm64</a> <a href="https://github.com/strangemattersystems/markfmt/releases/latest/download/markfmt_darwin_amd64.tar.gz">amd64</a></p>
-      <p class="panel linux"><a href="https://github.com/strangemattersystems/markfmt/releases/latest/download/markfmt_linux_amd64.tar.gz">amd64</a> <a href="https://github.com/strangemattersystems/markfmt/releases/latest/download/markfmt_linux_arm64.tar.gz">arm64</a></p>
-      <p class="panel windows"><a href="https://github.com/strangemattersystems/markfmt/releases/latest/download/markfmt_windows_amd64.zip">amd64</a> <a href="https://github.com/strangemattersystems/markfmt/releases/latest/download/markfmt_windows_arm64.zip">arm64</a></p>
-      <p><a href="https://github.com/strangemattersystems/markfmt/releases/latest/download/checksums.txt">checksums.txt</a> <a href="https://github.com/strangemattersystems/markfmt/releases">all releases</a></p>
+      <span class="more"><a href="https://github.com/strangemattersystems/markfmt/releases/latest/download/checksums.txt">checksums</a> <a href="https://github.com/strangemattersystems/markfmt/releases">all releases</a></span>
+      <p class="panel macos"><a class="dl" href="https://github.com/strangemattersystems/markfmt/releases/latest/download/markfmt_darwin_arm64.tar.gz">Apple silicon<small>arm64</small></a> <a class="dl" href="https://github.com/strangemattersystems/markfmt/releases/latest/download/markfmt_darwin_amd64.tar.gz">Intel<small>amd64</small></a></p>
+      <p class="panel linux"><a class="dl" href="https://github.com/strangemattersystems/markfmt/releases/latest/download/markfmt_linux_amd64.tar.gz">x86-64<small>amd64</small></a> <a class="dl" href="https://github.com/strangemattersystems/markfmt/releases/latest/download/markfmt_linux_arm64.tar.gz">ARM<small>arm64</small></a></p>
+      <p class="panel windows"><a class="dl" href="https://github.com/strangemattersystems/markfmt/releases/latest/download/markfmt_windows_amd64.zip">x64<small>amd64</small></a> <a class="dl" href="https://github.com/strangemattersystems/markfmt/releases/latest/download/markfmt_windows_arm64.zip">ARM<small>arm64</small></a></p>
     </div>
   </div>
   <div class="panel docker">
@@ -170,6 +187,9 @@ markfmt -check $(git ls-files '*.md')    # fail CI on unformatted files</code></
 </footer>
 
 <script>
+const ua = navigator.userAgent;
+document.getElementById(/Windows/.test(ua) ? "windows" : /Linux|CrOS/.test(ua) ? "linux" : "macos").checked = true;
+
 for (const pre of document.querySelectorAll('pre[data-lang="sh"]')) {
   const button = document.createElement("button");
   button.className = "copy";
