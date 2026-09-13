@@ -446,6 +446,7 @@ Use this list to triage stage 5 disagreements. The last column says how
 | A definition alone with a label of 1001 characters, or a reference label of 500 `é` | No output for the definition: a definition takes a label of any length. No link from the reference: a reference label has at most 999 bytes. | The paragraph with the text, and a link: a label has at most 999 characters (spec 4.7, 6.3). | Predicate, differential case. |
 | `* [a]: /u`, then `  b` | A loose list: a definition and a paragraph are two blocks. | A tight list (spec 5.3). | Predicate, differential case. |
 | `a`, a backslash, two spaces, then `\!` | The escape `\!` as written. | `!` (spec 2.4, 6.7). | Predicate, differential case. |
+| `<A>`, then a tab | A paragraph: a tab after the tag is not whitespace for kind 7. | HTML block (spec 4.6). | Predicate, differential case. |
 | `[0]:\n0\n''0` | The destination line also appears as paragraph text. | Paragraph `''0` only (compare example 210). | Predicate, differential case. |
 | `x<!x>`, `<!doctype html>` | Text: a declaration needs an uppercase letter after `<!`, as on GitHub. | Raw HTML and an HTML block (spec 4.6, 6.6). | Predicate, differential case. |
 | `a\n<meta>` | `<meta>` interrupts the paragraph: goldmark's HTML block kind 6 tag list has `meta`. | Paragraph with raw HTML (spec 4.6). | Predicate, differential case. |

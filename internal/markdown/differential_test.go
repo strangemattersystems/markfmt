@@ -646,6 +646,9 @@ var goldmarkDeviations = []struct {
 		}
 		return false
 	}},
+	{"goldmark deviates, spec section 4.6: a tab after the tag that starts HTML block kind 7 is whitespace", func(t *Tree) bool {
+		return tabAfterTag.Match(t.src)
+	}},
 }
 
 var (
@@ -660,4 +663,5 @@ var (
 	unquotedControl      = regexp.MustCompile(`<[A-Za-z][^<>]*=[ \t\r\n]*[^ \t\r\n"'=<>\x60]*[\x01-\x08\x0b\x0c\x0e-\x1f\x7f]`)
 	spacedClosingTag     = regexp.MustCompile(`</[ \t\r\n]+[A-Za-z]`)
 	tabAfterTagName      = regexp.MustCompile(`</?[A-Za-z][A-Za-z0-9]*\t`)
+	tabAfterTag          = regexp.MustCompile(`<[A-Za-z/][^<>\r\n]*>[ \t]*\t[ \t]*(?:\r|\n|$)`)
 )

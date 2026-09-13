@@ -660,3 +660,16 @@ a\
 <p>a\<br />
 !</p>
 ````````````````````````````````
+
+## goldmark deviates, spec section 4.6: a tab after the tag that starts HTML block kind 7 is whitespace
+
+goldmark gives a paragraph when a tab is in the whitespace after the tag.
+
+```````````````````````````````` example
+<A>→
+
+</a> →
+.
+<A>	
+</a> 	
+````````````````````````````````
