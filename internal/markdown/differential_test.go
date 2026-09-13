@@ -104,6 +104,9 @@ func TestGoldmarkDiffers(t *testing.T) {
 		{"skips a setext heading after a definition over several lines", "[0]:\n0\n''0\n-", "goldmark deviates, spec section 4.7: a definition over several lines ends at its destination when the next line is not a title"},
 		{"skips a link after open brackets that span 1000 bytes with nul as u+fffd", strings.Repeat("[", 497) + "\x00\x00\x00" + strings.Repeat("[", 496) + "a](b)", "goldmark deviates, spec section 6.3: a link forms after any number of open brackets"},
 		{"skips an escape after a line of punctuation after a backslash and a hard break", "\\  \n*\n\\!", "goldmark deviates, spec sections 2.4 and 6.7: a backslash escape after a backslash, a hard line break of spaces and punctuation decodes"},
+		{"skips a tab before the end of a tag after a quoted >", "<A A=\">\"\t>", "goldmark deviates, spec section 6.6: a tab before the `>` of the tag that starts an HTML block is whitespace"},
+		{"skips a tab after a kind 7 tag with a quoted >", "<A A=\">\">\t", "goldmark deviates, spec section 4.6: a tab or FF after the tag that starts HTML block kind 7 is whitespace"},
+		{"skips a form feed in a tag after a quoted >", "z <j k=\">\"\f>", "goldmark deviates, spec section 6.6: FF is whitespace in an HTML tag, as cmark reads it"},
 		{"skips a tab in the indentation after a list item prefix", "* 0\n  \t -", "goldmark deviates, spec sections 2.2 and 5.2: a tab after the prefix of a list item line stops at a column counted from the start of the line"},
 	}
 	for _, tt := range tests {
@@ -767,6 +770,11 @@ var goldmarkDeviations = []struct {
 				switch src[k] {
 				case '\f':
 					return true
+				case '"', '\'':
+					// A quoted value can hold '>' and FF.
+					if e := bytes.IndexByte(src[k+1:], src[k]); e >= 0 {
+						k += e + 1
+					}
 				case '\r', '\n':
 					if src[k] == '\r' && k+1 < len(src) && src[k+1] == '\n' {
 						k++
@@ -864,9 +872,9 @@ var (
 	unquotedControl      = regexp.MustCompile(`<[A-Za-z](?:[^<>"']|"[^"]*"|'[^']*')*=[ \t\r\n]*[^ \t\r\n"'=<>\x60]*[\x01-\x08\x0b\x0c\x0e-\x1f\x7f]`)
 	spacedClosingTag     = regexp.MustCompile(`</[ \t\r\n]+[A-Za-z]`)
 	tabAfterTagName      = regexp.MustCompile(`</?[A-Za-z][A-Za-z0-9]*\t`)
-	tabAfterTag          = regexp.MustCompile(`<[A-Za-z/][^<>\r\n]*>[ \t\f]*[\t\f][ \t\f]*(?:\r|\n|$)`)
+	tabAfterTag          = regexp.MustCompile(`<[A-Za-z/](?:[^<>"'\r\n]|"[^"]*"|'[^']*')*>[ \t\f]*[\t\f][ \t\f]*(?:\r|\n|$)`)
 	angleTitle           = regexp.MustCompile(`\]\([ \t\r\n]*<[^<>\r\n]*>["'(]`)
 	slashClosingTag      = regexp.MustCompile(`</[A-Za-z][A-Za-z0-9-]*[ \t\r\n]*/`)
 	longScheme           = regexp.MustCompile(`<[A-Za-z][A-Za-z0-9+.-]{32,}:`)
-	tabBeforeTagEnd      = regexp.MustCompile(`<[/]?[A-Za-z][^<>\r\n]*\t[ \t]*/?>`)
+	tabBeforeTagEnd      = regexp.MustCompile(`<[/]?[A-Za-z](?:[^<>"'\r\n]|"[^"]*"|'[^']*')*\t[ \t]*/?>`)
 )

@@ -738,10 +738,13 @@ after the tag.
 </a> →
 
 <b>
+
+<h i=">">→
 .
 <A>	
 </a> 	
 <b>
+<h i=">">	
 ````````````````````````````````
 
 ## goldmark deviates, spec section 6.3: a link forms after any number of open brackets
@@ -816,6 +819,8 @@ z <ab>
 
 z <a
 >
+
+z <j k=">">
 .
 <div
 x
@@ -823,6 +828,7 @@ x
 <p>z <ab></p>
 <p>z <a
 ></p>
+<p>z <j k=">"></p>
 ````````````````````````````````
 
 ## fixed in markfmt, spec section 4.7: VT and FF are whitespace in a link label, as cmark reads them
@@ -930,7 +936,10 @@ goldmark gives a paragraph when a tab comes right before `>` or `/>`.
 <a b→>
 
 <c d="e"→/>
+
+<f g=">"→>
 .
 <a b	>
 <c d="e"	/>
+<f g=">"	>
 ````````````````````````````````
