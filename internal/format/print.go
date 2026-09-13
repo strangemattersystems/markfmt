@@ -801,9 +801,8 @@ func (p *printer) multiLine(id markdown.NodeID) bool {
 }
 
 // endHeading ends the line of a heading that prints as ATX: an empty heading
-// is its markers alone, and content that ends with number signs after a
-// space or a tab gets a closing sequence (appendix B, trap 6). No content is
-// only number signs: such a line is an ATX heading.
+// is its markers alone, and content that is number signs, or ends with them
+// after a space or a tab, gets a closing sequence (appendix B, trap 6).
 func (p *printer) endHeading() {
 	p.headDone = true
 	marker := bytes.Repeat([]byte{'#'}, p.headLevel)
@@ -820,7 +819,7 @@ func (p *printer) endHeading() {
 	if len(content) == 0 || content[len(content)-1] != '#' {
 		return
 	}
-	if rest := bytes.TrimRight(content, "#"); rest[len(rest)-1] == ' ' || rest[len(rest)-1] == '\t' {
+	if rest := bytes.TrimRight(content, "#"); len(rest) == 0 || rest[len(rest)-1] == ' ' || rest[len(rest)-1] == '\t' {
 		p.write(spaces[:1])
 		p.write(marker)
 	}
