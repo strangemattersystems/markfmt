@@ -819,6 +819,7 @@ research (section 17).
 | NUL, invalid UTF-8 | Raw bytes in leaves. U+FFFD in every character decision and value. |
 | Soft break vs space | Different meaning. |
 | ASCII control characters in a destination or an absolute URI | A destination ends at space, tab, VT and FF, and takes the other control characters. An absolute URI takes DEL. cmark and commonmark.js do this. The spec text excludes control characters, but no example tests it (section 2). |
+| HTML block kind 7 at an open tag named `pre`, `script`, `style` or `textarea` | Starts when the tag is not kind 1, as in `<pre/>`. cmark and commonmark.js do this. The spec text excludes these names, but no example tests it (section 2). |
 
 ## 9. GitHub syntax
 

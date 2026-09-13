@@ -62,6 +62,8 @@ func htmlBlockStart(src []byte, i, end uint32) uint8 {
 		(k == len(s) || s[k] == ' ' || s[k] == '\t' || s[k] == '>' || bytes.HasPrefix(s[k:], []byte("/>"))) {
 		return 6
 	}
+	// cmark also takes an open tag named pre, script, style or textarea, which
+	// the spec text excludes (design 8.4).
 	if n := htmlTagLen(s); n > 0 && len(bytes.Trim(s[n:], " \t")) == 0 {
 		return 7
 	}
@@ -69,8 +71,7 @@ func htmlBlockStart(src []byte, i, end uint32) uint8 {
 }
 
 // htmlTagLen returns the length of the open tag or closing tag at the start
-// of s, a line, or 0. An open tag named pre, script, style or textarea gives
-// 0.
+// of s, a line, or 0.
 func htmlTagLen(s []byte) int {
 	i := 1
 	closing := len(s) > 1 && s[1] == '/'
@@ -90,11 +91,6 @@ func htmlTagLen(s []byte) int {
 			return j + 1
 		}
 		return 0
-	}
-	for _, name := range kind1Names {
-		if strings.EqualFold(string(s[i:j]), name) {
-			return 0
-		}
 	}
 	for {
 		k := skipSpaceTab(s, j)

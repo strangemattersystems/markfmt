@@ -293,3 +293,14 @@ goldmark takes the form feed into the destination.
 .
 <p>[a](bc)</p>
 ````````````````````````````````
+
+## fixed in markfmt, spec section 4.6: HTML block kind 7 starts at an open tag named `pre`, `script`, `style` or `textarea` that is not kind 1
+
+The spec text excludes these tag names from kind 7, but no example tests it,
+so markfmt follows cmark (design 2, 8.4).
+
+```````````````````````````````` example
+<textarea x="1"/>
+.
+<textarea x="1"/>
+````````````````````````````````
