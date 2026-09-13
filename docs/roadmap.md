@@ -130,28 +130,23 @@ The goldmark-based formatter is a stopgap. Stage 6 replaces it.
 | No goldmark extensions in the differential test | goldmark's GFM extensions are not cmark-gfm: with them on, goldmark disagrees on 81 corpus examples with a GFM construct. The corpora and GitHub fixtures test GFM. Design 11.5. |
 | Control characters in destinations and absolute URIs follow cmark | The spec text excludes them, but no example tests it, and cmark, commonmark.js, cmark-gfm and goldmark all take them. The user chose cmark on 2026-09-13. Design 8.4. |
 | Code spans, definition titles and label lengths follow the spec where cmark does not | cmark 0.31.1 and cmark-gfm leave the second code span of `a `` b `c` d `e`` as text, a bug in their search record. They also keep a failed definition title as the title of the link, and cap a link label at 1000 bytes, not 999 characters. The spec text and commonmark.js agree on all three. The user asked to prefer the spec and the result users expect, 2026-09-13. `dialect.md` has the rows. |
-| Canonical style by consensus | The style follows modern best practice across the major formatters and style guides, not personal preference. See Open decisions. |
+| Canonical style by consensus | The style follows modern best practice across the major formatters and style guides, not personal preference. The survey of 2026-09-13 read the source and docs of Prettier 3.9.6, dprint-plugin-markdown 0.24.0 (`deno fmt` pins 0.20.0), mdformat 1.0.0 with mdformat-gfm 1.0.0, markdownlint 0.41.1, and the Google Markdown style guide at `895579e`. A source that keeps the input form, or accepts any consistent form, has no vote. The rows below give the votes. Design appendix B lists the exceptions that keep meaning. |
+| Bullet `-`, and `*` for the next adjacent sibling list | Prettier (`print/list.js`), dprint (`generate.rs`), mdformat (`renderer/_util.py`). Google uses `*`. markdownlint: consistent. |
+| Ordered delimiter `.`, and `)` for the next adjacent sibling list | Prettier, dprint, mdformat. Google and markdownlint have no rule. |
+| Ordered numbering counts up from the start number. A list that starts at 1 and whose second item is 1 numbers every item 1 | No majority. Prettier and dprint count up and keep this lazy form; mdformat numbers every item after the first 1; Google and markdownlint accept both. The user chose the rule of Prettier and dprint, 2026-09-13. The rule is dprint's: it is idempotent for every start number. The lazy form is kept syntax (design 12). |
+| Emphasis `_`, and `*` where `_` would parse differently; strong emphasis `**` | Prettier (`print/mdast.js`), dprint (`resolve_config.rs`). mdformat keeps the source. markdownlint: consistent. Google has no rule. |
+| Fenced code blocks with backticks, or tildes when the info string has a backtick. The fence is 3 long, or one longer than the longest run of its character in the content | Fenced: mdformat, Google ("we strongly recommend fencing"); Prettier and dprint keep the source form. Fence: Prettier, dprint, mdformat (`renderer/_context.py`). |
+| Thematic break `---` | Prettier, dprint. mdformat writes 70 `_`. markdownlint: consistent. Google has no rule. |
+| Hard line break `\` | dprint, mdformat, Google ("Use a trailing backslash to break lines"). Prettier keeps the source form. markdownlint allows 2 spaces. |
+| Tables with columns aligned by display width, outer pipes, and delimiter cells of at least 3 dashes with their colons | Prettier (`print/table.js`), dprint (`TableCellPadding::Align`), mdformat-gfm (`plugin.py`). markdownlint: any. Google has no rule. |
+| ATX headings without a closing sequence | dprint, mdformat, Google. Prettier 3.9 writes ATX, and keeps setext headings. |
+| List item content indented by the marker width plus 1 | Prettier, dprint, mdformat, markdownlint (MD030). Google indents 4 columns. |
+| Escapes and entity references as written. The printer adds and removes none | Prettier and dprint keep them; mdformat decodes them. The printer uses indentation and syntax choices where the others add escapes, so `Kept` stays exact (design 12). The user chose this over added escapes, 2026-09-13. |
+| One blank line between blocks, one final newline, line breaks as written | Prettier (`proseWrap: "preserve"`), dprint (`TextWrap::Maintain`), mdformat (`wrap: keep`). markdownlint MD012 and MD047 agree. |
 
 ## Open decisions
 
-1. **Canonical style.** Stage 6 needs this, not before. The style follows
-   modern best-practice consensus, not personal preference. At stage 6:
-   1. Survey the defaults of Prettier, dprint (which `deno fmt` uses),
-      mdformat, markdownlint and the Google Markdown style guide for each
-      construct below.
-   2. Where a clear majority exists, adopt it and record the evidence in
-      Decisions.
-   3. Where no consensus exists, ask the user one clear question with the
-      evidence.
-
-   Constructs: bullet marker, ordered list numbering, emphasis and strong
-   delimiters, code fence character and length, thematic break, hard line
-   break, table alignment, heading style, list indentation, escaping.
-
-   The current formatter writes ATX headings, one blank line between blocks
-   and one final newline, and keeps prose line breaks. The survey confirms or
-   replaces these. Design appendix B lists the printer traps the style must
-   respect.
+None.
 
 ## Plan
 

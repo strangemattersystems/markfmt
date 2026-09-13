@@ -820,7 +820,7 @@ research (section 17).
 | Question | Decision |
 | --- | --- |
 | Line ending kind | Not meaning (product rule 7). |
-| Escapes and entity references in text | Compared decoded. A decoded character never becomes syntax. Whether the printer keeps the source form is a stage 6 style decision. |
+| Escapes and entity references in text | Compared decoded. A decoded character never becomes syntax. The printer keeps the source form and adds no escape (section 12, roadmap Decisions). |
 | Entity references in an angle autolink | Decoded, as cmark decodes them. A backslash is not an escape there (CM 603). |
 | Reference link vs inline link | Different meaning: the key has the form and the label. |
 | Unused and duplicate definitions | Kept. Compared in document order. |
@@ -1182,7 +1182,8 @@ require of it. Appendix B collects printer traps with byte bounds.
 - **Facts.** The printer reads facts only through accessors, and skips prefix
   leaves. It writes container prefixes from its own stack.
 - **Kept syntax.** Printer output is a function of the projection plus a named
-  set of kept syntax: escape and entity forms, raw label bytes, and for each
+  set of kept syntax: escape and entity forms, raw label bytes, the lazy
+  numbering of an ordered list (appendix B, trap 11), and for each
   dialect span its non-prefix bytes, the number of matched containers on each
   of its lines (so lazy lines stay lazy), and the blank lines before and after
   it. At stage 6, a `Kept(t)` event stream sits next to the projection, and the
@@ -1612,8 +1613,9 @@ design, not parser gates.
 
 1. A paragraph continuation line whose content would start a block, a setext
    underline or a delimiter row after the printer's prefix keeps 4 columns of
-   indentation or gets an escape. The rule depends on content, not on whether
-   the source line was lazy, so it is idempotent (CM 238).
+   indentation. No block starts there at 4 columns, and the printer adds no
+   escape (section 12). The rule depends on content, not on whether the source
+   line was lazy, so it is idempotent (CM 238).
 2. A lazy line stays lazy when its full canonical prefix is longer than its
    printed content (after trap 1). Inside a dialect span, lazy lines always
    stay lazy (section 10.4).
@@ -1623,16 +1625,18 @@ design, not parser gates.
    bullet, and a thematic break after a paragraph line or a link reference
    definition line never uses `---`.
 5. A multi-line setext heading stays setext.
-6. ATX content that ends in `#` needs `\#`.
+6. ATX content that ends in `#` gets a closing sequence: `Foo #` is
+   `## Foo # ##`.
 7. The first block never looks like front matter.
 8. Fence length exceeds any run of the fence character at a content line
    start. An info string with a backtick needs a tilde fence. Fenced content
    that starts or ends with blank lines cannot become indented code (CM 117).
 9. Code span backtick count and padding follow the content.
-10. A hard break `\` after a literal trailing `\` needs care: `\\` is an
-    escaped backslash.
-11. Sequential numbering never exceeds 9 digits. A list that interrupts a
-    paragraph keeps start 1. Renumbering adds at most the width difference of
+10. A hard break after a literal trailing `\` keeps its trailing spaces:
+    `\\` is an escaped backslash.
+11. Sequential numbering never exceeds 9 digits. A list that starts at 1 and
+    whose second item is 1 numbers every item 1 (kept syntax, section 12). A
+    list that interrupts a paragraph keeps start 1. Renumbering adds at most the width difference of
     the largest number to each continuation line.
 12. A blank line follows an HTML block of kind 6 or 7. Unclosed kinds 1 to 5
     keep trailing blank lines as content.
