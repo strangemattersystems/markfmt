@@ -44,9 +44,9 @@ type printer struct {
 	replace   []byte        // bytes that content writes in place of the next leaf's bytes
 
 	// The last paragraph, heading or table cell that a delimiter check read,
-	// and whether its text has '*', '_' and '~'.
+	// and whether its text has '*', '_', '~' and '<'.
 	delimScope markdown.NodeID
-	delimText  [3]bool
+	delimText  [4]bool
 
 	table *table // the table that prints, or nil
 
@@ -952,7 +952,8 @@ func (p *printer) delimiter(id markdown.NodeID, k markdown.Kind) []byte {
 	}
 	switch k {
 	case markdown.Emphasis:
-		if bytes.ContainsAny(content, "*_") || !flanksLikeSpace(before) || !flanksLikeSpace(after) || p.inText('_') {
+		// After a '<' in text, '_' could start an attribute name of a tag.
+		if bytes.ContainsAny(content, "*_") || !flanksLikeSpace(before) || !flanksLikeSpace(after) || p.inText('_') || p.inText('<') {
 			return nil
 		}
 		return []byte{'_'}
@@ -975,8 +976,8 @@ func (p *printer) delimiter(id markdown.NodeID, k markdown.Kind) []byte {
 }
 
 // inText reports whether the innermost open paragraph, heading or table cell
-// has a text leaf with c, which is '*', '_' or '~'. A delimiter could pair
-// with a run of c that is text, where the input's delimiter does not.
+// has a text leaf with c, which is '*', '_', '~' or '<'. A delimiter could
+// pair with a run of c that is text, where the input's delimiter does not.
 func (p *printer) inText(c byte) bool {
 	t := p.tree
 	i := len(p.stack) - 1
@@ -984,17 +985,17 @@ func (p *printer) inText(c byte) bool {
 		i--
 	}
 	if scope := p.stack[i].id; scope != p.delimScope {
-		p.delimScope, p.delimText = scope, [3]bool{}
+		p.delimScope, p.delimText = scope, [4]bool{}
 		end, _ := t.Next(scope)
 		for j := scope + 1; j < end; j++ {
 			if t.Kind(j) == markdown.Text {
-				for k, d := range []byte("*_~") {
+				for k, d := range []byte("*_~<") {
 					p.delimText[k] = p.delimText[k] || bytes.IndexByte(t.Raw(j), d) >= 0
 				}
 			}
 		}
 	}
-	return p.delimText[strings.IndexByte("*_~", c)]
+	return p.delimText[strings.IndexByte("*_~<", c)]
 }
 
 // flanksLikeSpace reports whether c, the byte next to an emphasis
