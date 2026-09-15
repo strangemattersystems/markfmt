@@ -39,7 +39,7 @@ section numbers are cited below as "design 5.4".
 
 ## Current state
 
-Last updated: 2026-09-13. Nothing after `ff7de5b` is pushed.
+Last updated: 2026-09-14. Nothing after `ff7de5b` is pushed.
 
 | Commit | Content |
 | --- | --- |
@@ -55,6 +55,7 @@ Last updated: 2026-09-13. Nothing after `ff7de5b` is pushed.
 | `1cca948` onwards | Stage 3: the inline phase, line breaks, backslash escapes, entity references, code spans, autolinks, raw HTML, emphasis, links and images, pass 1 and reference links, `BenchmarkParse` |
 | `6110977` onwards | Stage 4: the GFM tag filter, GitHub fixtures and the GitHub normalizer, strikethrough, tables, cell pipe escapes, task list items, extended www, URL and email autolinks, footnote definitions and references, the indentation memo |
 | `f51a4c6` onwards | Stage 5: `FuzzDifferential` against goldmark v2.0.2, the differential cases and their predicates, fixes for NUL, control characters, VT and FF, kind 7 tag names and code span closers |
+| `dfc151f` onwards | Stage 6: the canonical style survey, `Source` on the new parser, `FuzzFormat`, dialect predicates and spans in `Equal`, a printer for every node kind, display width from Unicode `EastAsianWidth.txt`, aligned tables, the GitHub printer fixtures and their API check, output bounds, and fixes for the `FuzzFormat` findings |
 
 Layout:
 
@@ -89,16 +90,20 @@ Layout:
 - `internal/markdown/testdata/entities/entities.json`: the source of the
   generated entity table.
 - `internal/format`: the formatter on the new parser. `Source` parses the
-  input, prints it, parses the output and calls `Equal`. The printer is
-  stage 6 work.
+  input, prints it in the canonical style (`print.go`), parses the output and
+  calls `Equal`.
 - `internal/format/testdata/cases`: 136 `NAME.in.md` and `NAME.out.md` pairs.
   Each GitHub printer fixture has a pair named `github-` and its section.
 - `internal/format/testdata/spec`: CommonMark 0.31.2 examples (goldmark's
   `spec.json`) and goldmark's extra and GFM case files, as idempotence data.
 - `internal/markdown/format_test.go`: `FuzzFormat`, an external test of
   `internal/format` against the test HTML (design 10.5). Its seeds are every
-  corpus, the pairs, `testdata/cases`, and in `testdata/fuzz/FuzzFormat` the 9
-  inputs that the fuzzer of the goldmark-based formatter found.
+  corpus, the pairs, `testdata/cases`, and in `testdata/fuzz/FuzzFormat` the
+  inputs that the fuzzer found, each fixed. `TestFormatSource` bounds the
+  output-to-input ratio of the corpora. Its pathological subtest bounds the
+  time of `Source` at n and 10n bytes for the pathological inputs and the
+  inputs that deep nesting makes slow in the printer, and its long subtest
+  runs them at the input limit within the time and memory budget.
 - `tools/go.mod`: golangci-lint v2.13.2, kept out of the root `go.mod`.
 - `docs/design/parser.md`: the parser design.
 - `.scratch/design-research/` (local only, not tracked): the research reports

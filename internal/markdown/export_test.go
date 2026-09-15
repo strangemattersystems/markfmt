@@ -12,6 +12,25 @@ func RenderTestHTML(tree *Tree) string {
 	return normalizeHTML(renderHTML(tree, false))
 }
 
+// RaceEnabled reports whether the test binary has the race detector.
+const RaceEnabled = raceEnabled
+
+// MaxrssBytes returns the peak resident set size of the process that ps
+// describes, in bytes, and whether the platform reports it.
+func MaxrssBytes(ps *os.ProcessState) (int64, bool) {
+	return maxrssBytes(ps)
+}
+
+// PathologicalInputs returns the builders of the inputs of design 6.8, by
+// name. Each builds an input of about n bytes.
+func PathologicalInputs() map[string]func(n int) []byte {
+	inputs := make(map[string]func(n int) []byte, len(pathologicalInputs))
+	for _, in := range pathologicalInputs {
+		inputs[in.name] = in.build
+	}
+	return inputs
+}
+
 // Kept returns the kept syntax of tree (design 12).
 func Kept(tree *Tree) []string {
 	return kept(tree)
