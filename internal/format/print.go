@@ -69,7 +69,7 @@ type printer struct {
 	blanks      int           // the input's blank lines after the last leaf block
 	open        bool          // a blank line after the last leaf block would be its content
 	span        bool          // a dialect span ended after the last block started
-	lastLeaf    markdown.Kind // the kind of the last leaf block
+	lastLeaf    markdown.Kind // the kind of the last leaf block, or BlankLine after a blank line of a dialect span
 	bracket     bool          // the last leaf block is a paragraph that starts with '['
 	quoteGap    bool          // the last block quote ends with a paragraph
 	quoteParent int           // the index of that block quote's parent in stack
@@ -345,7 +345,7 @@ func (p *printer) separate(parent int, id markdown.NodeID, k markdown.Kind, span
 		switch {
 		case p.open:
 			n = 0
-		case p.span || span:
+		case p.span || span || p.inSpan > 0:
 			// Kept syntax (design 12).
 			n = p.blanks
 		case k == markdown.Table && f.lastChild == markdown.Paragraph && p.blanks == 0 && p.bracket:
@@ -471,11 +471,20 @@ func (p *printer) leaf(id markdown.NodeID, k markdown.Kind, start, end int) {
 			p.indent = max(p.indent, end)
 		}
 	case k == markdown.BlankLine:
-		// A blank line before the first block of a container is the rest of
-		// its marker line, or a blank line at its start.
-		if top.container && top.children == 0 {
+		switch {
+		case top.container && top.children == 0:
+			// A blank line before the first block of a container is the rest
+			// of its marker line, or a blank line at its start.
 			top.blankFirst = true
-		} else {
+		case p.inSpan > 0:
+			// A blank line of a dialect span is kept syntax (design 12), with
+			// the prefixes of the containers that its line matched.
+			start := len(p.out)
+			p.writePrefix(false)
+			p.trimSpaces(start)
+			p.write(lineFeed)
+			p.lastLeaf = markdown.BlankLine
+		default:
 			p.blanks++
 		}
 	case k == markdown.QuoteMarker, k == markdown.ItemIndent, k == markdown.FootnoteIndent:

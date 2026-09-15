@@ -189,9 +189,13 @@ func formatChild(t *testing.T, spec string) {
 		t.Fatalf("no input %q", name)
 	}
 	// A builder can pass n by a few bytes, and Source rejects an input above
-	// the limit.
+	// the limit. A cut input can be a different input, so a smaller one is
+	// built.
 	src := build(n)
-	src = src[:min(len(src), n)]
+	for m := n; len(src) > n; {
+		m -= len(src) - n
+		src = build(m)
+	}
 	start := time.Now()
 	out, err := format.Source(src)
 	d := time.Since(start)
