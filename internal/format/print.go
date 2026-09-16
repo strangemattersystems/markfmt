@@ -412,6 +412,11 @@ func (p *printer) separate(parent int, id markdown.NodeID, k markdown.Kind, span
 			if markdown.InterruptsParagraph(p.firstLine(id), false) {
 				p.pad = 4
 			}
+		case k == markdown.Paragraph && p.lazyFirst(id):
+			// A blank line would end the lazy line's continuation, and the
+			// containers that it does not match would end with it (appendix
+			// B, trap 2).
+			n = 0
 		case (f.kind == markdown.List || f.kind == markdown.ListItem) && f.tight:
 			// A blank line would make the list loose.
 			n = 0
@@ -437,6 +442,37 @@ func (p *printer) separate(parent int, id markdown.NodeID, k markdown.Kind, span
 	f.children++
 	f.lastChild = k
 	p.blanks, p.open, p.span, p.quoteGap = 0, false, false, false
+}
+
+// lazyFirst reports whether the first line of block id is lazy: it matches
+// fewer containers than are open, so a blank line before it would take the
+// block out of the containers that its line does not match (appendix B,
+// trap 2).
+func (p *printer) lazyFirst(id markdown.NodeID) bool {
+	t := p.tree
+	leaf := id + 1
+	for !t.Kind(leaf).Leaf() {
+		leaf++
+	}
+	// The prefix leaves of the line come before the block.
+	for leaf > 1 {
+		prev := leaf - 1
+		for prev > 1 && !t.Kind(prev).Leaf() {
+			prev--
+		}
+		if raw := t.Raw(prev); !t.Kind(prev).Leaf() || raw[len(raw)-1] == '\n' || raw[len(raw)-1] == '\r' {
+			break
+		}
+		leaf = prev
+	}
+	matched, _ := p.layout.Matched(leaf)
+	open := 0
+	for i := range p.stack {
+		if p.stack[i].container {
+			open++
+		}
+	}
+	return matched < open
 }
 
 // firstLine returns the first line of block id from its first leaf after its
