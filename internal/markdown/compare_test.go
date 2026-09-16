@@ -382,6 +382,7 @@ func TestKept(t *testing.T) {
 		{"gives the rows and the blank lines around each dialect span", "a\n<search>\n\n\nb", []string{"span 1, blank lines 0 and 0", "span 1, blank lines 0 and 2"}},
 		{"gives no blank line for the blank rest of a list marker line", "*\n\xf1*", []string{"span 100000, blank lines 0 and 0", "invalid \xf1"}},
 		{"gives no blank lines at the start of a container or at the end of the input", "\n<search>\n\n\n\n> \n> <search>\n>\n", []string{"span 1, blank lines 0 and 3", "span 1, blank lines 0 and 0"}},
+		{"gives no blank lines after the label line of a footnote definition", "[^0]:\n\n    <search>\n", []string{"label 0", "span 1, blank lines 0 and 0"}},
 		{"gives nothing for text, emphasis and an inline link", "a *b* [c](/u)", nil},
 	}
 	for _, tt := range tests {
@@ -503,7 +504,20 @@ func blankLinesBefore(tree *Tree, id int) int {
 		case prefix:
 		case m.kind.class() == classStructure && int(m.link) > id:
 			return 0
+		case m.kind.class() == classStructure:
+			return n
 		default:
+			// The leaf starts a container that holds node id when that
+			// container is its parent: the label line of a footnote
+			// definition.
+			for j := i - 1; j >= 0; j-- {
+				if s := tree.nodes[j]; s.kind.class() == classStructure && int(s.link) > i {
+					if int(s.link) > id {
+						return 0
+					}
+					return n
+				}
+			}
 			return n
 		}
 	}
