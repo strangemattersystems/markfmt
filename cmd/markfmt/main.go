@@ -4,8 +4,10 @@
 //
 //	markfmt [-check] [path ...]
 //
-// Markfmt rewrites each path in place. With no path, or the path "-", it
-// reads standard input and writes standard output.
+// Markfmt rewrites each path in place. A directory path gives each file below
+// it with the extension .md or .markdown, outside directories named testdata,
+// vendor or node_modules and hidden directories. With no path, or the path
+// "-", it reads standard input and writes standard output.
 //
 // With -check, markfmt rewrites nothing. It prints each input that is not
 // formatted and exits with status 1.
@@ -16,10 +18,15 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
+	"runtime"
+	"strings"
+	"sync"
 
 	"github.com/strangemattersystems/markfmt"
+	"github.com/strangemattersystems/markfmt/internal/format"
 )
 
 func main() {
@@ -31,21 +38,138 @@ func main() {
 		paths = []string{"-"}
 	}
 
+	ins := inputs(paths)
+	results := make([]result, len(ins))
+	// Peak memory follows the input bytes that are formatted at once, so they
+	// stay within the input limit of one file (design 7.2).
+	b := newBudget(format.MaxInput)
+	var wg sync.WaitGroup
+	for i, in := range ins {
+		if in.err != nil {
+			results[i].err = in.err
+			continue
+		}
+		cost := cost(in.path)
+		b.acquire(cost)
+		wg.Go(func() {
+			defer b.release(cost)
+			results[i].changed, results[i].err = run(in.path, *check)
+		})
+	}
+	wg.Wait()
+
 	status := 0
-	for _, path := range paths {
-		changed, err := run(path, *check)
+	for i, r := range results {
 		switch {
-		case err != nil:
-			fmt.Fprintf(os.Stderr, "markfmt: %s: %v\n", path, err)
+		case r.err != nil:
+			fmt.Fprintf(os.Stderr, "markfmt: %s: %v\n", ins[i].path, r.err)
 			status = 2
-		case changed && *check:
-			fmt.Println(path)
+		case r.changed && *check:
+			fmt.Println(ins[i].path)
 			if status == 0 {
 				status = 1
 			}
 		}
 	}
 	os.Exit(status)
+}
+
+// input is a path to format, or the error of finding it.
+type input struct {
+	path string
+	err  error
+}
+
+type result struct {
+	changed bool
+	err     error
+}
+
+// inputs returns the inputs of paths in order: a directory gives its Markdown
+// files in lexical order, and any other path is kept as given.
+func inputs(paths []string) []input {
+	var ins []input
+	for _, root := range paths {
+		info, err := os.Stat(root)
+		if root == "-" || err == nil && !info.IsDir() {
+			ins = append(ins, input{path: root})
+			continue
+		}
+		if err != nil {
+			ins = append(ins, input{path: root, err: err})
+			continue
+		}
+		err = filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+			switch {
+			case err != nil:
+				ins = append(ins, input{path: path, err: err})
+			case d.IsDir() && path != root && skipDir(d.Name()):
+				return filepath.SkipDir
+			case d.Type().IsRegular() && isMarkdown(path):
+				ins = append(ins, input{path: path})
+			}
+			return nil
+		})
+		if err != nil {
+			ins = append(ins, input{path: root, err: err})
+		}
+	}
+	return ins
+}
+
+// skipDir reports whether a directory below a path holds files that are not
+// the project's own: test data, vendored code or hidden tool state.
+func skipDir(name string) bool {
+	return name == "testdata" || name == "vendor" || name == "node_modules" || strings.HasPrefix(name, ".")
+}
+
+func isMarkdown(path string) bool {
+	switch strings.ToLower(filepath.Ext(path)) {
+	case ".md", ".markdown":
+		return true
+	}
+	return false
+}
+
+// cost returns the budget that formatting path takes: its size up to the input
+// limit, and no less than a share of the limit for each CPU, which bounds the
+// number of files at once.
+func cost(path string) int64 {
+	size := int64(format.MaxInput)
+	if info, err := os.Stat(path); err == nil && path != "-" {
+		size = min(info.Size(), size)
+	}
+	return max(size, int64(format.MaxInput/runtime.NumCPU()))
+}
+
+// budget is a count of bytes that goroutines take and give back.
+type budget struct {
+	mu   sync.Mutex
+	cond sync.Cond
+	free int64
+}
+
+func newBudget(n int64) *budget {
+	b := &budget{free: n}
+	b.cond.L = &b.mu
+	return b
+}
+
+// acquire takes n bytes, and waits until they are free.
+func (b *budget) acquire(n int64) {
+	b.mu.Lock()
+	for b.free < n {
+		b.cond.Wait()
+	}
+	b.free -= n
+	b.mu.Unlock()
+}
+
+func (b *budget) release(n int64) {
+	b.mu.Lock()
+	b.free += n
+	b.mu.Unlock()
+	b.cond.Broadcast()
 }
 
 // run formats one input and reports whether formatting changed it.

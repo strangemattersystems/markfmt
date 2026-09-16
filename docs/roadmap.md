@@ -139,6 +139,8 @@ Layout:
 | Control characters in destinations and absolute URIs follow cmark | The spec text excludes them, but no example tests it, and cmark, commonmark.js, cmark-gfm and goldmark all take them. The user chose cmark on 2026-09-13. Design 8.4. |
 | Code spans, definition titles and label lengths follow the spec where cmark does not | cmark 0.31.1 and cmark-gfm leave the second code span of `a `` b `c` d `e`` as text, a bug in their search record. They also keep a failed definition title as the title of the link, and cap a link label at 1000 bytes, not 999 characters. The spec text and commonmark.js agree on all three. The user asked to prefer the spec and the result users expect, 2026-09-13. `dialect.md` has the rows. |
 | Canonical style by consensus | The style follows modern best practice across the major formatters and style guides, not personal preference. The survey of 2026-09-13 read the source and docs of Prettier 3.9.6, dprint-plugin-markdown 0.24.0 (`deno fmt` pins 0.20.0), mdformat 1.0.0 with mdformat-gfm 1.0.0, markdownlint 0.41.1, and the Google Markdown style guide at `895579e`. A source that keeps the input form, or accepts any consistent form, has no vote. The rows below give the votes. Design appendix B lists the exceptions that keep meaning. |
+| A directory path gives its `.md` and `.markdown` files, in lexical order, outside `testdata`, `vendor`, `node_modules` and hidden directories. A file path is formatted whatever its extension. | `.md` and `.markdown` are the extensions that GitHub and most tools read as Markdown. `testdata` holds inputs that must stay as written, `vendor` and `node_modules` hold other projects' files, and hidden directories hold tool state. A directory named on the command line is walked even when a skip would match it. Hidden files are formatted. |
+| The CLI formats files at once while their input bytes stay within the input limit, and each file counts at least the limit divided by the CPUs | Peak memory follows the input bytes being formatted (design 7.2), so the budget of one largest input holds for a run. The floor bounds the files at once to the CPUs. A check of `~/Development` (1,181 unformatted files) took 2.6 s and 63 MB. |
 | Bullet `-`, and `*` for the next adjacent sibling list | Prettier (`print/list.js`), dprint (`generate.rs`), mdformat (`renderer/_util.py`). Google uses `*`. markdownlint: consistent. |
 | Ordered delimiter `.`, and `)` for the next adjacent sibling list | Prettier, dprint, mdformat. Google and markdownlint have no rule. |
 | A list item that keeps its input marker writes its list's bullet or delimiter | The sign decides where a list ends (spec 5.3). Alternation is the only thing that keeps adjacent lists apart, because a `<!-- -->` separator adds a node (appendix B, trap 3). Every sign is one column wide, so the kept columns do not change. Design 12. |
@@ -382,7 +384,7 @@ files can stay as data, with their MIT notice.
 
 ### Stage 8: product
 
-- [ ] CLI directory walking that skips `testdata`, hidden directories and
+- [x] CLI directory walking that skips `testdata`, hidden directories and
   vendored code. Concurrent work is limited by input bytes.
 - [ ] Release setup: goreleaser, version stamping, `release.yml`, Homebrew
   tap. Follow hamnir's conventions.

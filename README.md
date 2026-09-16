@@ -14,15 +14,15 @@ go install github.com/strangemattersystems/markfmt/cmd/markfmt@latest
 markfmt [-check] [path ...]
 ```
 
-markfmt rewrites each path in place. With no path, or the path `-`, it reads standard input and writes standard output.
+markfmt rewrites each path in place. A directory gives each `.md` and `.markdown` file below it, and skips `testdata`, `vendor`, `node_modules` and hidden directories. With no path, or the path `-`, it reads standard input and writes standard output.
 
 With `-check`, markfmt rewrites nothing. It prints each input that is not formatted.
 
-| Exit status | Meaning |
-| --- | --- |
-| 0 | All inputs are formatted. |
-| 1 | With `-check`, one or more inputs are not formatted. |
-| 2 | markfmt cannot read, format or write an input. |
+| Exit status | Meaning                                              |
+| ----------- | ---------------------------------------------------- |
+| 0           | All inputs are formatted.                            |
+| 1           | With `-check`, one or more inputs are not formatted. |
+| 2           | markfmt cannot read, format or write an input.       |
 
 ## Container
 
