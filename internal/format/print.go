@@ -647,8 +647,10 @@ func (p *printer) leaf(id markdown.NodeID, k markdown.Kind, start, end int) {
 		p.write(spaces[:1])
 	case k == markdown.TrailingSpace && p.inSpan == 0 && p.inLabel == 0:
 		// After a backslash that is not an escape, the line ending would
-		// make a hard break (spec 6.7).
-		if p.backslash {
+		// make a hard break (spec 6.7). The content of a heading that prints
+		// as ATX ends on its line, where no break forms, and the heading
+		// drops the space when it is read again (design 12).
+		if p.backslash && p.head != headSingle {
 			p.write(spaces[:1])
 		}
 	case k == markdown.HardBreakMarker && p.inSpan == 0 && p.inLabel == 0 && t.Raw(id)[0] != '\\':
