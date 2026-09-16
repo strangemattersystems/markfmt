@@ -59,8 +59,11 @@ Last updated: 2026-09-16. Everything up to `bbeb624` is pushed.
 
 Layout:
 
-- `cmd/markfmt`: the CLI. `markfmt [-check] [path ...]`. With no path or `-`,
-  it reads stdin and writes stdout. It writes files atomically.
+- `cmd/markfmt`: the CLI. `markfmt [-check] [path ...]` and `markfmt -version`.
+  A directory path gives its Markdown files. With no path or `-`, it reads
+  stdin and writes stdout. It writes files atomically.
+- `.goreleaser.yaml`, `Dockerfile.goreleaser`, `.github/workflows/release.yml`:
+  the release, run on a pushed `v` tag.
 - `markfmt.go`: the public API, `Format(w io.Writer, r io.Reader) error`.
 - `internal/markdown`: the new parser and its tree (stage 1 onwards).
 - `internal/markdown/testdata/<corpus>`: the conformance corpora `commonmark`,
@@ -92,7 +95,7 @@ Layout:
 - `internal/format`: the formatter on the new parser. `Source` parses the
   input, prints it in the canonical style (`print.go`), parses the output and
   calls `Equal`.
-- `internal/format/testdata/cases`: 136 `NAME.in.md` and `NAME.out.md` pairs.
+- `internal/format/testdata/cases`: 189 `NAME.in.md` and `NAME.out.md` pairs.
   Each GitHub printer fixture has a pair named `github-` and its section.
 - `internal/format/testdata/spec`: CommonMark 0.31.2 examples (goldmark's
   `spec.json`) and goldmark's extra and GFM case files, as idempotence data.
