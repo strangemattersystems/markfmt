@@ -1701,6 +1701,13 @@ design, not parser gates.
     printed line of list items becomes a `dialect.md` span. A container whose
     first child would be block 100 on its line puts that child on the next
     line.
+22. Whitespace inside inline syntax is reduced to one space, never removed:
+    the padding of a code span, and the whitespace after the opening
+    parenthesis of an inline link and before its closing parenthesis when it
+    has no title. A space before a title already stops such a run. A link destination, a definition
+    destination and an autolink hold no space, and each can start anywhere
+    before that whitespace, also after other whitespace, so no local check
+    shows that removing it is safe (spec 4.7, 6.3, 6.5).
 
 ## Appendix C. goldmark v2: taken and dropped
 

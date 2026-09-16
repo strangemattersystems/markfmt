@@ -170,6 +170,7 @@ type inlineFrame struct {
 	brackets int
 	label    bool
 	angle    bool
+	gap      bool // whitespace follows the opening parenthesis of the tail
 	under    bool // emphasis that prints with '_'
 	quotes   [2]byte
 }
@@ -1424,8 +1425,16 @@ func (p *printer) tailLeaf(in *inlineFrame, id markdown.NodeID, k markdown.Kind,
 		p.content(id, start)
 		in.tail = tailDestination
 	case tailDestination:
+		if !skip && in.gap {
+			// A destination holds no space, so without one here a
+			// destination that starts before the link could run through it
+			// (spec 6.3).
+			in.gap = false
+			p.write(spaces[:1])
+		}
 		switch {
 		case skip:
+			in.gap = true
 		case k == markdown.Paren:
 			p.indent = -1
 			p.content(id, start)
@@ -1442,15 +1451,18 @@ func (p *printer) tailLeaf(in *inlineFrame, id markdown.NodeID, k markdown.Kind,
 	case tailTitle:
 		switch {
 		case skip:
+			in.gap = true
 		case k == markdown.TitleQuote:
+			in.gap = false
 			p.write(spaces[:1])
 			p.indent, p.replace = -1, in.quotes[:1]
 			p.content(id, start)
 			in.tail = tailInTitle
 		default:
 			// After a backslash that is not an escape, the parenthesis would
-			// be an escape.
-			if k == markdown.Paren && p.backslash {
+			// be an escape. Whitespace before it stays for the reason of
+			// tailDestination.
+			if k == markdown.Paren && (p.backslash || in.gap) {
 				p.write(spaces[:1])
 			}
 			p.indent = -1
