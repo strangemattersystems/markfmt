@@ -56,9 +56,9 @@ tasks:
       - "{{.GOLANGCI_LINT}} fmt ./..."
 
   deps:
-    desc: Fail when the markfmt binary imports goldmark, which only tests may use
+    desc: Fail when the root module requires another module (product rule 8)
     cmds:
-      - test -z "$(go list -deps ./cmd/markfmt | grep goldmark)"
+      - test "$(go list -m all)" = "$(go list -m)"
 
   ci:
     desc: Run the full CI suite

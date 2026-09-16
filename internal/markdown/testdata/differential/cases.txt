@@ -1036,3 +1036,26 @@ goldmark gives a paragraph when a tab comes right before `>` or `/>`.
 <c d="e"	/>
 <f g=">"	>
 ````````````````````````````````
+
+## goldmark deviates, spec sections 5.1 and 5.2: a block quote line indented to the content of a list item continues the item after a blank line in the quote
+
+A list item holds a block quote that holds an empty list item, and two lines
+of `>` follow at the item's indentation. goldmark ends the outer list item at
+the last line and starts a second block quote. commonmark.js 0.31.2 gives one
+block quote in the item; cmark was not at hand when the case was found.
+
+```````````````````````````````` example
+* >+
+  >
+  >
+.
+<ul>
+<li>
+<blockquote>
+<ul>
+<li></li>
+</ul>
+</blockquote>
+</li>
+</ul>
+````````````````````````````````

@@ -13,8 +13,6 @@ import (
 	"strings"
 	"testing"
 	"time"
-
-	"github.com/yuin/goldmark/v2/parser"
 )
 
 func TestParse(t *testing.T) {
@@ -710,8 +708,8 @@ func readGrammarDiffers(t *testing.T, path string, examples []example, failing m
 	return differs
 }
 
-// BenchmarkParse parses each benchmark input with markfmt, both passes
-// included, and with goldmark v2.0.2 with no extensions (design 11.6).
+// BenchmarkParse parses each benchmark input, both passes included (design
+// 11.6).
 func BenchmarkParse(b *testing.B) {
 	spec, err := os.ReadFile("testdata/commonmark/spec.txt")
 	if err != nil {
@@ -727,21 +725,14 @@ func BenchmarkParse(b *testing.B) {
 			corpus = append(append(corpus, ex.markdown...), '\n')
 		}
 	}
-	goldmark := parser.New()
 	for _, in := range []struct {
 		name string
 		src  []byte
 	}{{"spec", spec}, {"corpora", corpus}, {"design", design}} {
-		b.Run("input="+in.name+"/parser=markfmt", func(b *testing.B) {
+		b.Run("input="+in.name, func(b *testing.B) {
 			b.SetBytes(int64(len(in.src)))
 			for b.Loop() {
 				Parse(in.src)
-			}
-		})
-		b.Run("input="+in.name+"/parser=goldmark", func(b *testing.B) {
-			b.SetBytes(int64(len(in.src)))
-			for b.Loop() {
-				goldmark.Parse(in.src)
 			}
 		})
 	}

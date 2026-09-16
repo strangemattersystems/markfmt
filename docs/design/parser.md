@@ -1125,6 +1125,11 @@ adds its set of `Dialect(row)` values to its Enter event. `Equal` requires:
 
 ### 11.5 Differential fuzzing (stage 5)
 
+Stage 7 removed goldmark, `differential_test.go` and its predicates, after a
+run of about 3 CPU-hours in all (roadmap Decisions). `testdata/differential/cases.txt`
+stays as conformance.
+This section records how the cases were found.
+
 - `internal/markdown/differential_test.go` holds `FuzzDifferential`. It
   compares the test HTML of `Parse` with the HTML of goldmark v2.0.2, both
   after `normalizeHTML`. goldmark runs with `html.WithUnsafe`, with
@@ -1172,19 +1177,19 @@ adds its set of `Dialect(row)` values to its Enter event. `Equal` requires:
   writes to `testdata/fuzz/FuzzDifferential` are not committed: each one is a
   case in `cases.txt`.
 - Budget: the stage 5 gate is a run of 1 CPU-hour (workers × wall time) with
-  no disagreement that is not triaged. A run of 24 CPU-hours is an exit
-  criterion of stage 7, before goldmark goes.
+  no disagreement that is not triaged. About 2 CPU-hours more were the exit
+  criterion of stage 7, before goldmark goes (roadmap Decisions).
 - goldmark stays a test-only requirement in the root `go.mod` until stage 7
   deletes this file. It then appears in a consumer's `go.sum` and module list,
   but not in its build. No release happens before stage 7.
 
 ### 11.6 Performance
 
-`BenchmarkParse` parses three inputs with markfmt and with goldmark v2.0.2
-with no extensions: CommonMark `spec.txt` as one document, the inputs of every
-corpus joined, and `docs/design/parser.md`. A manual gate at stage 3, recorded
-with `benchstat` output in the roadmap: parse throughput within 2 times
-goldmark's, with pass 1 included. `benchstat` runs with `go run
+`BenchmarkParse` parses three inputs: CommonMark `spec.txt` as one document,
+the inputs of every corpus joined, and `docs/design/parser.md`. At stage 3 it
+also parsed them with goldmark v2.0.2 with no extensions, for a manual gate
+recorded with `benchstat` output in the roadmap: parse throughput within 2
+times goldmark's, with pass 1 included. Stage 7 removed goldmark. `benchstat` runs with `go run
 golang.org/x/perf/cmd/benchstat@VERSION`, not from `tools/go.mod`.
 
 ## 12. Printer interface

@@ -56,6 +56,8 @@ Last updated: 2026-09-16. Everything up to `bbeb624` is pushed.
 | `6110977` onwards | Stage 4: the GFM tag filter, GitHub fixtures and the GitHub normalizer, strikethrough, tables, cell pipe escapes, task list items, extended www, URL and email autolinks, footnote definitions and references, the indentation memo |
 | `f51a4c6` onwards | Stage 5: `FuzzDifferential` against goldmark v2.0.2, the differential cases and their predicates, fixes for NUL, control characters, VT and FF, kind 7 tag names and code span closers |
 | `dfc151f` onwards | Stage 6: the canonical style survey, `Source` on the new parser, `FuzzFormat`, dialect predicates and spans in `Equal`, a printer for every node kind, display width from Unicode `EastAsianWidth.txt`, aligned tables, the GitHub printer fixtures and their API check, output bounds, fixes for the `FuzzFormat` findings, and the kept marker rule |
+| `1d28ee8`, `e064ce8` | Stage 8 in part: CLI directory walking, the goreleaser release |
+| The commit after `5d4e86a` | Stage 7: goldmark, `differential_test.go` and `go.sum` removed; the root `go.mod` has no requirements |
 
 Layout:
 
@@ -107,7 +109,8 @@ Layout:
   time of `Source` at n and 10n bytes for the pathological inputs and the
   inputs that deep nesting makes slow in the printer, and its long subtest
   runs them at the input limit within the time and memory budget.
-- `tools/go.mod`: golangci-lint v2.13.2, kept out of the root `go.mod`.
+- `tools/go.mod`: golangci-lint v2.13.2, kept out of the root `go.mod`, which
+  has no requirements (product rule 8).
 - `docs/design/parser.md`: the parser design.
 - `.scratch/design-research/` (local only, not tracked): the research reports
   and the five rounds of design reviews behind the parser design.
@@ -137,7 +140,7 @@ Layout:
 | Design document at `docs/design/parser.md` | It is reviewed and versioned with the code. |
 | `grammar-differs.txt` also lists corpus examples where cmark and commonmark.js disagree | markfmt follows cmark (design 2). The named case holds the output of `cmark --unsafe`. commonmark.js regression 25: cmark 0.31.1 makes a list loose after a blank line in an HTML block. |
 | Full case folding table from Unicode `CaseFolding.txt` | Label matching needs Unicode full case folding (CM 540: `ẞ` matches `SS`). Go's `unicode` package has only simple folding. Design 15, commit 19. |
-| Differential fuzz budget: 1 CPU-hour at stage 5, 24 CPU-hours at stage 7 | The user wants no long run before the product is near v0.1. The long run must end before stage 7 deletes the differential test. |
+| Differential fuzz budget: 1 CPU-hour at stage 5, about 2 CPU-hours more at stage 7 | The stage 7 budget was 24 CPU-hours. On 2026-09-16 the user chose to run no more than about 30 minutes on a laptop, and to remove goldmark after that. The parser had passed every corpus. Stage 7 ran 8 workers for 8 minutes, with no disagreement, and for 7 minutes, which found one goldmark deviation (a differential case). `FuzzFormat` does not replace the differential test: it compares the output with markfmt's own parser, so it cannot see a misparse that input and output share. |
 | No goldmark extensions in the differential test | goldmark's GFM extensions are not cmark-gfm: with them on, goldmark disagrees on 81 corpus examples with a GFM construct. The corpora and GitHub fixtures test GFM. Design 11.5. |
 | Control characters in destinations and absolute URIs follow cmark | The spec text excludes them, but no example tests it, and cmark, commonmark.js, cmark-gfm and goldmark all take them. The user chose cmark on 2026-09-13. Design 8.4. |
 | Code spans, definition titles and label lengths follow the spec where cmark does not | cmark 0.31.1 and cmark-gfm leave the second code span of `a `` b `c` d `e`` as text, a bug in their search record. They also keep a failed definition title as the title of the link, and cap a link label at 1000 bytes, not 999 characters. The spec text and commonmark.js agree on all three. The user asked to prefer the spec and the result users expect, 2026-09-13. `dialect.md` has the rows. |
@@ -382,12 +385,12 @@ compares the two outputs.
 
 Remove the differential test when all of these are true:
 
-- [ ] All corpora at 100%: every example passes, or is listed in a
+- [x] All corpora at 100%: every example passes, or is listed in a
   `grammar-differs.txt` and its named case passes. Every `failing.txt` is
   empty.
-- [ ] A `FuzzDifferential` run of 24 CPU-hours finds no disagreement that
-  has not been triaged.
-- [ ] Every disagreement is a permanent case in `testdata`.
+- [x] A `FuzzDifferential` run of about 2 CPU-hours finds no disagreement
+  that has not been triaged (Decisions).
+- [x] Every disagreement is a permanent case in `testdata`.
 
 Gate: `differential_test.go` is deleted and `go mod tidy` has run. No goldmark
 import anywhere. The root `go.mod` has no requirements. goldmark's copied test
@@ -457,6 +460,9 @@ This is our reading of the licenses, not legal advice.
 
 ## Known goldmark deviations
 
+Stage 7 removed goldmark. This list stays as the record of how
+`testdata/differential/cases.txt` was triaged.
+
 Use this list to triage stage 5 disagreements. The last column says how
 `FuzzDifferential` handles each row (design 11.5).
 
@@ -512,6 +518,7 @@ Use this list to triage stage 5 disagreements. The last column says how
 | `[foo]: /url\n---` | A thematic break, as commonmark.js gives, and an empty list item for `-`. | Paragraph `---`, as cmark gives (`dialect.md`). | Predicate, differential case. |
 | ``- ```\n  a\n\n- b`` | A loose list, as commonmark.js gives. | A tight list, as cmark gives (spec 5.3, design 2). | Predicate, differential case. |
 | ```` ```language-r ```` | The class `language-language-r`. | The class `language-r`, as cmark writes (spec 4.5). | Predicate, differential case. |
+| `* >+`, then `  >` twice | A second, empty block quote after the list: the outer list item ends at the last `>` line. | One block quote in the item (spec 5.1, 5.2), as commonmark.js gives. | Differential case, found by the last stage 7 run after the predicates went. |
 
 ## How to resume
 
