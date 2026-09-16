@@ -1173,6 +1173,11 @@ func (p *printer) delimiter(id markdown.NodeID, k markdown.Kind) []byte {
 		// An extended www autolink depends on the byte before it (design 6.2).
 		return nil
 	}
+	if p.inAutolinkWord(id) {
+		// An underscore in the last two segments of a domain keeps an
+		// extended autolink from forming (design 6.2), so '*' would make one.
+		return nil
+	}
 	before, after := t.Around(id)
 	if before == '$' || after == '$' || len(content) > 0 && (content[0] == '$' || content[len(content)-1] == '$') {
 		// No character next to '$' changes (appendix B, trap 16).
@@ -1206,6 +1211,23 @@ func (p *printer) delimiter(id markdown.NodeID, k markdown.Kind) []byte {
 		}
 		return []byte("~~")
 	}
+}
+
+// inAutolinkWord reports whether the word before node id, the text back to
+// the last whitespace, holds "://" or "www.". The bytes of the node follow
+// that word without a space, so they can be part of an extended autolink.
+func (p *printer) inAutolinkWord(id markdown.NodeID) bool {
+	t := p.tree
+	var word []byte
+	for i := id - 1; i > p.textBlock && t.Kind(i).Leaf(); i-- {
+		b := t.Raw(i)
+		if j := bytes.LastIndexAny(b, " \t\n\r"); j >= 0 {
+			word = append(bytes.Clone(b[j+1:]), word...)
+			break
+		}
+		word = append(bytes.Clone(b), word...)
+	}
+	return bytes.Contains(word, []byte("://")) || bytes.Contains(bytes.ToLower(word), []byte("www."))
 }
 
 // inText reports whether the last paragraph, heading or table cell that
