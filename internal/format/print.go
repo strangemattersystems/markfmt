@@ -707,7 +707,9 @@ func (p *printer) leaf(id markdown.NodeID, k markdown.Kind, start, end int) {
 		// character of a delimiter run, the break keeps its input form: a
 		// backslash is punctuation and a line ending is whitespace, so the
 		// form decides whether the run flanks. After '$', it keeps its form
-		// too (appendix B, trap 16).
+		// too (appendix B, trap 16). After a word with an extended autolink,
+		// the backslash would join the autolink, which ends at whitespace
+		// (design 6.2).
 		last := byte(0)
 		if len(p.out) > 0 {
 			last = p.out[len(p.out)-1]
@@ -719,7 +721,7 @@ func (p *printer) leaf(id markdown.NodeID, k markdown.Kind, start, end int) {
 			} else {
 				p.write(spaces[:2])
 			}
-		case p.backslash || p.bracket0:
+		case p.backslash || p.bracket0 || autolinkWord(lastWord(p.out)):
 			p.write(spaces[:2])
 		default:
 			p.write([]byte{'\\'})
