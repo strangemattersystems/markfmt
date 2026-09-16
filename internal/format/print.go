@@ -124,6 +124,7 @@ type frame struct {
 	container  bool
 	started    bool
 	blankFirst bool
+	keepBlank  bool // the item keeps its blank marker line
 	marker     []byte
 }
 
@@ -511,8 +512,9 @@ prefixes:
 			p.write(f.marker)
 			f.started = true
 			opened++
-			// Padding would take the columns that the content starts with.
-			if f.blankFirst && f.kind != markdown.BlockQuote && p.lead {
+			// Padding would take the columns that the content starts with, or
+			// the item keeps its blank marker line.
+			if f.blankFirst && f.kind != markdown.BlockQuote && (p.lead || f.keepBlank) {
 				p.nextPrefixLine(start, i+1)
 				start, opened = len(p.out), 0
 			}
@@ -725,11 +727,14 @@ func (p *printer) listMarker(f *frame, id markdown.NodeID, start int) {
 	padding := max(minIndent-len(f.marker), 1)
 	// The rest of a blank marker line is a BlankLine leaf.
 	end, _ := p.tree.Next(f.id)
-	if padding > 4 || padding > 1 && (id+1 == end || p.tree.Kind(id+1) == markdown.BlankLine) {
+	blank := id+1 == end || p.tree.Kind(id+1) == markdown.BlankLine
+	if padding > 4 || padding > 1 && blank {
 		// No padding lets the item continue on so many columns, and an item
 		// whose marker line is blank continues after one column of padding
-		// (spec 5.2): the item keeps its indentation, marker and padding.
-		f.marker = p.sourceMarker(f, id, start)
+		// (spec 5.2): the item keeps its indentation, marker and padding. Its
+		// marker line stays blank, so that a second format reads the same
+		// item and keeps the same marker (design 12).
+		f.marker, f.keepBlank = p.sourceMarker(f, id, start), blank
 	} else {
 		f.marker = append(f.marker, spaces[:padding]...)
 	}
