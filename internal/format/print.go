@@ -10,8 +10,9 @@ import (
 )
 
 var (
-	lineFeed = []byte{'\n'}
-	spaces   = bytes.Repeat([]byte{' '}, 64)
+	lineFeed    = []byte{'\n'}
+	quotePrefix = []byte("> ")
+	spaces      = bytes.Repeat([]byte{' '}, 64)
 )
 
 // printer writes a tree in the canonical style.
@@ -56,7 +57,24 @@ type printer struct {
 
 	table *table // the table that prints, or nil
 
-	afters []blockIndent // the results of indentAfter that a later list can ask for, the last node first
+	afters  []blockIndent // the results of indentAfter that a later list can ask for, the last node first
+	inlines []inlineFrame // the state of the open inline nodes, the outermost first
+
+	// The code block that is open outside a dialect span: the fence that it
+	// writes around its lines, the fence markers of the input, whether the
+	// printer is on the input's opening fence line, and whether a line of
+	// code has not ended.
+	fence             []byte
+	fences            int
+	opening, lineOpen bool
+
+	// The link reference definition that is open outside a dialect span: the
+	// part that prints, whether the space before its destination is written,
+	// whether its destination is in angle brackets, and its title quotes.
+	def       defPart
+	spaced    bool
+	defAngle  bool
+	defQuotes [2]byte
 
 	// The heading that is open: how it prints, its level, where its content
 	// starts in out, and whether its line is written.
@@ -75,35 +93,18 @@ type printer struct {
 	quoteParent int           // the index of that block quote's parent in stack
 }
 
-// frame is an open structure node.
+// frame is an open structure node. A node holds only what its own kind
+// needs; the state of a construct that is open alone, such as a code block or
+// a link reference definition, is in the printer, and the state of an inline
+// node is in inlines.
 type frame struct {
 	id        markdown.NodeID
 	kind      markdown.Kind
-	children  int           // the blocks that started in it
-	lastChild markdown.Kind // the kind of the last of them
+	lastChild markdown.Kind // the kind of the last block that started in it
 	span      bool          // a dialect span
 	tight     bool          // a list that is not loose, or an item of one
-	fences    int           // the fence markers of a code block
-
-	// A code block outside a dialect span writes fence around its lines,
-	// without the fence lines of the input. opening is true on the input's
-	// opening fence line, and lineOpen on a line of code that has not ended.
-	fence             []byte
-	opening, lineOpen bool
-	delim             []byte   // the delimiter of emphasis or strikethrough, or nil for the input's
-	code              []byte   // the bytes of a code span, or nil for the input's
-	codeDone          bool     // the code span is written
-	tail              tailPart // the part of an inline link or image that prints
-	brackets          int      // the brackets of the link's own text
-	label             bool     // a collapsed or shortcut reference, whose text keeps its bytes
-
-	// A link reference definition outside a dialect span prints in the
-	// part def, puts one space before its destination with spaced, has an
-	// angle destination with angle, and writes its title in quotes.
-	def    defPart
-	spaced bool
-	angle  bool
-	quotes [2]byte
+	children  int           // the blocks that started in it
+	inline    int32         // the index of an inline node's state in inlines, or -1
 
 	// A list numbers its items from start, and uses its second marker with
 	// alt. Its second item decides lazy numbering.
@@ -118,12 +119,51 @@ type frame struct {
 	listBullet           byte
 
 	// A block quote, list item or footnote definition writes marker on its
-	// first line and rest on its other lines. With blankFirst, its first
-	// line has only the marker, as in the input.
-	container    bool
-	started      bool
-	blankFirst   bool
-	marker, rest []byte
+	// first line and the rest of its marker on its other lines. With
+	// blankFirst, its first line has only the marker, as in the input.
+	container  bool
+	started    bool
+	blankFirst bool
+	marker     []byte
+}
+
+// rest returns the prefix that container f writes on the lines after its
+// first: its marker for a block quote, 4 columns for a footnote definition
+// (appendix B, trap 18), and the columns of its marker for a list item.
+func (f *frame) rest() []byte {
+	switch f.kind {
+	case markdown.BlockQuote:
+		return quotePrefix
+	case markdown.FootnoteDefinition:
+		return spaces[:4]
+	}
+	return spaces[:len(f.marker)]
+}
+
+// inlineFrame is the state of an open inline node: the delimiter of emphasis
+// or strikethrough, the bytes of a code span, and the part of an inline link
+// or image that prints, with the brackets of its text, whether its
+// destination is in angle brackets, and its title quotes. A collapsed or
+// shortcut reference keeps the bytes of its text, which is its label.
+type inlineFrame struct {
+	delim    []byte
+	code     []byte
+	codeDone bool
+	tail     tailPart
+	brackets int
+	label    bool
+	angle    bool
+	quotes   [2]byte
+}
+
+// isInline reports whether a node of kind k has a frame in inlines.
+func isInline(k markdown.Kind) bool {
+	switch k {
+	case markdown.CodeSpan, markdown.Link, markdown.Image, markdown.Emphasis, markdown.Strong,
+		markdown.Strikethrough:
+		return true
+	}
+	return false
 }
 
 // write appends b to the output. At the output limit it stops, so a printer
@@ -173,7 +213,10 @@ func (p *printer) trimSpaces(start int) {
 func (p *printer) document() {
 	t := p.tree
 	p.layout, p.spans = t.Layout(), t.DialectSpans()
-	p.lazy, p.breaks = p.lazyItems(), p.breakLists()
+	var depth int
+	p.lazy = p.lazyItems()
+	p.breaks, depth = p.prescan()
+	p.stack = make([]frame, 0, depth)
 	p.lineStart, p.inputLine, p.indent = true, true, -1
 	c := t.Walk()
 	for e, ok := c.Next(); ok && !p.full; e, ok = c.Next() {
@@ -223,7 +266,7 @@ func (p *printer) node(id markdown.NodeID) {
 func (p *printer) enter(id markdown.NodeID, k markdown.Kind) {
 	t := p.tree
 	parent := len(p.stack) - 1
-	f := frame{id: id, kind: k, span: p.spanAt(id)}
+	f := frame{id: id, kind: k, span: p.spanAt(id), inline: -1}
 	var prev frame
 	if parent >= 0 {
 		prev = p.stack[parent]
@@ -233,14 +276,13 @@ func (p *printer) enter(id markdown.NodeID, k markdown.Kind) {
 	}
 	switch k {
 	case markdown.BlockQuote:
-		f.container, f.marker, f.rest = true, []byte("> "), []byte("> ")
+		f.container, f.marker = true, quotePrefix
 		p.lastLeaf = markdown.Document
 	case markdown.ListItem:
 		f.container, f.tight, f.indent = true, p.stack[parent].tight, p.layout.ItemIndent()
 	case markdown.FootnoteDefinition:
 		f.container = true
 		f.marker = []byte("[^" + string(t.FootnoteDefinitionLabel(id)) + "]: ")
-		f.rest = spaces[:4]
 	case markdown.List:
 		f.tight = !t.ListLoose(id)
 		f.start, f.ordered = t.ListStart(id)
@@ -259,7 +301,7 @@ func (p *printer) enter(id markdown.NodeID, k markdown.Kind) {
 		for i := range p.stack {
 			if p.stack[i].container {
 				p.prefixes++
-				p.prefixLen += len(p.stack[i].rest)
+				p.prefixLen += len(p.stack[i].rest())
 			}
 		}
 		p.bracket0 = k == markdown.Paragraph && bytes.HasPrefix(p.firstLine(id), []byte("["))
@@ -282,38 +324,46 @@ func (p *printer) enter(id markdown.NodeID, k markdown.Kind) {
 		p.startTableLine(false)
 		p.table.cells = append(p.table.cells, tableCell{start: len(p.out)})
 	}
+	if k == markdown.CodeBlock {
+		p.fences = 0
+	}
 	if k == markdown.CodeBlock && p.inSpan == 0 {
-		f.fence, f.opening = p.codeFence(id)
+		p.fence, p.opening = p.codeFence(id)
 		// Indented code has no fence line: its first line is code.
-		f.lineOpen = !f.opening
+		p.lineOpen = !p.opening
 		p.lead, p.indent, p.matched = false, -1, p.prefixes
 		p.writePrefix(false)
-		p.write(f.fence)
+		p.write(p.fence)
 		p.lineStart = false
-		if !f.opening {
+		if !p.opening {
 			p.endLine()
 		}
 	}
-	if (k == markdown.Link || k == markdown.Image) && (t.LinkForm(id) == markdown.CollapsedReference || t.LinkForm(id) == markdown.ShortcutReference) {
-		// The raw text is the label (design 6.7), which Kept keeps.
-		f.label = true
-		p.inLabel++
-	}
-	if before, after := t.Around(id); k == markdown.CodeSpan && p.inSpan == 0 && p.inLabel == 0 && before != '$' && after != '$' {
-		// A code span next to '$' is GitHub math (appendix B, trap 16).
-		f.code = p.codeSpan(id)
-	}
-	if (k == markdown.Link || k == markdown.Image) && t.LinkForm(id) == markdown.InlineLink && p.inSpan == 0 && p.inLabel == 0 {
-		f.tail, f.quotes = tailText, p.titleQuotes(id)
-	}
-	if (k == markdown.Emphasis || k == markdown.Strong || k == markdown.Strikethrough) && p.inSpan == 0 && p.inLabel == 0 {
-		f.delim = p.delimiter(id, k)
-	}
-	if k == markdown.Strikethrough {
-		p.inStrike++
+	if isInline(k) {
+		f.inline = int32(len(p.inlines))
+		p.inlines = append(p.inlines, inlineFrame{})
+		in := &p.inlines[f.inline]
+		if (k == markdown.Link || k == markdown.Image) && (t.LinkForm(id) == markdown.CollapsedReference || t.LinkForm(id) == markdown.ShortcutReference) {
+			// The raw text is the label (design 6.7), which Kept keeps.
+			in.label = true
+			p.inLabel++
+		}
+		if before, after := t.Around(id); k == markdown.CodeSpan && p.inSpan == 0 && p.inLabel == 0 && before != '$' && after != '$' {
+			// A code span next to '$' is GitHub math (appendix B, trap 16).
+			in.code = p.codeSpan(id)
+		}
+		if (k == markdown.Link || k == markdown.Image) && t.LinkForm(id) == markdown.InlineLink && p.inSpan == 0 && p.inLabel == 0 {
+			in.tail, in.quotes = tailText, p.titleQuotes(id)
+		}
+		if (k == markdown.Emphasis || k == markdown.Strong || k == markdown.Strikethrough) && p.inSpan == 0 && p.inLabel == 0 {
+			in.delim = p.delimiter(id, k)
+		}
+		if k == markdown.Strikethrough {
+			p.inStrike++
+		}
 	}
 	if k == markdown.LinkReferenceDefinition && p.inSpan == 0 {
-		f.def, f.quotes = defLabel, p.titleQuotes(id)
+		p.def, p.spaced, p.defAngle, p.defQuotes = defLabel, false, false, p.titleQuotes(id)
 	}
 	if k == markdown.Heading && p.inSpan == 0 {
 		p.head, p.headLevel, p.headDone = headSingle, t.HeadingLevel(id), false
@@ -372,7 +422,7 @@ func (p *printer) separate(parent int, id markdown.NodeID, k markdown.Kind, span
 			// continue the quote's paragraph as a lazy line.
 			for i := range p.stack[:parent+1] {
 				if p.stack[i].container {
-					p.write(p.stack[i].rest)
+					p.write(p.stack[i].rest())
 				}
 			}
 			p.write([]byte(">\n"))
@@ -430,7 +480,7 @@ prefixes:
 				start, opened = len(p.out), 0
 			}
 		case blank || n < p.matched:
-			p.write(f.rest)
+			p.write(f.rest())
 		default:
 			break prefixes
 		}
@@ -451,7 +501,7 @@ func (p *printer) nextPrefixLine(start, end int) {
 	p.write(lineFeed)
 	for j := range p.stack[:end] {
 		if p.stack[j].container {
-			p.write(p.stack[j].rest)
+			p.write(p.stack[j].rest())
 		}
 	}
 }
@@ -459,8 +509,13 @@ func (p *printer) nextPrefixLine(start, end int) {
 func (p *printer) leaf(id markdown.NodeID, k markdown.Kind, start, end int) {
 	t := p.tree
 	top := &p.stack[len(p.stack)-1]
-	if top.fence != nil && p.lineBegin && !top.opening {
-		top.lineOpen = true
+	var in *inlineFrame
+	if top.inline >= 0 {
+		in = &p.inlines[top.inline]
+	}
+	code := top.kind == markdown.CodeBlock && p.fence != nil
+	if code && p.lineBegin && !p.opening {
+		p.lineOpen = true
 	}
 	switch {
 	case k == markdown.ListMarker:
@@ -508,22 +563,22 @@ func (p *printer) leaf(id markdown.NodeID, k markdown.Kind, start, end int) {
 			p.startTableLine(top.kind == markdown.Table)
 		}
 	case p.table != nil && top.kind == markdown.TableCell && k == markdown.Whitespace:
-	case top.fence != nil:
-		p.codeLeaf(top, id, k, start)
-	case top.code != nil:
+	case code:
+		p.codeLeaf(id, k, start)
+	case in != nil && in.code != nil:
 		// The code span prints whole at its first leaf.
-		if !top.codeDone {
-			top.codeDone = true
-			p.replace = top.code
+		if !in.codeDone {
+			in.codeDone = true
+			p.replace = in.code
 			p.content(id, start)
 		}
-	case top.tail != tailNone:
-		p.tailLeaf(top, id, k, start)
-	case top.delim != nil && k == markdown.Delimiter:
-		p.replace = top.delim
+	case in != nil && in.tail != tailNone:
+		p.tailLeaf(in, id, k, start)
+	case in != nil && in.delim != nil && k == markdown.Delimiter:
+		p.replace = in.delim
 		p.content(id, start)
-	case top.def != defNone:
-		p.definitionLeaf(top, id, k, start)
+	case p.def != defNone && top.kind == markdown.LinkReferenceDefinition:
+		p.definitionLeaf(id, k, start)
 	case top.kind == markdown.FrontMatter && k == markdown.Whitespace:
 		// Spaces after a fence line are not meaning.
 	case p.head == headSingle && p.headDone:
@@ -590,7 +645,7 @@ func (p *printer) leaf(id markdown.NodeID, k markdown.Kind, start, end int) {
 		p.content(id, start)
 	default:
 		if k == markdown.FenceMarker {
-			top.fences++
+			p.fences++
 		}
 		p.content(id, start)
 	}
@@ -641,7 +696,6 @@ func (p *printer) listMarker(f *frame, id markdown.NodeID, start int) {
 	} else {
 		f.marker = append(f.marker, spaces[:padding]...)
 	}
-	f.rest = spaces[:len(f.marker)]
 }
 
 // bullet returns the bullet of bullet list id, whose parent frame is prev:
@@ -668,18 +722,28 @@ func (p *printer) bullet(id markdown.NodeID, prev frame) byte {
 	return '+'
 }
 
-// breakLists returns the lists with an item whose first line is at least two
-// '-' and spaces only, with true in the first element, and with such a line
-// of '*', with true in the second. The items of lists that start on one line
-// share their first line, so one walk finds it for all of them.
-func (p *printer) breakLists() map[markdown.NodeID][2]bool {
+// prescan walks the tree once, before printing. It returns the lists with an
+// item whose first line is at least two '-' and spaces only, with true in the
+// first element, and with such a line of '*', with true in the second; and
+// the greatest number of structure nodes open at once, which sizes the
+// printer's stack. The items of lists that start on one line share their
+// first line, so one walk finds it for all of them.
+func (p *printer) prescan() (map[markdown.NodeID][2]bool, int) {
 	t := p.tree
 	breaks := map[markdown.NodeID][2]bool{}
+	open, depth := 0, 0
 	var lists []markdown.NodeID    // the open lists
 	var items [][2]markdown.NodeID // the open items before their first line, with their lists
 	c := t.Walk()
 	for e, ok := c.Next(); ok; e, ok = c.Next() {
 		k := t.Kind(e.ID)
+		switch {
+		case e.Exit:
+			open--
+		case !k.Leaf():
+			open++
+			depth = max(depth, open)
+		}
 		switch {
 		case e.Exit && k == markdown.List:
 			lists = lists[:len(lists)-1]
@@ -713,7 +777,7 @@ func (p *printer) breakLists() map[markdown.NodeID][2]bool {
 			items = items[:0]
 		}
 	}
-	return breaks
+	return breaks, depth
 }
 
 // sourceMarker returns the indentation, marker and padding of list item f of
@@ -944,11 +1008,11 @@ func (p *printer) titleQuotes(id markdown.NodeID) [2]byte {
 }
 
 // definitionLeaf prints leaf id of kind k, whose own columns start at column
-// start, in link reference definition f: the label as written, one space,
-// the destination as written, and one space and the title in f's quotes. The
-// whitespace and line endings between them are not written.
-func (p *printer) definitionLeaf(f *frame, id markdown.NodeID, k markdown.Kind, start int) {
-	switch f.def {
+// start, in the open link reference definition: the label as written, one
+// space, the destination as written, and one space and the title in its
+// quotes. The whitespace and line endings between them are not written.
+func (p *printer) definitionLeaf(id markdown.NodeID, k markdown.Kind, start int) {
+	switch p.def {
 	case defNone:
 	case defLabel:
 		switch k {
@@ -959,40 +1023,40 @@ func (p *printer) definitionLeaf(f *frame, id markdown.NodeID, k markdown.Kind, 
 		default:
 			p.content(id, start)
 			if k == markdown.Colon {
-				f.def = defDestination
+				p.def = defDestination
 			}
 		}
 	case defDestination:
 		if k == markdown.Whitespace || k == markdown.LineEnding || k == markdown.Indent {
 			return
 		}
-		if !f.spaced {
+		if !p.spaced {
 			p.write(spaces[:1])
-			f.spaced = true
+			p.spaced = true
 		}
 		p.indent = -1
 		p.content(id, start)
 		switch {
-		case k == markdown.AngleBracket && !f.angle:
-			f.angle = true
-		case k == markdown.AngleBracket, k == markdown.Destination && !f.angle:
-			f.def = defTitle
+		case k == markdown.AngleBracket && !p.defAngle:
+			p.defAngle = true
+		case k == markdown.AngleBracket, k == markdown.Destination && !p.defAngle:
+			p.def = defTitle
 		}
 	case defTitle:
 		if k == markdown.TitleQuote {
 			p.write(spaces[:1])
-			p.indent, p.replace = -1, f.quotes[:1]
+			p.indent, p.replace = -1, p.defQuotes[:1]
 			p.content(id, start)
-			f.def = defInTitle
+			p.def = defInTitle
 		}
 	case defInTitle:
 		switch k {
 		case markdown.VerbatimLineEnding:
 			p.endLine()
 		case markdown.TitleQuote:
-			p.indent, p.replace = -1, f.quotes[1:]
+			p.indent, p.replace = -1, p.defQuotes[1:]
 			p.content(id, start)
-			f.def = defEnd
+			p.def = defEnd
 		default:
 			p.indent = -1
 			p.content(id, start)
@@ -1150,38 +1214,39 @@ const (
 )
 
 // tailLeaf prints leaf id of kind k, whose own columns start at column
-// start, that is a child of inline link or image f: its text, and a tail of
-// the destination as written and one space and the title in f's quotes. The
-// whitespace, indentation and line endings between them are not written.
-func (p *printer) tailLeaf(f *frame, id markdown.NodeID, k markdown.Kind, start int) {
+// start, that is a child of the inline link or image in: its text, and a
+// tail of the destination as written and one space and the title in its
+// quotes. The whitespace, indentation and line endings between them are not
+// written.
+func (p *printer) tailLeaf(in *inlineFrame, id markdown.NodeID, k markdown.Kind, start int) {
 	skip := k == markdown.Whitespace || k == markdown.LineEnding || k == markdown.Indent
-	switch f.tail {
+	switch in.tail {
 	case tailNone:
 	case tailText:
 		p.content(id, start)
 		if k == markdown.Bracket {
-			f.brackets++
-			if f.brackets == 2 {
-				f.tail = tailOpen
+			in.brackets++
+			if in.brackets == 2 {
+				in.tail = tailOpen
 			}
 		}
 	case tailOpen:
 		p.content(id, start)
-		f.tail = tailDestination
+		in.tail = tailDestination
 	case tailDestination:
 		switch {
 		case skip:
 		case k == markdown.Paren:
 			p.indent = -1
 			p.content(id, start)
-			f.tail = tailEnd
+			in.tail = tailEnd
 		default:
 			p.indent = -1
 			p.content(id, start)
-			if k == markdown.AngleBracket && !f.angle {
-				f.angle = true
-			} else if k == markdown.Destination && !f.angle || k == markdown.AngleBracket {
-				f.tail = tailTitle
+			if k == markdown.AngleBracket && !in.angle {
+				in.angle = true
+			} else if k == markdown.Destination && !in.angle || k == markdown.AngleBracket {
+				in.tail = tailTitle
 			}
 		}
 	case tailTitle:
@@ -1189,9 +1254,9 @@ func (p *printer) tailLeaf(f *frame, id markdown.NodeID, k markdown.Kind, start 
 		case skip:
 		case k == markdown.TitleQuote:
 			p.write(spaces[:1])
-			p.indent, p.replace = -1, f.quotes[:1]
+			p.indent, p.replace = -1, in.quotes[:1]
 			p.content(id, start)
-			f.tail = tailInTitle
+			in.tail = tailInTitle
 		default:
 			// After a backslash that is not an escape, the parenthesis would
 			// be an escape.
@@ -1200,16 +1265,16 @@ func (p *printer) tailLeaf(f *frame, id markdown.NodeID, k markdown.Kind, start 
 			}
 			p.indent = -1
 			p.content(id, start)
-			f.tail = tailEnd
+			in.tail = tailEnd
 		}
 	case tailInTitle:
 		switch k {
 		case markdown.VerbatimLineEnding:
 			p.endLine()
 		case markdown.TitleQuote:
-			p.indent, p.replace = -1, f.quotes[1:]
+			p.indent, p.replace = -1, in.quotes[1:]
 			p.content(id, start)
-			f.tail = tailEnd
+			in.tail = tailEnd
 		default:
 			p.indent = -1
 			p.content(id, start)
@@ -1258,32 +1323,32 @@ func (p *printer) codeFence(id markdown.NodeID) ([]byte, bool) {
 }
 
 // codeLeaf prints leaf id of kind k, whose own columns start at column
-// start, in code block f: the info string of the opening fence line, and the
-// lines of code as their value.
-func (p *printer) codeLeaf(f *frame, id markdown.NodeID, k markdown.Kind, start int) {
+// start, in the open code block: the info string of the opening fence line,
+// and the lines of code as their value.
+func (p *printer) codeLeaf(id markdown.NodeID, k markdown.Kind, start int) {
 	switch {
-	case f.opening && k == markdown.InfoString:
+	case p.opening && k == markdown.InfoString:
 		p.indent = -1
-		if p.tree.Raw(id)[0] == f.fence[0] {
+		if p.tree.Raw(id)[0] == p.fence[0] {
 			// Without a space, the fence would take the info string's first
 			// characters.
 			p.write(spaces[:1])
 		}
 		p.content(id, start)
-	case f.opening && k == markdown.LineEnding:
-		f.opening = false
+	case p.opening && k == markdown.LineEnding:
+		p.opening = false
 		p.endLine()
-	case f.opening:
+	case p.opening:
 	case k == markdown.CodeText:
 		// The code's value leaves out the input's indentation.
 		p.indent = -1
 		p.content(id, start)
 	case k == markdown.VerbatimLineEnding:
-		f.lineOpen = false
+		p.lineOpen = false
 		p.endLine()
 	case k == markdown.FenceMarker:
 		// The input's closing fence line.
-		f.lineOpen = false
+		p.lineOpen = false
 	}
 }
 
@@ -1357,25 +1422,29 @@ func (p *printer) exit() {
 	if g.span {
 		p.inSpan--
 	}
-	if g.label {
-		p.inLabel--
+	if g.inline >= 0 {
+		if p.inlines[g.inline].label {
+			p.inLabel--
+		}
+		p.inlines = p.inlines[:g.inline]
 	}
 	if g.kind == markdown.Strikethrough {
 		p.inStrike--
 	}
 	switch {
-	case g.fence != nil:
+	case g.kind == markdown.CodeBlock && p.fence != nil:
 		// Close the code, also after a last line without a line ending.
-		if !p.lineStart || g.lineOpen {
+		if !p.lineStart || p.lineOpen {
 			p.endLine()
 		}
 		// A fence line is never lazy.
 		p.matched = p.prefixes
 		p.writePrefix(false)
-		p.write(g.fence)
+		p.write(p.fence)
 		p.lineStart = false
 		p.endLine()
 		p.span, p.blanks, p.lastLeaf, p.open, p.bracket = g.span, 0, g.kind, false, false
+		p.fence = nil
 	case g.kind == markdown.TableCell && p.table != nil:
 		c := &p.table.cells[len(p.table.cells)-1]
 		c.end = len(p.out)
@@ -1385,6 +1454,9 @@ func (p *printer) exit() {
 	case isLeafBlock(g.kind):
 		if p.table != nil {
 			p.printTable()
+		}
+		if g.kind == markdown.LinkReferenceDefinition {
+			p.def = defNone
 		}
 		if g.kind == markdown.Heading {
 			if p.head == headSingle && !p.headDone {
@@ -1398,7 +1470,7 @@ func (p *printer) exit() {
 		if !p.lineStart || !p.inputLine && (g.kind == markdown.CodeBlock || g.kind == markdown.HTMLBlock) {
 			p.endLine()
 		}
-		p.open = g.kind == markdown.CodeBlock && g.fences == 1 || g.kind == markdown.HTMLBlock && !t.HTMLBlockClosed(g.id)
+		p.open = g.kind == markdown.CodeBlock && p.fences == 1 || g.kind == markdown.HTMLBlock && !t.HTMLBlockClosed(g.id)
 		p.span, p.blanks, p.lastLeaf = g.span, 0, g.kind
 		p.bracket = g.kind == markdown.Paragraph && bytes.HasPrefix(bytes.TrimLeft(t.Raw(g.id), " \t"), []byte("["))
 	case g.kind == markdown.BlockQuote:
