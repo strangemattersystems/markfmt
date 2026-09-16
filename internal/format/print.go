@@ -593,7 +593,9 @@ func (p *printer) leaf(id markdown.NodeID, k markdown.Kind, start, end int) {
 			p.writePrefix(false)
 			p.trimSpaces(start)
 			p.write(lineFeed)
-			p.lastLeaf = markdown.BlankLine
+			// The blank line ends the paragraph of a block quote that it
+			// follows, so no gap line goes before the next block.
+			p.lastLeaf, p.quoteGap = markdown.BlankLine, false
 		default:
 			p.blanks++
 		}
