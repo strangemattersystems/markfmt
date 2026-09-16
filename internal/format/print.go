@@ -1034,6 +1034,13 @@ func (p *printer) indentAt(next markdown.NodeID, ok bool) int {
 	if !ok || t.Kind(next) != markdown.HTMLBlock && !lazy && !p.isSpan(next) {
 		return 0
 	}
+	if lazy {
+		// The list can print its first marker with less indentation than
+		// the input has, so a second format would read less (design 12).
+		// Its kept columns stay, and a marker line holds at least a marker
+		// and a space after its indentation.
+		return p.kept[next] - 2
+	}
 	leaf := next + 1
 	cols := t.SplitTab(leaf)
 	for _, c := range t.RestOfLine(leaf)[min(cols, 1):] {
