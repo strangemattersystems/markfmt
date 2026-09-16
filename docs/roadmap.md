@@ -405,11 +405,14 @@ files can stay as data, with their MIT notice.
   - [x] goreleaser, `-version` stamping, `release.yml`, the GHCR image, SBOMs
     and cosign signing, as hamnir has them. `task release-snapshot` builds
     every archive and both images (2026-09-16).
-  - [ ] Homebrew tap. hamnir has none, and the organization has no tap
-    repository: it needs one and a token for goreleaser.
-  - [ ] Before the first tag, the repository must be public: `gomod.proxy`
+  - [x] Homebrew tap. `strangemattersystems/homebrew-tap` holds the cask.
+    goreleaser pushes to it over SSH with a write deploy key of that
+    repository, whose private key is the `HOMEBREW_TAP_DEPLOY_KEY` secret of
+    this one. A prerelease tag publishes no cask (2026-09-17).
+  - [x] Before the first tag, the repository must be public: `gomod.proxy`
     and `task warm-proxy` read the module from proxy.golang.org, which cannot
-    fetch a private module.
+    fetch a private module. Public since 2026-09-17, after a gitleaks scan of
+    the whole history.
 - [ ] markfmt.com.
 
 ## Testing strategy

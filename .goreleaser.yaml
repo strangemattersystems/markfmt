@@ -68,6 +68,25 @@ release:
 gomod:
   proxy: true
 
+homebrew_casks:
+  - name: markfmt
+    repository:
+      owner: strangemattersystems
+      name: homebrew-tap
+      branch: main
+      git:
+        url: git@github.com:strangemattersystems/homebrew-tap.git
+        private_key: '{{ envOrDefault "HOMEBREW_TAP_DEPLOY_KEY" "" }}'
+    directory: Casks
+    homepage: https://markfmt.com
+    description: A fast, zero-config formatter that rewrites Markdown into one canonical style
+    license: MIT
+    # A prerelease tag publishes no cask.
+    skip_upload: auto
+    commit_author:
+      name: goreleaserbot
+      email: bot@goreleaser.com
+
 # Requires syft on PATH (installed in CI).
 sboms:
   - artifacts: archive
