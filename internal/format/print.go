@@ -835,7 +835,10 @@ func (p *printer) prescan() (map[markdown.NodeID][2]bool, int) {
 			// The printer writes a thematic break without the bullet.
 			items = items[:0]
 		default:
-			line := bytes.Trim(t.RestOfLine(e.ID), " \t")
+			// A hard break of spaces can print as a backslash, so the line is
+			// read without a last backslash, and a second format decides the
+			// same.
+			line := bytes.TrimSuffix(bytes.Trim(t.RestOfLine(e.ID), " \t"), []byte{'\\'})
 			dashes := len(bytes.Trim(line, "- \t")) == 0 && bytes.Count(line, []byte("-")) >= 2
 			stars := len(bytes.Trim(line, "* \t")) == 0 && bytes.Count(line, []byte("*")) >= 2
 			for _, item := range items {
