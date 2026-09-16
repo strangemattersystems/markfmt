@@ -408,7 +408,10 @@ files can stay as data, with their MIT notice.
   - [x] Homebrew tap. `strangemattersystems/homebrew-tap` holds the cask.
     goreleaser pushes to it over SSH with a write deploy key of that
     repository, whose private key is the `HOMEBREW_TAP_DEPLOY_KEY` secret of
-    this one. A prerelease tag publishes no cask (2026-09-17).
+    this one. A prerelease tag publishes no cask (2026-09-17). The binaries
+    are not notarized, so the cask removes the quarantine attribute on
+    install, which bypasses Gatekeeper's check; notarizing needs an Apple
+    Developer account and would replace the hook.
   - [x] Before the first tag, the repository must be public: `gomod.proxy`
     and `task warm-proxy` read the module from proxy.golang.org, which cannot
     fetch a private module. Public since 2026-09-17, after a gitleaks scan of

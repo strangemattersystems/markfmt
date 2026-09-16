@@ -86,6 +86,13 @@ homebrew_casks:
     commit_author:
       name: goreleaserbot
       email: bot@goreleaser.com
+    # The binary is not notarized, so macOS would block it on its first run.
+    hooks:
+      post:
+        install: |
+          if OS.mac?
+            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/markfmt"]
+          end
 
 # Requires syft on PATH (installed in CI).
 sboms:

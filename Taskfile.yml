@@ -96,12 +96,13 @@ tasks:
           echo "warm-proxy: waiting for proxy.golang.org to report $module@$tag"
           i=1
           while [ "$i" -le 8 ]; do
-            curl -sS -o /dev/null "https://proxy.golang.org/$module/@latest" || true
-            if curl -sS "https://proxy.golang.org/$module/@v/list" 2>/dev/null | grep -qx "$tag"; then
+            # Asking for the version itself makes the proxy fetch it; @latest
+            # never resolves to a prerelease.
+            if curl -fsS -o /dev/null "https://proxy.golang.org/$module/@v/$tag.info" 2>/dev/null; then
               echo "warm-proxy: proxy reports $tag (attempt $i)"
               exit 0
             fi
-            echo "warm-proxy: attempt $i/8 - $tag not in @v/list yet"
+            echo "warm-proxy: attempt $i/8 - $tag not on the proxy yet"
             if [ "$i" -lt 8 ]; then sleep 4; fi
             i=$((i + 1))
           done
