@@ -651,9 +651,11 @@ func (p *printer) leaf(id markdown.NodeID, k markdown.Kind, start, end int) {
 		p.content(id, start)
 	case k == markdown.LineEnding, k == markdown.VerbatimLineEnding:
 		p.endLine()
-	case k == markdown.Indent && (top.kind == markdown.Paragraph || top.kind == markdown.Heading || top.kind == markdown.ThematicBreak) && !p.written && p.inSpan == 0:
-		// Indentation before a paragraph, a heading or a thematic break is not
-		// meaning.
+	case k == markdown.Indent && (top.kind == markdown.Paragraph || top.kind == markdown.Heading ||
+		top.kind == markdown.ThematicBreak || top.kind == markdown.TableRow) && !p.written && p.inSpan == 0:
+		// Indentation before a paragraph, a heading, a thematic break or the
+		// first row of a table is not meaning. A table that prints as written
+		// would start indented code with it.
 		p.indent = -1
 	case (k == markdown.Indent || k == markdown.CodeIndent) && p.inSpan == 0:
 		// Indentation is its columns, whatever tabs it holds (design 4.3):
