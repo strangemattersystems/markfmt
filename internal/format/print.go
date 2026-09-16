@@ -23,9 +23,9 @@ type printer struct {
 	full bool // a write would have passed max, so out is incomplete
 
 	layout markdown.Layout
-	spans  []markdown.NodeID // the dialect spans that the walk has not passed
-	lazy   map[markdown.NodeID]bool
-	breaks map[markdown.NodeID][2]bool // the lists that breakLists finds
+	spans  []markdown.NodeID           // the dialect spans that the walk has not passed
+	lazy   map[markdown.NodeID]bool    // the list items that lazyItems finds
+	breaks map[markdown.NodeID][2]bool // the lists that prescan finds
 	stack  []frame                     // the open structure nodes, the document first
 
 	lineStart bool          // the output is at the start of a line
@@ -340,7 +340,8 @@ func (p *printer) enter(id markdown.NodeID, k markdown.Kind) {
 		}
 	}
 	if isInline(k) {
-		f.inline = int32(len(p.inlines))
+		// The input limit bounds the open inline nodes.
+		f.inline = int32(len(p.inlines)) //nolint:gosec // The conversion cannot overflow.
 		p.inlines = append(p.inlines, inlineFrame{})
 		in := &p.inlines[f.inline]
 		if (k == markdown.Link || k == markdown.Image) && (t.LinkForm(id) == markdown.CollapsedReference || t.LinkForm(id) == markdown.ShortcutReference) {
@@ -1067,11 +1068,9 @@ func (p *printer) definitionLeaf(id markdown.NodeID, k markdown.Kind, start int)
 
 // delimiter returns the delimiter of node id of kind k, which is emphasis,
 // strong emphasis or strikethrough: '_', "**" or "~~" (roadmap Decisions),
-// or nil to keep the input's. Emphasis keeps its input delimiters next to a
-// byte where '_' could flank differently from '*' (spec 6.2). A node keeps
-// its input delimiters when its content has a character of its delimiters,
-// so that a second format decides the same after nested nodes change, and
-// when its content starts with an autolink or "www.".
+// or nil to keep the input's. A node keeps its input delimiters wherever the
+// canonical delimiters could pair differently (spec 6.2), or could change a
+// construct that starts next to them. Each check below gives its reason.
 func (p *printer) delimiter(id markdown.NodeID, k markdown.Kind) []byte {
 	t := p.tree
 	raw, open := t.Raw(id), t.Raw(id+1)
@@ -1117,9 +1116,11 @@ func (p *printer) delimiter(id markdown.NodeID, k markdown.Kind) []byte {
 	}
 }
 
-// inText reports whether the innermost open paragraph, heading or table cell
-// has a text leaf with c, which is '*', '_', '~' or '<'. A delimiter could
-// pair with a run of c that is text, where the input's delimiter does not.
+// inText reports whether the last paragraph, heading or table cell that
+// started has a text leaf with c, which is '*', '_', '~' or '<'. A canonical
+// delimiter could pair with a run of c that is text, where the input's
+// delimiter does not, and '_' next to a '<' could start an attribute name of
+// a tag.
 func (p *printer) inText(c byte) bool {
 	t := p.tree
 	if scope := p.textBlock; scope != p.delimScope {
