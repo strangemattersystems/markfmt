@@ -147,6 +147,16 @@ func (f *frame) rest() []byte {
 	return spaces[:len(f.marker)]
 }
 
+// sign returns the first byte of the marker of container f after its
+// indentation, or 0. A list item that keeps its input marker starts it with
+// the item's indentation.
+func (f *frame) sign() byte {
+	if m := bytes.TrimLeft(f.marker, " "); len(m) > 0 {
+		return m[0]
+	}
+	return 0
+}
+
 // inlineFrame is the state of an open inline node: the delimiter of emphasis
 // or strikethrough, the bytes of a code span, and the part of an inline link
 // or image that prints, with the brackets of its text, whether its
@@ -784,8 +794,8 @@ func (p *printer) bullet(id markdown.NodeID, prev frame) byte {
 	if prev.children > 0 && prev.lastChild == markdown.List && !prev.listOrdered {
 		adjacent = prev.listBullet
 	}
-	if prev.kind == markdown.ListItem && !prev.started && len(prev.marker) > 0 {
-		line = prev.marker[0]
+	if prev.kind == markdown.ListItem && !prev.started {
+		line = prev.sign()
 	}
 	breaks := p.breaks[id]
 	switch {
@@ -1544,7 +1554,7 @@ func (p *printer) thematicRun() []byte {
 	}
 	for i := len(p.stack) - 1; i >= 0; i-- {
 		if f := &p.stack[i]; f.container {
-			if f.kind == markdown.ListItem && !f.started && f.marker[0] == '-' {
+			if f.kind == markdown.ListItem && !f.started && f.sign() == '-' {
 				return []byte("***")
 			}
 			break
