@@ -370,11 +370,8 @@ func (p *printer) enter(id markdown.NodeID, k markdown.Kind) {
 			p.inLabel++
 		}
 		if before, after := t.Around(id); k == markdown.CodeSpan && p.inSpan == 0 && p.inLabel == 0 &&
-			before != '$' && after != '$' && !p.afterLinkOpen(id) {
-			// A code span next to '$' is GitHub math (appendix B, trap 16). One
-			// where the destination of a link would start keeps its bytes: a
-			// destination holds no space, so the canonical value without its
-			// padding would make the link (spec 6.3).
+			before != '$' && after != '$' {
+			// A code span next to '$' is GitHub math (appendix B, trap 16).
 			in.code = p.codeSpan(id)
 		}
 		if (k == markdown.Link || k == markdown.Image) && t.LinkForm(id) == markdown.InlineLink && p.inSpan == 0 && p.inLabel == 0 {
@@ -1271,14 +1268,6 @@ func (p *printer) delimiter(id markdown.NodeID, k markdown.Kind) []byte {
 	}
 }
 
-// afterLinkOpen reports whether the text before node id ends with "](", where
-// the destination of an inline link starts.
-func (p *printer) afterLinkOpen(id markdown.NodeID) bool {
-	t := p.tree
-	prev := id - 1
-	return prev > 0 && t.Kind(prev).Leaf() && bytes.HasSuffix(t.Raw(prev), []byte("]("))
-}
-
 // inAutolinkWord reports whether the word before node id holds the start of
 // an extended autolink. The bytes of the node follow that word without a
 // space, so they can be part of it.
@@ -1355,9 +1344,11 @@ func flanksLikeSpace(c byte) bool {
 // codeSpan returns the bytes of code span id in the canonical style, or nil
 // to keep its input bytes when it spans lines or holds a cell pipe escape.
 // The fence is the shortest run of backticks that its value does not hold,
-// with a space inside each end when the value starts or ends with a
-// backtick, or starts and ends with a space and is not only spaces (spec 6.1,
-// appendix B, trap 9).
+// with a space inside each end when the input has one there, or the value
+// starts or ends with a backtick, or starts and ends with a space and is not
+// only spaces (spec 6.1, appendix B, trap 9). Padding the input has stays: a
+// space can keep the text around the code span from forming a link
+// destination or definition, which hold no space (spec 6.3, 4.7).
 func (p *printer) codeSpan(id markdown.NodeID) []byte {
 	t := p.tree
 	end, _ := t.Next(id)
@@ -1371,8 +1362,8 @@ func (p *printer) codeSpan(id markdown.NodeID) []byte {
 			return nil
 		}
 	}
-	allSpaces := len(bytes.Trim(value, " ")) == 0
-	if len(value) >= 2 && value[0] == ' ' && value[len(value)-1] == ' ' && !allSpaces {
+	padded := len(value) >= 2 && value[0] == ' ' && value[len(value)-1] == ' ' && len(bytes.Trim(value, " ")) > 0
+	if padded {
 		value = value[1 : len(value)-1]
 	}
 	runs := make(map[int]bool)
@@ -1390,7 +1381,7 @@ func (p *printer) codeSpan(id markdown.NodeID) []byte {
 	}
 	fence := bytes.Repeat([]byte{'`'}, n)
 	out := append([]byte(nil), fence...)
-	pad := len(value) > 0 && (value[0] == '`' || value[len(value)-1] == '`' ||
+	pad := padded || len(value) > 0 && (value[0] == '`' || value[len(value)-1] == '`' ||
 		value[0] == ' ' && value[len(value)-1] == ' ' && len(bytes.Trim(value, " ")) > 0)
 	if pad {
 		out = append(out, ' ')
