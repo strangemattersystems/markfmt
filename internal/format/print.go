@@ -1674,6 +1674,21 @@ func (p *printer) exit() {
 		p.trimSpaces(start)
 		p.write(lineFeed)
 	}
+	quoteBlanks := false
+	next, ok := t.Next(f.id)
+	for ok && (t.Kind(next) == markdown.BlankLine || isPrefix(t.Kind(next))) {
+		next, ok = t.Next(next)
+	}
+	if f.kind == markdown.BlockQuote && p.blanks > 0 && ok && p.isSpan(next) {
+		// The blank lines before a dialect span are kept syntax (design 12).
+		// These are the quote's, so they stay in it: after the quote they
+		// would be blank lines of its parent, which can make a list loose.
+		for range p.blanks {
+			p.writePrefix(true)
+			p.write(lineFeed)
+		}
+		p.blanks, quoteBlanks = 0, true
+	}
 	g := *f
 	p.stack = p.stack[:len(p.stack)-1]
 	if g.span {
@@ -1736,7 +1751,7 @@ func (p *printer) exit() {
 		p.bracket = g.kind == markdown.Paragraph && bytes.HasPrefix(bytes.TrimLeft(t.Raw(g.id), " \t"), []byte("["))
 	case g.kind == markdown.BlockQuote:
 		p.open, p.span = false, p.span || g.span
-		p.quoteGap, p.quoteParent = p.lastLeaf == markdown.Paragraph, len(p.stack)-1
+		p.quoteGap, p.quoteParent = p.lastLeaf == markdown.Paragraph && !quoteBlanks, len(p.stack)-1
 	case g.kind == markdown.List:
 		p.span = p.span || g.span
 		parent := &p.stack[len(p.stack)-1]
