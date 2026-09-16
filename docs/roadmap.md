@@ -161,6 +161,7 @@ Layout:
 | A code span has the shortest fence that its value does not hold, and one space of padding only where the value needs it | Prettier chooses the shortest run that the content does not hold (`print/mdast.js`). A code span over lines or with a cell pipe escape keeps its bytes. |
 | An inline link has no whitespace or line break in its parentheses, and one space before its title | The title uses the quotes of a definition title. The destination keeps its bytes and angle brackets. |
 | The printer keeps each NUL and invalid UTF-8 byte | cmark writes an invalid byte in a destination as `%A6`, where markfmt's value is U+FFFD, so `Equal` cannot see the byte. `Kept` checks it (design 12). |
+| Tab expansion is bounded: at most 2.86 bytes of output per input byte | The printer writes structural indentation as spaces, and tab-indented code in a block quote or a list item as a fenced block (design appendix B, trap 20). It is the largest output-to-input ratio of the corpora and the cases, which `TestFormatSource` reports. An input of such lines near the 8 MiB input limit passes the 16 MiB output limit, and `Format` returns an error instead of output. |
 | One blank line between blocks, one final newline, line breaks as written | Prettier (`proseWrap: "preserve"`), dprint (`TextWrap::Maintain`), mdformat (`wrap: keep`). markdownlint MD012 and MD047 agree. |
 
 ## Open decisions

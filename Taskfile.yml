@@ -42,7 +42,7 @@ tasks:
     env:
       MARKFMT_LONG: "1"
     cmds:
-      - go test -count=1 -timeout=60m -v -run='^TestParse$/^long$|^TestMaxrssBytes$' ./internal/markdown
+      - go test -count=1 -timeout=60m -v -run='^TestParse$/^long$|^TestFormatSource$/^long$|^TestMaxrssBytes$' ./internal/markdown
 
   lint:
     desc: Run golangci-lint

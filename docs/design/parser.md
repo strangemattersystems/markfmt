@@ -690,14 +690,17 @@ Pass 1 arrives in stage 3, with reference links.
 ### 7.2 Limits
 
 `Format` holds, at peak: the input, the input tree, the pass 1 lists, pending
-records and the inline scratch buffer of the largest block, the output, and the
-output tree. Worst sustained density is 2 nodes per byte (32 bytes of nodes
-per input byte); append growth keeps up to 1.8 × the largest array live; the
-collector allows up to 2 × live heap.
+records and the inline scratch buffer of the largest block, the output, the
+output tree, and the printer's stack of open structure nodes. Worst sustained
+density is 2 nodes per byte (32 bytes of nodes per input byte); append growth
+keeps up to 1.8 × the largest array live; the collector allows up to 2 × live
+heap. A printer frame is 80 bytes, and block quotes nested on one line open
+one node per input byte, so the printer sizes its stack from the tree's depth
+in one pre-pass and holds only what a node's own kind needs.
 
 | Limit | Value | Reason |
 | --- | --- | --- |
-| Input | 8 MiB | Worst case about 3 to 3.6 GiB peak; real documents about 120 to 140 MiB. |
+| Input | 8 MiB | Worst case 3.85 GiB peak, measured at stage 6 for block quotes nested on one line; real documents about 120 to 140 MiB. |
 | Output | 16 MiB, absolute | The printer writes into a writer that fails at the limit, so it never builds more. Appendix B bounds each expanding rule, so real files stay far below it. |
 
 Both limits are constants, not options. `Format` returns an error above
@@ -1032,6 +1035,7 @@ adds its set of `Dialect(row)` values to its Enter event. `Equal` requires:
 | `FuzzParse` | No panic. `Verify` passes. Printing leaves gives the input. |
 | Builder checks | Always on. `close()` closes the innermost open node, so mis-nesting cannot be written. |
 | `TestParse` subtest `"pathological"` | Each input of section 6.8 at size n and 10n, where the 10n run takes at least 50 ms. Best of 3. Fails at a ratio above 30. `TestParse` does not call `t.Parallel`, with one comment that gives the reason (timing). |
+| `TestFormatSource` subtests `"pathological"` and `"long"` | The same two tests for `format.Source`, over the inputs of section 6.8, tab-indented code in list items, and the inputs that deep nesting makes slow in the printer. A builder that passes the input limit is called again with a smaller size, because a cut input is a different input. The long subtest fails above a time ratio of 30, or above the 4 GiB budget of section 7.2. |
 | `TestParse` subtest `"long"` | Each input of section 6.8 runs in a child process (the test binary with `-test.run` and an environment variable), at a tenth of the input limit and at the limit. The child builds the input, then times only `Parse`, `Verify` and `Equal` of the tree with itself, best of 3, and reports the times and `len(nodes)` on stdout. The parent fails the input when: the time ratio between the two sizes is above 30; or the time at the limit is above 20 × (bytes × tb + nodes × tn), where tb is prose time per byte and tn is time per node of `>a` lines, both calibrated in the same run (this catches a linear path with a large constant, such as nested label normalization, whatever its node count); or its peak memory is above the bound (at stage 2, 2 GiB: half the 4 GiB `Format` budget, because `Format` parses two trees; from stage 6, the 4 GiB `Format` budget). Peak memory is `Maxrss` from `ProcessState.SysUsage`, converted by `maxrssBytes` (KiB on Linux, bytes on darwin; unit tested with a child that touches a known size), minus the `Maxrss` of a child that runs the same path on an empty input. `TotalAlloc` is not used: `append` growth allocates about 5 times an array's final size. Skipped under the race detector (a `//go:build race` constant in `race_test.go`) and unless `MARKFMT_LONG=1`. Runs as `task long`, without `-race`, in the ubuntu CI job. |
 
 ### 11.2 Conformance
@@ -1574,8 +1578,13 @@ Local reports (not tracked), 2026-09-12:
   long test revised to a two-term time bound, `Maxrss` per OS and timing inside
   the child, then confirmed; `FuzzEqual` preconditions replaced by pairs
   checked against test HTML and `FuzzFormat` with the test HTML as oracle.
-- Open, not blocking: a bound on tab-to-space expansion for inputs near the
-  input limit (stage 6 printer design).
+- Closed at stage 6: the bound on tab-to-space expansion. Tab-indented code
+  in a container prints as a fenced block with its indentation in spaces,
+  which is the largest output-to-input ratio of the corpora and the cases,
+  2.86: `>`, two tabs and `foo` is 7 bytes, and its output is 20. An input of
+  such lines near the input limit passes the 16 MiB output limit, and
+  `Format` returns an error: in the long test, 8 MiB gives "output is larger
+  than 16777216 bytes" (appendix B, trap 20).
 
 ## Appendix A. Kinds
 
@@ -1672,7 +1681,11 @@ design, not parser gates.
     under CommonMark.
 20. Tabs: a tab inside code content is content and stays. Structural
     indentation is written from the printer's canonical prefix, whatever tabs
-    the source used. `virt` adds at most 3 spaces per line.
+    the source used. `virt` adds at most 3 spaces per line. Tab-indented code
+    in a block quote or a list item prints as a fenced block with its
+    indentation in spaces, at most 2.86 bytes of output per input byte. An
+    input of such lines near the input limit passes the output limit, and
+    `Format` returns an error (section 7.2).
 21. A printed line starts at most 99 blocks, unless a dialect span keeps the
     line. So a footnote definition stays a definition (section 9.2), and no
     printed line of list items becomes a `dialect.md` span. A container whose
