@@ -356,8 +356,12 @@ func (p *printer) enter(id markdown.NodeID, k markdown.Kind) {
 			in.label = true
 			p.inLabel++
 		}
-		if before, after := t.Around(id); k == markdown.CodeSpan && p.inSpan == 0 && p.inLabel == 0 && before != '$' && after != '$' {
-			// A code span next to '$' is GitHub math (appendix B, trap 16).
+		if before, after := t.Around(id); k == markdown.CodeSpan && p.inSpan == 0 && p.inLabel == 0 &&
+			before != '$' && after != '$' && !p.afterLinkOpen(id) {
+			// A code span next to '$' is GitHub math (appendix B, trap 16). One
+			// where the destination of a link would start keeps its bytes: a
+			// destination holds no space, so the canonical value without its
+			// padding would make the link (spec 6.3).
 			in.code = p.codeSpan(id)
 		}
 		if (k == markdown.Link || k == markdown.Image) && t.LinkForm(id) == markdown.InlineLink && p.inSpan == 0 && p.inLabel == 0 {
@@ -1214,6 +1218,14 @@ func (p *printer) delimiter(id markdown.NodeID, k markdown.Kind) []byte {
 		}
 		return []byte("~~")
 	}
+}
+
+// afterLinkOpen reports whether the text before node id ends with "](", where
+// the destination of an inline link starts.
+func (p *printer) afterLinkOpen(id markdown.NodeID) bool {
+	t := p.tree
+	prev := id - 1
+	return prev > 0 && t.Kind(prev).Leaf() && bytes.HasSuffix(t.Raw(prev), []byte("]("))
 }
 
 // inAutolinkWord reports whether the word before node id holds the start of
