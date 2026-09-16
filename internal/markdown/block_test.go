@@ -87,6 +87,44 @@ func TestTree_ItemIndent(t *testing.T) {
 	}
 }
 
+func TestLayout_ItemIndentOf(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		src  string
+		want []int
+	}{
+		{"gives the columns of each open item from its own start", "- a\n  - b\n", []int{2, 2}},
+		{"gives the indentation, the marker and the padding of an item", " 10.  a\n      - b\n", []int{6, 2}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			tree := Parse([]byte(tt.src))
+			layout, open := tree.Layout(), []NodeID(nil)
+			c := tree.Walk()
+			for e, ok := c.Next(); ok; e, ok = c.Next() {
+				if e.Exit {
+					continue
+				}
+				if tree.Kind(e.ID) == ListItem {
+					open = append(open, e.ID)
+				}
+				layout.Visit(e.ID)
+			}
+			var got []int
+			for _, item := range open {
+				got = append(got, layout.ItemIndentOf(item))
+			}
+			if !slices.Equal(got, tt.want) {
+				t.Fatalf("ItemIndentOf of %q = %v, want %v", tt.src, got, tt.want)
+			}
+		})
+	}
+}
+
 // matchedLines returns, for each paragraph continuation line of src in
 // order, the containers that the parser matched and the containers that a
 // [containerWalk] counts. For each line that starts or continues a

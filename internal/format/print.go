@@ -25,6 +25,7 @@ type printer struct {
 	layout markdown.Layout
 	spans  []markdown.NodeID           // the dialect spans that the walk has not passed
 	lazy   map[markdown.NodeID]bool    // the list items that lazyItems finds
+	kept   map[markdown.NodeID]int     // the columns that the kept markers of a list need
 	breaks map[markdown.NodeID][2]bool // the lists that prescan finds
 	stack  []frame                     // the open structure nodes, the document first
 
@@ -221,7 +222,7 @@ func (p *printer) document() {
 	t := p.tree
 	p.layout, p.spans = t.Layout(), t.DialectSpans()
 	var depth int
-	p.lazy = p.lazyItems()
+	p.lazy, p.kept = p.lazyItems()
 	p.breaks, depth = p.prescan()
 	p.stack = make([]frame, 0, depth)
 	p.lineStart, p.inputLine, p.indent = true, true, -1
@@ -299,8 +300,10 @@ func (p *printer) enter(id markdown.NodeID, k markdown.Kind) {
 		if !f.ordered {
 			f.bullet = p.bullet(id, prev)
 		}
-		// The block after the list must not continue its last item.
-		f.minIndent = p.indentAfter(id) + 1
+		// The block after the list must not continue its last item, and an
+		// item that keeps the columns of its input marker sets where the
+		// content of every item of the list starts.
+		f.minIndent = max(p.indentAfter(id)+1, p.kept[id])
 	}
 	if isLeafBlock(k) {
 		p.written, p.leafKind = false, k
@@ -872,23 +875,30 @@ func (p *printer) sourceMarker(f *frame, id markdown.NodeID, start int) []byte {
 }
 
 // lazyItems returns the list items that are the first container that a line
-// of a dialect span does not match.
-func (p *printer) lazyItems() map[markdown.NodeID]bool {
+// of a dialect span does not match, and for each of their lists the greatest
+// columns that such an item continues on: it keeps the columns of its input
+// marker, so the other items of the list must not start their content before
+// them.
+func (p *printer) lazyItems() (map[markdown.NodeID]bool, map[markdown.NodeID]int) {
 	t := p.tree
 	if len(p.spans) == 0 {
-		return nil
+		return nil, nil
 	}
-	items := map[markdown.NodeID]bool{}
+	items, kept := map[markdown.NodeID]bool{}, map[markdown.NodeID]int{}
 	layout, spans := t.Layout(), p.spans
-	var open, inSpan []markdown.NodeID
+	var lists, open, inSpan []markdown.NodeID
+	var itemLists []markdown.NodeID // the list of each open item, 0 for a node that is not one
 	lineStart := true
 	c := t.Walk()
 	for e, ok := c.Next(); ok; e, ok = c.Next() {
 		k := t.Kind(e.ID)
 		switch {
 		case e.Exit:
+			if len(lists) > 0 && lists[len(lists)-1] == e.ID {
+				lists = lists[:len(lists)-1]
+			}
 			if len(open) > 0 && open[len(open)-1] == e.ID {
-				open = open[:len(open)-1]
+				open, itemLists = open[:len(open)-1], itemLists[:len(itemLists)-1]
 			}
 			if len(inSpan) > 0 && inSpan[len(inSpan)-1] == e.ID {
 				inSpan = inSpan[:len(inSpan)-1]
@@ -897,15 +907,25 @@ func (p *printer) lazyItems() map[markdown.NodeID]bool {
 		case k.Leaf():
 			if lineStart && len(inSpan) > 0 {
 				if matched, _ := layout.Matched(e.ID); matched < len(open) && t.Kind(open[matched]) == markdown.ListItem {
-					items[open[matched]] = true
+					item := open[matched]
+					items[item] = true
+					list := itemLists[matched]
+					kept[list] = max(kept[list], layout.ItemIndentOf(item))
 				}
 			}
 			layout.Visit(e.ID)
 			raw := t.Raw(e.ID)
 			lineStart = raw[len(raw)-1] == '\n' || raw[len(raw)-1] == '\r'
 			continue
+		case k == markdown.List:
+			lists = append(lists, e.ID)
 		case k == markdown.BlockQuote || k == markdown.ListItem || k == markdown.FootnoteDefinition:
-			open = append(open, e.ID)
+			// Only a list item reads its list, and every list item is in one.
+			var list markdown.NodeID
+			if k == markdown.ListItem {
+				list = lists[len(lists)-1]
+			}
+			open, itemLists = append(open, e.ID), append(itemLists, list)
 		}
 		layout.Visit(e.ID)
 		for len(spans) > 0 && spans[0] < e.ID {
@@ -915,7 +935,7 @@ func (p *printer) lazyItems() map[markdown.NodeID]bool {
 			inSpan = append(inSpan, e.ID)
 		}
 	}
-	return items
+	return items, kept
 }
 
 // isSpan reports whether node id, which the walk has not passed, is a

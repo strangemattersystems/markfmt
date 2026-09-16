@@ -714,6 +714,18 @@ func (l *Layout) ItemIndent() int {
 	return l.w.chain[len(l.w.chain)-1].indent
 }
 
+// ItemIndentOf returns the columns that the open list item id continues on,
+// counted from its own first column: its indentation, marker and padding
+// (design 5.5). The item must be one that Visit entered and has not left.
+func (l *Layout) ItemIndentOf(id NodeID) int {
+	for _, c := range l.w.chain {
+		if c.id == uint32(id) {
+			return c.indent
+		}
+	}
+	return 0
+}
+
 // Matched returns how many of the open block quotes, list items and footnote
 // definitions the line whose first leaf is node id matched, and the column
 // where the prefixes of the line's containers end. Call it before visiting
