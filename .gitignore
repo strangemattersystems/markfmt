@@ -6,3 +6,6 @@
 
 # local research and review notes
 /.scratch/
+
+# goreleaser dist directory
+/dist/

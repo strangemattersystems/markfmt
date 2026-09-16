@@ -388,6 +388,14 @@ files can stay as data, with their MIT notice.
   vendored code. Concurrent work is limited by input bytes.
 - [ ] Release setup: goreleaser, version stamping, `release.yml`, Homebrew
   tap. Follow hamnir's conventions.
+  - [x] goreleaser, `-version` stamping, `release.yml`, the GHCR image, SBOMs
+    and cosign signing, as hamnir has them. `task release-snapshot` builds
+    every archive and both images (2026-09-16).
+  - [ ] Homebrew tap. hamnir has none, and the organization has no tap
+    repository: it needs one and a token for goreleaser.
+  - [ ] Before the first tag, the repository must be public: `gomod.proxy`
+    and `task warm-proxy` read the module from proxy.golang.org, which cannot
+    fetch a private module.
 - [ ] markfmt.com.
 
 ## Testing strategy

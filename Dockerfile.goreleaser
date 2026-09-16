@@ -1,0 +1,11 @@
+FROM gcr.io/distroless/static-debian12:nonroot@sha256:afa5c872c891853ca7fcf1f12c3edb23f7eeef36189728842dd51042ff57f7ab
+
+ARG TARGETPLATFORM
+
+WORKDIR /work
+
+# goreleaser lays out the build context with per-platform subdirs
+# (linux/amd64/, linux/arm64/), selected here via $TARGETPLATFORM.
+COPY $TARGETPLATFORM/markfmt /usr/local/bin/markfmt
+
+ENTRYPOINT ["markfmt"]

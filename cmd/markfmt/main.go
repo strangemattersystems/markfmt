@@ -3,6 +3,7 @@
 // Usage:
 //
 //	markfmt [-check] [path ...]
+//	markfmt -version
 //
 // Markfmt rewrites each path in place. A directory path gives each file below
 // it with the extension .md or .markdown, outside directories named testdata,
@@ -29,9 +30,22 @@ import (
 	"github.com/strangemattersystems/markfmt/internal/format"
 )
 
+// The release build sets these with -ldflags -X.
+var (
+	version  = "0.0.0-dev"
+	revision = "unknown"
+	date     = "unknown"
+)
+
 func main() {
 	check := flag.Bool("check", false, "print unformatted inputs and exit with status 1; rewrite nothing")
+	printVersion := flag.Bool("version", false, "print the version and exit")
 	flag.Parse()
+
+	if *printVersion {
+		fmt.Printf("markfmt %s (revision %s, built %s)\n", version, revision, date)
+		return
+	}
 
 	paths := flag.Args()
 	if len(paths) == 0 {
