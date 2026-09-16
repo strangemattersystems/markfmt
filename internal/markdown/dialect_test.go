@@ -21,6 +21,7 @@ func TestTree_DialectSpans(t *testing.T) {
 		{"finds an html block named search and the paragraph it interrupts", "a\n<search>\n*b*", []string{"Paragraph 0", "HTMLBlock 0"}},
 		{"finds the paragraph of a block quote that an html block named search closes", "> a\n<SEARCH class=x>", []string{"Paragraph 0", "HTMLBlock 0"}},
 		{"finds an html block named search after a blank line alone", "a\n\n</search>", []string{"HTMLBlock 0"}},
+		{"finds an html block named search alone after a container that its line opens", "- a\n- <search>\n\nb\n> <search>", []string{"HTMLBlock 0", "HTMLBlock 0"}},
 		{"finds no span for other html blocks", "a\n<searches>\n\n<div>", nil},
 		{"finds a paragraph line that starts with a source tag", "a\n<source src=x", []string{"Paragraph 1"}},
 		{"finds a table row that starts with a source tag", "| a |\n| - |\n</SOURCE", []string{"Table 1"}},

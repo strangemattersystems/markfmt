@@ -289,10 +289,11 @@ func (f *spanFinder) afterDefinition(id uint32) {
 
 // addInterrupted adds HTML block id to row, with the paragraph or the table
 // that the block's first line closes, in any container. GitHub can continue
-// that block on the line.
+// that block on the line, unless the line opens a container, which closes it
+// in both readings.
 func (f *spanFinder) addInterrupted(id uint32, row dialectRow) {
 	f.add(id, row)
-	if f.t.nodes[f.last].kind != LineEnding {
+	if f.t.nodes[f.last].kind != LineEnding || f.opened > 0 {
 		return
 	}
 	switch f.t.nodes[f.parent].kind {
