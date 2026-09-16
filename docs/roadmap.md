@@ -152,7 +152,7 @@ Layout:
 | List item content indented by the marker width plus 1 | Prettier, dprint, mdformat, markdownlint (MD030). Google indents 4 columns. |
 | Escapes and entity references as written. The printer adds and removes none | Prettier and dprint keep them; mdformat decodes them. The printer uses indentation and syntax choices where the others add escapes, so `Kept` stays exact (design 12). The user chose this over added escapes, 2026-09-13. |
 | No byte order mark in the output | A BOM is not meaning: cmark and GitHub strip it (design 4.1), and UTF-8 needs no byte order. |
-| No blank line between adjacent link reference definitions | Prettier writes them this way (`print/children.js`). A blank line between them is not meaning. |
+| No blank line between adjacent link reference definitions, except in a loose list item | Prettier writes them this way (`print/children.js`). A blank line between them is not meaning, except between the children of a list item, where it can make the list loose (spec 5.3). |
 | A table stays directly below a paragraph that it split off when the paragraph starts with `[` | After a blank line, the paragraph would start with a link reference definition (design 5.4). Other paragraphs get a blank line before the table. |
 | Task boxes `[ ]` and `[x]`, with one space after them | GitHub reads `x` and `X` as checked, and its docs write `[x]`. |
 | A list item's content starts on its marker line, unless the content starts with columns that padding would take | Padding takes up to 4 columns, so such content keeps a blank first line (spec 5.2). A block quote writes its content on its marker line. |

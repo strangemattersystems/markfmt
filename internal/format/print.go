@@ -448,7 +448,9 @@ func (p *printer) separate(parent int, id markdown.NodeID, k markdown.Kind, span
 		case (f.kind == markdown.List || f.kind == markdown.ListItem) && f.tight:
 			// A blank line would make the list loose.
 			n = 0
-		case k == markdown.LinkReferenceDefinition && f.lastChild == markdown.LinkReferenceDefinition:
+		case k == markdown.LinkReferenceDefinition && f.lastChild == markdown.LinkReferenceDefinition && f.kind != markdown.ListItem:
+			// In a loose list item, the blank line can be what makes the list
+			// loose (spec 5.3).
 			n = 0
 		}
 		if n == 0 && p.quoteGap && p.quoteParent == parent && !markdown.InterruptsParagraph(p.firstLine(id), true) {
