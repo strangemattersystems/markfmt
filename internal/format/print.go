@@ -564,9 +564,9 @@ func (p *printer) leaf(id markdown.NodeID, k markdown.Kind, start, end int) {
 		}
 	case k == markdown.BlankLine:
 		switch {
-		case top.container && top.children == 0:
-			// A blank line before the first block of a container is the rest
-			// of its marker line, or a blank line at its start.
+		case top.container && top.children == 0 && !top.blankFirst:
+			// The first blank line of a container is the rest of its marker
+			// line, or a blank line at its start.
 			top.blankFirst = true
 		case p.inSpan > 0:
 			// A blank line of a dialect span is kept syntax (design 12), with
