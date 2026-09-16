@@ -428,7 +428,12 @@ func (r *spanReader) read() []byte {
 		}
 		m := r.t.nodes[r.i]
 		r.i++
-		if _, prefix := m.kind.owner(); prefix || m.kind == CodeIndent || m.kind.class() == classStructure {
+		if _, prefix := m.kind.owner(); prefix || m.kind.class() == classStructure {
+			continue
+		}
+		if m.kind == CodeIndent {
+			// The line holds content, so the end of the input ends it.
+			r.last, r.started = ' ', true
 			continue
 		}
 		r.b = r.t.src[m.start:m.end]
