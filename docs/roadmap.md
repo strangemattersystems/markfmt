@@ -39,7 +39,7 @@ section numbers are cited below as "design 5.4".
 
 ## Current state
 
-Last updated: 2026-09-16. Everything up to `63ed170` is pushed.
+Last updated: 2026-09-16. Everything up to `bbeb624` is pushed.
 
 | Commit | Content |
 | --- | --- |
@@ -353,19 +353,27 @@ fixture yet.
 
 ### Stage 6: printers on the new tree
 
-- [ ] Settle the canonical style. See Open decisions.
-- [ ] A printer for every node kind, meeting design 12: facts through
+- [x] Settle the canonical style. See Open decisions.
+- [x] A printer for every node kind, meeting design 12: facts through
   accessors, kept syntax and `Kept`, size decisions on canonical measures, and
   the output limit.
 - [x] Dialect predicates and spans in `Equal` (design 10.4).
 - [ ] `FuzzFormat`: no check mismatch on any input, and equal test HTML for
   input and output (design 10.5).
-- [ ] Move `internal/format` to the new parser and delete the goldmark-based
+- [x] Move `internal/format` to the new parser and delete the goldmark-based
   code. Keep `testdata/cases` and make every case pass.
 
 Gates: `testdata/cases` pass. Fuzzing shows idempotence and no check mismatch.
 Math and alert fixtures pass as printer cases. `go list -deps ./cmd/markfmt`
 lists no goldmark package.
+
+All gates pass except the fuzzing gate. `FuzzFormat` still finds a failure
+within about 15 seconds on adversarial input, and each is a distinct small
+bug. On 10,296 real Markdown files on the user's machine (module caches and
+repositories), markfmt gave no error and no unstable output (2026-09-16). The
+user chose on 2026-09-16 to go on to stages 7 and 8 and to come back to the
+fuzzing gate after them. The real-file check formats each file twice and
+compares the two outputs.
 
 ### Stage 7: remove goldmark
 
