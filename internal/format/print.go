@@ -440,7 +440,7 @@ func (p *printer) separate(parent int, id markdown.NodeID, k markdown.Kind, span
 			if markdown.InterruptsParagraph(p.firstLine(id), false) {
 				p.pad = 4
 			}
-		case k == markdown.Paragraph && p.lazyFirst(id):
+		case (k == markdown.Paragraph || k == markdown.LinkReferenceDefinition) && p.lazyFirst(id):
 			// A blank line would end the lazy line's continuation, and the
 			// containers that it does not match would end with it (appendix
 			// B, trap 2).
