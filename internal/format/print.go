@@ -313,7 +313,7 @@ func (p *printer) enter(id markdown.NodeID, k markdown.Kind) {
 	if k == markdown.Paragraph || k == markdown.Heading || k == markdown.TableCell {
 		p.textBlock = id
 	}
-	if k == markdown.Table && p.inSpan == 0 && !p.spanInside(id) {
+	if k == markdown.Table && p.inSpan == 0 && !p.spanInside(id) && !p.oddSpace(id) {
 		// Padding and pipes would change the bytes of a dialect span in a
 		// cell, so such a table prints as written.
 		p.table = &table{start: len(p.out)}
@@ -893,6 +893,21 @@ func (p *printer) lazyItems() map[markdown.NodeID]bool {
 func (p *printer) isSpan(id markdown.NodeID) bool {
 	_, ok := slices.BinarySearch(p.spans, id)
 	return ok
+}
+
+// oddSpace reports whether a whitespace leaf of table id holds a byte that is
+// not a space or a tab. A canonical table writes its own spaces, so it would
+// drop a vertical tab or a form feed, which GitHub reads as a character of a
+// label or a destination (dialect.md).
+func (p *printer) oddSpace(id markdown.NodeID) bool {
+	t := p.tree
+	end, _ := t.Next(id)
+	for i := id + 1; i < end; i++ {
+		if t.Kind(i) == markdown.Whitespace && len(bytes.Trim(t.Raw(i), " \t")) > 0 {
+			return true
+		}
+	}
+	return false
 }
 
 // spanInside reports whether a dialect span is inside node id, which the walk
