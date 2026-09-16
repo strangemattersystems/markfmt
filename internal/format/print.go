@@ -36,6 +36,7 @@ type printer struct {
 	inSpan    int           // the open dialect spans
 	inLabel   int           // the open collapsed and shortcut references, whose text is their label
 	inStrike  int           // the open strikethrough nodes
+	inUnder   int           // the open emphasis nodes that print with '_'
 	written   bool          // the last leaf block that started has written content
 	leafKind  markdown.Kind // the kind of the last leaf block that started
 	prefixes  int           // the open containers of the last leaf block that started
@@ -158,6 +159,7 @@ type inlineFrame struct {
 	brackets int
 	label    bool
 	angle    bool
+	under    bool // emphasis that prints with '_'
 	quotes   [2]byte
 }
 
@@ -366,6 +368,15 @@ func (p *printer) enter(id markdown.NodeID, k markdown.Kind) {
 		}
 		if k == markdown.Strikethrough {
 			p.inStrike++
+		}
+		if k == markdown.Emphasis {
+			opener := in.delim
+			if opener == nil {
+				opener = t.Raw(id + 1)
+			}
+			if in.under = len(opener) > 0 && opener[0] == '_'; in.under {
+				p.inUnder++
+			}
 		}
 	}
 	if k == markdown.LinkReferenceDefinition && p.inSpan == 0 {
@@ -1168,6 +1179,12 @@ func (p *printer) delimiter(id markdown.NodeID, k markdown.Kind) []byte {
 		if bytes.ContainsAny(content, "*_") || !flanksLikeSpace(before) || !flanksLikeSpace(after) || p.inText('_') || p.inText('<') {
 			return nil
 		}
+		if p.inUnder > 0 && (!spaceLike(before) || !spaceLike(after)) {
+			// Inside emphasis that prints with '_', a '_' run that
+			// punctuation flanks can open and close, so it could pair with
+			// the runs around it (spec 6.2).
+			return nil
+		}
 		return []byte{'_'}
 	case markdown.Strong:
 		// Next to '*' or '_', which can be the unused part of a delimiter run
@@ -1205,6 +1222,16 @@ func (p *printer) inText(c byte) bool {
 		}
 	}
 	return p.delimText[strings.IndexByte("*_~<", c)]
+}
+
+// spaceLike reports whether c, the byte next to an emphasis delimiter, is
+// the start or the end of the input, a space, a tab or a line ending.
+func spaceLike(c byte) bool {
+	switch c {
+	case 0, ' ', '\t', '\n', '\r':
+		return true
+	}
+	return false
 }
 
 // flanksLikeSpace reports whether c, the byte next to an emphasis
@@ -1528,8 +1555,12 @@ func (p *printer) exit() {
 		p.inSpan--
 	}
 	if g.inline >= 0 {
-		if p.inlines[g.inline].label {
+		in := p.inlines[g.inline]
+		if in.label {
 			p.inLabel--
+		}
+		if in.under {
+			p.inUnder--
 		}
 		p.inlines = p.inlines[:g.inline]
 	}
