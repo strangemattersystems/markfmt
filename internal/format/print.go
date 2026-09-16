@@ -585,9 +585,10 @@ func (p *printer) leaf(id markdown.NodeID, k markdown.Kind, start, end int) {
 			// The first blank line of a container is the rest of its marker
 			// line, or a blank line at its start.
 			top.blankFirst = true
-		case p.inSpan > 0:
-			// A blank line of a dialect span is kept syntax (design 12), with
-			// the prefixes of the containers that its line matched.
+		case p.inSpan > 0 || p.span:
+			// A blank line in or after a dialect span is kept syntax (design
+			// 12), with the prefixes of the containers that its line matched:
+			// the next block can be in fewer containers than it is.
 			start := len(p.out)
 			p.writePrefix(false)
 			p.trimSpaces(start)
