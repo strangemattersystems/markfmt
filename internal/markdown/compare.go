@@ -395,8 +395,10 @@ func equalSpans(pa *projection, ia NodeID, pb *projection, ib NodeID) bool {
 }
 
 // spanReader reads the bytes of the leaves of a dialect span that are not
-// prefix leaves, with a split tab as its virt spaces (design 4.3) and each
-// line ending as a line feed.
+// prefix leaves or code indentation, with a split tab as its virt spaces
+// (design 4.3) and each line ending as a line feed. Code indentation is not
+// read because it can take columns inside a split tab too, where no leaf
+// holds them.
 type spanReader struct {
 	t       *Tree
 	i, end  uint32
@@ -426,7 +428,7 @@ func (r *spanReader) read() []byte {
 		}
 		m := r.t.nodes[r.i]
 		r.i++
-		if _, prefix := m.kind.owner(); prefix || m.kind.class() == classStructure {
+		if _, prefix := m.kind.owner(); prefix || m.kind == CodeIndent || m.kind.class() == classStructure {
 			continue
 		}
 		r.b = r.t.src[m.start:m.end]

@@ -126,6 +126,7 @@ func TestEqual(t *testing.T) {
 			{"> a\r\n> b\r\n<search>", "> a\n> b\n<search>"},
 			{"- a\n\tb\n<search>", "- a\n    b\n<search>"},
 			{"[x]: /u\n'", "[x]: /u\n'\n"},
+			{" ```\f\n\t0", " ```\f\n    0"},
 		} {
 			if err := Equal(Parse([]byte(pair[0])), Parse([]byte(pair[1]))); err != nil {
 				t.Errorf("Equal of %q and %q = %v, want nil", pair[0], pair[1], err)

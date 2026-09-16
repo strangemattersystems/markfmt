@@ -982,8 +982,11 @@ adds its set of `Dialect(row)` values to its Enter event. `Equal` requires:
 
 - equal row sets at every event, in both directions, so the printer can neither
   create nor remove a place where GitHub and CommonMark disagree;
-- for each span, equal non-prefix bytes, with a split tab read as its `virt`
-  spaces (section 4.3) and each line ending as LF (product rule 7), and for
+- for each span, equal bytes of the leaves that are not prefix leaves or
+  CodeIndent, with a split tab read as its `virt` spaces (section 4.3) and
+  each line ending as LF (product rule 7). Code indentation can take columns
+  inside a split tab, where no leaf holds them, so its leaves are not read
+  either; the CodeBlock key compares the code. And for
   each of its lines after the first that is not blank the same number of
   matched containers, so a lazy line stays lazy. The prefix leaves of a line
   do not give that number: a container that consumes columns only inside a

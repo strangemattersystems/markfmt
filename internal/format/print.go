@@ -270,9 +270,6 @@ func (p *printer) node(id markdown.NodeID) {
 		p.lineBegin = p.inputLine
 		if p.inputLine {
 			p.matched, p.indent = p.layout.Matched(id)
-			if p.inSpan > 0 {
-				p.indent = -1
-			}
 		}
 		start, end := p.layout.Visit(id)
 		raw := t.Raw(id)
