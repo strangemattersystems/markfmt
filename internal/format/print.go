@@ -544,9 +544,10 @@ prefixes:
 			p.write(f.marker)
 			f.started = true
 			opened++
-			// Padding would take the columns that the content starts with, or
-			// the item keeps its blank marker line.
-			if f.blankFirst && f.kind != markdown.BlockQuote && (p.lead || f.keepBlank) {
+			// Padding would take the columns that the content starts with, the
+			// item keeps its blank marker line, or the indentation of a kept
+			// marker after it would pad its marker.
+			if f.blankFirst && f.kind != markdown.BlockQuote && (p.lead || f.keepBlank || p.indentedMarkerAfter(i)) {
 				p.nextPrefixLine(start, i+1)
 				start, opened = len(p.out), 0
 			}
@@ -560,6 +561,17 @@ prefixes:
 	if blank {
 		p.trimSpaces(start)
 	}
+}
+
+// indentedMarkerAfter reports whether the next container after frame i has not
+// started and has a kept marker that starts with its indentation.
+func (p *printer) indentedMarkerAfter(i int) bool {
+	for j := i + 1; j < len(p.stack); j++ {
+		if c := &p.stack[j]; c.container {
+			return !c.started && len(c.marker) > 0 && c.marker[0] == ' '
+		}
+	}
+	return false
 }
 
 // nextPrefixLine ends the line of prefixes that starts at offset start, and

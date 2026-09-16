@@ -39,7 +39,7 @@ section numbers are cited below as "design 5.4".
 
 ## Current state
 
-Last updated: 2026-09-14. Nothing after `ff7de5b` is pushed.
+Last updated: 2026-09-16. Everything up to `63ed170` is pushed.
 
 | Commit | Content |
 | --- | --- |
@@ -55,7 +55,7 @@ Last updated: 2026-09-14. Nothing after `ff7de5b` is pushed.
 | `1cca948` onwards | Stage 3: the inline phase, line breaks, backslash escapes, entity references, code spans, autolinks, raw HTML, emphasis, links and images, pass 1 and reference links, `BenchmarkParse` |
 | `6110977` onwards | Stage 4: the GFM tag filter, GitHub fixtures and the GitHub normalizer, strikethrough, tables, cell pipe escapes, task list items, extended www, URL and email autolinks, footnote definitions and references, the indentation memo |
 | `f51a4c6` onwards | Stage 5: `FuzzDifferential` against goldmark v2.0.2, the differential cases and their predicates, fixes for NUL, control characters, VT and FF, kind 7 tag names and code span closers |
-| `dfc151f` onwards | Stage 6: the canonical style survey, `Source` on the new parser, `FuzzFormat`, dialect predicates and spans in `Equal`, a printer for every node kind, display width from Unicode `EastAsianWidth.txt`, aligned tables, the GitHub printer fixtures and their API check, output bounds, and fixes for the `FuzzFormat` findings |
+| `dfc151f` onwards | Stage 6: the canonical style survey, `Source` on the new parser, `FuzzFormat`, dialect predicates and spans in `Equal`, a printer for every node kind, display width from Unicode `EastAsianWidth.txt`, aligned tables, the GitHub printer fixtures and their API check, output bounds, fixes for the `FuzzFormat` findings, and the kept marker rule |
 
 Layout:
 
@@ -141,6 +141,7 @@ Layout:
 | Canonical style by consensus | The style follows modern best practice across the major formatters and style guides, not personal preference. The survey of 2026-09-13 read the source and docs of Prettier 3.9.6, dprint-plugin-markdown 0.24.0 (`deno fmt` pins 0.20.0), mdformat 1.0.0 with mdformat-gfm 1.0.0, markdownlint 0.41.1, and the Google Markdown style guide at `895579e`. A source that keeps the input form, or accepts any consistent form, has no vote. The rows below give the votes. Design appendix B lists the exceptions that keep meaning. |
 | Bullet `-`, and `*` for the next adjacent sibling list | Prettier (`print/list.js`), dprint (`generate.rs`), mdformat (`renderer/_util.py`). Google uses `*`. markdownlint: consistent. |
 | Ordered delimiter `.`, and `)` for the next adjacent sibling list | Prettier, dprint, mdformat. Google and markdownlint have no rule. |
+| A list item that keeps its input marker writes its list's bullet or delimiter | The sign decides where a list ends (spec 5.3). Alternation is the only thing that keeps adjacent lists apart, because a `<!-- -->` separator adds a node (appendix B, trap 3). Every sign is one column wide, so the kept columns do not change. Design 12. |
 | Ordered numbering counts up from the start number. A list that starts at 1 and whose second item is 1 numbers every item 1 | No majority. Prettier and dprint count up and keep this lazy form; mdformat numbers every item after the first 1; Google and markdownlint accept both. The user chose the rule of Prettier and dprint, 2026-09-13. The rule is dprint's: it is idempotent for every start number. The lazy form is kept syntax (design 12). |
 | Emphasis `_`, and `*` where `_` would parse differently; strong emphasis `**` | Prettier (`print/mdast.js`), dprint (`resolve_config.rs`). mdformat keeps the source. markdownlint: consistent. Google has no rule. |
 | Fenced code blocks with backticks, or tildes when the info string has a backtick. The fence is 3 long, or one longer than the longest run of its character in the content | Fenced: mdformat, Google ("we strongly recommend fencing"); Prettier and dprint keep the source form. Fence: Prettier, dprint, mdformat (`renderer/_context.py`). |
