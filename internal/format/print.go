@@ -295,10 +295,14 @@ func (p *printer) enter(id markdown.NodeID, k markdown.Kind) {
 		f.container, f.marker = true, quotePrefix
 		p.lastLeaf = markdown.Document
 	case markdown.ListItem:
+		// An empty container ends with no leaf block, so a block quote that
+		// ends with it ends with no paragraph.
 		f.container, f.tight, f.indent = true, p.stack[parent].tight, p.layout.ItemIndent()
+		p.lastLeaf = markdown.Document
 	case markdown.FootnoteDefinition:
 		f.container = true
 		f.marker = []byte("[^" + string(t.FootnoteDefinitionLabel(id)) + "]: ")
+		p.lastLeaf = markdown.Document
 	case markdown.List:
 		f.tight = !t.ListLoose(id)
 		f.start, f.ordered = t.ListStart(id)
