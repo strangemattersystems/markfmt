@@ -851,6 +851,9 @@ func (p *printer) prescan() (map[markdown.NodeID][2]bool, int) {
 			lists = append(lists, e.ID)
 		case k == markdown.ListItem:
 			items = append(items, [2]markdown.NodeID{e.ID, lists[len(lists)-1]})
+		case k == markdown.Heading && !p.multiLine(e.ID) && !p.isSpan(e.ID):
+			// The heading prints as ATX, so its line starts with '#'.
+			items = items[:0]
 		case len(items) == 0 || !k.Leaf() || isPrefix(k) || k == markdown.Indent || k == markdown.BlankLine:
 		case k == markdown.ThematicRun:
 			// The printer writes a thematic break without the bullet.
