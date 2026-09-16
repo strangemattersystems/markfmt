@@ -683,8 +683,11 @@ func (p *printer) leaf(id markdown.NodeID, k markdown.Kind, start, end int) {
 			p.write([]byte{'\\'})
 		}
 	case len(p.out) == 0 && len(p.stack) == 2 && k == markdown.Text && p.inSpan == 0 &&
+		(p.head != headSingle || p.headDone) &&
 		string(bytes.TrimRight(t.RestOfLine(id), " \t\r\n")) == "+++":
 		// The first block never looks like front matter (appendix B, trap 7).
+		// A heading that prints as ATX writes its markers first, so its line
+		// never starts with the fence.
 		p.indent = -1
 		p.write(spaces[:1])
 		p.content(id, start)
