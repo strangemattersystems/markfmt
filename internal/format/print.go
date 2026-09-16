@@ -777,7 +777,7 @@ func (p *printer) listMarker(f *frame, id markdown.NodeID, start int) {
 		// (spec 5.2): the item keeps its indentation, marker and padding. Its
 		// marker line stays blank, so that a second format reads the same
 		// item and keeps the same marker (design 12).
-		f.marker, f.keepBlank = p.sourceMarker(f, id, start), blank
+		f.marker, f.keepBlank = p.sourceMarker(f, id, start, f.marker[len(f.marker)-1]), blank
 	} else {
 		f.marker = append(f.marker, spaces[:padding]...)
 	}
@@ -869,8 +869,11 @@ func (p *printer) prescan() (map[markdown.NodeID][2]bool, int) {
 }
 
 // sourceMarker returns the indentation, marker and padding of list item f of
-// the input, whose ListMarker leaf id starts at column start.
-func (p *printer) sourceMarker(f *frame, id markdown.NodeID, start int) []byte {
+// the input, whose ListMarker leaf id starts at column start, with sign, the
+// bullet or delimiter of its list, in place of the input's. An item with
+// another sign would start another list (spec 5.3), and every sign is one
+// column wide.
+func (p *printer) sourceMarker(f *frame, id markdown.NodeID, start int, sign byte) []byte {
 	raw := p.tree.Raw(id)
 	lead, i := start, 0
 	if p.tree.SplitTab(id) > 0 {
@@ -884,7 +887,10 @@ func (p *printer) sourceMarker(f *frame, id markdown.NodeID, start int) []byte {
 		}
 	}
 	chars := bytes.TrimRight(raw[i:], " \t")
-	return append(append(bytes.Clone(spaces[:lead-start]), chars...), spaces[:max(f.indent-(lead-start)-len(chars), 1)]...)
+	// chars is part of the input, so the sign goes into the copy.
+	m := append(append(bytes.Clone(spaces[:lead-start]), chars...), spaces[:max(f.indent-(lead-start)-len(chars), 1)]...)
+	m[lead-start+len(chars)-1] = sign
+	return m
 }
 
 // lazyItems returns the list items that are the first container that a line

@@ -1200,6 +1200,11 @@ require of it. Appendix B collects printer traps with byte bounds.
   it. At stage 6, a `Kept(t)` event stream sits next to the projection, and the
   fuzz gate asserts it is equal for input and output. Anything outside the set
   is canonical: code block style, heading style, emphasis character.
+- **Kept markers.** A list item that keeps its input marker keeps the
+  indentation, number and padding that set its columns. Its bullet or
+  delimiter is its list's: the sign decides where a list ends (spec 5.3), and
+  alternation is the only thing that keeps adjacent lists apart (appendix B,
+  trap 3). Every sign is one column wide, so the columns do not change.
 - **Size decisions.** Every size-based printer decision reads only measures
   that printing does not change: the projection, `Kept`, and the printer's own
   canonical output of the construct. It never reads source byte counts. So a
@@ -1642,10 +1647,12 @@ design, not parser gates.
    printed content (after trap 1). Inside a dialect span, lazy lines always
    stay lazy (section 10.4).
 3. Adjacent sibling lists of one type alternate the marker by position (`-`,
-   `*`; `.`, `)`). No `<!-- -->` separator: it adds a node.
+   `*`; `.`, `)`). No `<!-- -->` separator: it adds a node. An item that keeps
+   its input marker writes its list's marker too (section 12).
 4. A thematic break in a list item uses a character different from the
    bullet, and a thematic break after a paragraph line or a link reference
-   definition line never uses `---`.
+   definition line never uses `---`. The bullet of a kept marker is read past
+   its indentation.
 5. A multi-line setext heading stays setext.
 6. ATX content that ends in `#` gets a closing sequence: `Foo #` is
    `## Foo # ##`.
