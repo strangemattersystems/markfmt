@@ -45,6 +45,10 @@ type printer struct {
 	bracket0  bool          // the open paragraph starts with '[', so it could start with a link reference definition
 	afterText bool          // the open block follows a paragraph or definition line without a blank line
 	lead      bool          // the next leaf starts with columns that list item padding would take
+	lazyLine  bool          // the open line can stay lazy, so it has only the prefixes that it matched
+	lazyStart int           // where its content starts in out
+	lazyKept  int           // the containers whose prefixes it has
+	lazyPad   bool          // its content would start a block after those prefixes
 	afterBox  bool          // the last leaf written is a task box
 	replace   []byte        // bytes that content writes in place of the next leaf's bytes
 
@@ -992,6 +996,7 @@ func (p *printer) content(id markdown.NodeID, start int) {
 		p.lead = p.pad > 0 || p.indent >= 0 && start > p.indent || t.SplitTab(id) > 0 || b[0] == ' ' || b[0] == '\t'
 		p.writePrefix(false)
 		p.lineStart = false
+		p.lazyStart, p.lazyKept = len(p.out), p.matched
 		p.writeSpaces(p.pad)
 		p.pad = 0
 		if p.head == headSingle && !p.headDone {
@@ -1451,7 +1456,11 @@ func (p *printer) continuation(id markdown.NodeID) {
 		return markdown.InterruptsParagraph(line, lazy) || markdown.InterruptsParagraph(withBreak, lazy)
 	}
 	p.indent = -1
-	if p.matched < p.prefixes && p.prefixLen > len(line) && !interrupts(true) {
+	if p.matched < p.prefixes && !interrupts(true) {
+		// The line stays lazy when its canonical prefix is longer than its
+		// printed content, which endLine knows (appendix B, trap 2). With
+		// the prefix, the line gets the padding of trap 1.
+		p.lazyLine, p.lazyPad = true, interrupts(false)
 		return
 	}
 	p.matched = p.prefixes
@@ -1465,8 +1474,38 @@ func (p *printer) endLine() {
 	if p.lineStart {
 		p.writePrefix(true)
 	}
+	p.prefixLazyLine()
 	p.write(lineFeed)
 	p.lineStart = true
+}
+
+// prefixLazyLine writes the prefixes that the open lazy line does not have
+// before its content, unless its full canonical prefix is longer than that
+// content (appendix B, trap 2). The content is a measure of the printer's own
+// output, so a second format decides the same (design 12).
+func (p *printer) prefixLazyLine() {
+	if !p.lazyLine {
+		return
+	}
+	p.lazyLine = false
+	if p.full || len(p.out)-p.lazyStart < p.prefixLen {
+		return
+	}
+	prefix, n := make([]byte, 0, p.prefixLen), 0
+	for i := range p.stack {
+		if !p.stack[i].container {
+			continue
+		}
+		if n >= p.lazyKept {
+			prefix = append(prefix, p.stack[i].rest()...)
+		}
+		n++
+	}
+	if p.lazyPad {
+		prefix = append(prefix, spaces[:4]...)
+	}
+	p.out = append(p.out[:p.lazyStart], append(prefix, p.out[p.lazyStart:]...)...)
+	p.matched = p.prefixes
 }
 
 func (p *printer) exit() {
