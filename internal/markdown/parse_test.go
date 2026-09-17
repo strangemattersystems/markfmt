@@ -216,6 +216,32 @@ func TestParse(t *testing.T) {
 		}
 	})
 
+	t.Run("counts a label without the indentation of its lines", func(t *testing.T) {
+		t.Parallel()
+
+		// 997 characters of two bytes, a line ending and one character make a
+		// label of 999. Indentation is not part of a paragraph's content, so
+		// it is not part of the label (design 6.7).
+		label := strings.Repeat("é", 997) + "\n  a"
+		src := "[" + label + "]\n\n[" + label + "]: /u\n"
+		if n := countKind(Parse([]byte(src)), Link); n != 1 {
+			t.Fatalf("Parse gives %d links, want 1", n)
+		}
+	})
+
+	t.Run("counts a cell pipe escape in a label as one character", func(t *testing.T) {
+		t.Parallel()
+
+		// In a cell the pair "\|" is one character of the label, so the
+		// reference and the definition hold the same label of 999
+		// characters (design 6.7).
+		label := strings.Repeat("é", 998)
+		src := "| [" + label + `\|` + "] |\n| - |\n\n[" + label + "|]: /u\n"
+		if n := countKind(Parse([]byte(src)), Link); n != 1 {
+			t.Fatalf("Parse gives %d links, want 1", n)
+		}
+	})
+
 	t.Run("ends a table above 524,288 missing cells", func(t *testing.T) {
 		t.Parallel()
 
