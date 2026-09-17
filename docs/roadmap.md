@@ -365,7 +365,12 @@ fixture yet.
   the output limit.
 - [x] Dialect predicates and spans in `Equal` (design 10.4).
 - [ ] `FuzzFormat`: no check mismatch on any input, and equal test HTML for
-  input and output (design 10.5).
+  input and output (design 10.5). The seed corpus passes since the kept blank
+  lines of a quote were fixed (2026-09-17). Three minutes of fuzzing then gave
+  `"  * 0\n   *\n  <!A"`, where the canonical bullet makes the marker line of
+  an empty item a setext underline, and `Source` returns an error. The bullet
+  choice needs the printer to know the columns that an item's marker line
+  prints at, which is the facts pass of the printer work.
 - [x] Move `internal/format` to the new parser and delete the goldmark-based
   code. Keep `testdata/cases` and make every case pass.
 

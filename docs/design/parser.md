@@ -1189,8 +1189,14 @@ This section records how the cases were found.
 the inputs of every corpus joined, and `docs/design/parser.md`. At stage 3 it
 also parsed them with goldmark v2.0.2 with no extensions, for a manual gate
 recorded with `benchstat` output in the roadmap: parse throughput within 2
-times goldmark's, with pass 1 included. Stage 7 removed goldmark. `benchstat` runs with `go run
-golang.org/x/perf/cmd/benchstat@VERSION`, not from `tools/go.mod`.
+times goldmark's, with pass 1 included. Stage 7 removed goldmark.
+
+`BenchmarkSource` and `BenchmarkPrinter` measure the pipeline, `BenchmarkEqual`
+the meaning check, `BenchmarkPathological` the inputs of section 6.8 at a fixed
+size, and `BenchmarkCheckDir` the CLI over a directory. Their inputs are frozen
+in `internal/markdown/testdata/bench`. `task bench-compare` builds the base and
+the head test binaries and runs them alternately, which holds the noise near
+1%, where consecutive runs vary by 8%. `benchstat` runs from `tools/go.mod`.
 
 ## 12. Printer interface
 
