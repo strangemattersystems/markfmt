@@ -1295,7 +1295,12 @@ func (p *printer) definitionLeaf(id markdown.NodeID, k markdown.Kind, start int)
 	case defLabel:
 		switch k {
 		case markdown.Indent:
-			p.indent = -1
+			// Indentation in a label is not meaning, unless it keeps the rest of
+			// a line that continues the label from starting a block, which would
+			// end the definition. separate pads its first line instead.
+			if !p.written || !p.indentHides(id) {
+				p.indent = -1
+			}
 		case markdown.VerbatimLineEnding:
 			p.endLine()
 		default:
