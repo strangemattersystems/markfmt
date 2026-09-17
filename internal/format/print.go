@@ -447,6 +447,11 @@ func (p *printer) separate(parent int, id markdown.NodeID, k markdown.Kind, span
 			// The table split the paragraph off, which after a blank line
 			// would start with a link reference definition.
 			n = 0
+		case k == markdown.Table && f.lastChild == markdown.Paragraph && p.blanks == 0 && p.tableIndentHides(id):
+			// The first row of a table that prints as written keeps the
+			// indentation that hides its block start, and after a blank line
+			// that indentation would start code instead.
+			n = 0
 		case k == markdown.Paragraph && f.lastChild == markdown.LinkReferenceDefinition && p.blanks == 0 &&
 			(markdown.InterruptsParagraph(p.firstLine(id), false) || markdown.StartsBlock(p.firstLine(id))):
 			// The paragraph continues the definition's lines: after a blank
@@ -696,6 +701,11 @@ func (p *printer) leaf(id markdown.NodeID, k markdown.Kind, start, end int) {
 		p.content(id, start)
 	case k == markdown.LineEnding, k == markdown.VerbatimLineEnding:
 		p.endLine()
+	case k == markdown.Indent && top.kind == markdown.TableRow && !p.written && p.inSpan == 0 && p.indentHides(id):
+		// A table that prints as written keeps this indentation: without it
+		// the row's line would start a block, which ends the paragraph above
+		// the table. separate writes no blank line before such a table, so
+		// the indentation cannot start code either.
 	case k == markdown.Indent && (top.kind == markdown.Paragraph || top.kind == markdown.Heading ||
 		top.kind == markdown.ThematicBreak || top.kind == markdown.TableRow) && !p.written && p.inSpan == 0:
 		// Indentation before a paragraph, a heading, a thematic break or the
@@ -1364,6 +1374,24 @@ func (p *printer) wordFacts() {
 			p.wordStarts = append(p.wordStarts, span{at, at + 4})
 		}
 	}
+}
+
+// indentHides reports whether the indentation at leaf id keeps the rest of
+// its line from starting a block: a heading, an HTML block or a fence.
+func (p *printer) indentHides(id markdown.NodeID) bool {
+	line := bytes.TrimLeft(p.tree.RestOfLine(id), " \t")
+	return markdown.InterruptsParagraph(line, false) || markdown.StartsBlock(line)
+}
+
+// tableIndentHides reports whether the first row of table id starts with
+// indentation that keeps its line from starting a block.
+func (p *printer) tableIndentHides(id markdown.NodeID) bool {
+	end, _ := p.tree.Next(id)
+	leaf := id + 1
+	for leaf < end && !p.tree.Kind(leaf).Leaf() {
+		leaf++
+	}
+	return leaf < end && p.tree.Kind(leaf) == markdown.Indent && p.indentHides(leaf)
 }
 
 // inText reports whether the last paragraph, heading or table cell that
