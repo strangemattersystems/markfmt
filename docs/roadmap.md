@@ -365,17 +365,25 @@ fixture yet.
   the output limit.
 - [x] Dialect predicates and spans in `Equal` (design 10.4).
 - [ ] `FuzzFormat`: no check mismatch on any input, and equal test HTML for
-  input and output (design 10.5). Six findings of 2026-09-17 are fixed, each
+  input and output (design 10.5). Nine findings of 2026-09-17 are fixed, each
   with a case and a seed: the kept blank lines of a quote, a kept marker at
   the column where its list continues, a definition below a definition, the
-  padding of a lazy line, the first line of code that prints as a fence, and
-  a link tail line ending. Ten minutes of fuzzing then gives `">> \t\f"`,
-  where the canonical quote markers move the column that a tab expands to, so
-  the paragraph of a dialect span becomes indented code. Its fix needs the
-  printer to keep the columns of the containers around a span, which is the
-  column model of the printer work. On 4,000 real files (39 MB of module
-  caches) the branch gives the output of main, byte for byte, with no error,
-  and formatting them again changes nothing (2026-09-17).
+  padding of a lazy line, the first line of code that prints as a fence, a
+  link tail line ending, the indentation of a span line with a tab, the sign
+  of a kept marker, and a table below the paragraph that it split.
+
+  Fifteen minutes of fuzzing then gives `"  * 0\n  +\n  <!A"`, where the
+  marker of a list that keeps its input columns lands at the column where the
+  items of the list above it continue, so it is a line of that list's last
+  item. A clamp against that column moves markers that read correctly today,
+  because the printer has no model of the columns that a block prints at: it
+  keeps some columns of the input and writes others in the canonical style,
+  and only the two together decide what a line means. That model is the next
+  piece of printer work.
+
+  On 4,000 real files (39 MB of module caches) the branch gives the output of
+  main, byte for byte, with no error, and formatting them again changes
+  nothing (2026-09-17).
 - [x] Move `internal/format` to the new parser and delete the goldmark-based
   code. Keep `testdata/cases` and make every case pass.
 
