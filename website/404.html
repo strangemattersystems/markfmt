@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Not found · markfmt</title>
+<meta name="robots" content="noindex">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text x='2' y='13' font-family='monospace' font-size='15' font-weight='bold' fill='%23777'>%23</text></svg>">
+<style>
+:root {
+  color-scheme: light dark;
+  --bg: light-dark(#fafafa, #111111);
+  --fg: light-dark(#1a1a1a, #e6e6e6);
+  --mark: light-dark(#6b6b6b, #8a8a8a);
+}
+body {
+  margin: 0 auto;
+  max-width: 100ch;
+  padding: 3rem 2ch;
+  background: var(--bg);
+  color: var(--fg);
+  font: 1rem/1.6 ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+}
+h1 { font-size: clamp(2.5rem, 12vw, 4rem); line-height: 1.3; margin: 0 0 0.5rem; }
+a { color: inherit; text-decoration-color: var(--mark); text-underline-offset: 0.2em; }
+a:hover { text-decoration-color: currentColor; }
+a::before { content: "["; content: "[" / ""; color: var(--mark); }
+a::after { content: "]"; content: "]" / ""; color: var(--mark); }
+p { color: var(--mark); }
+</style>
+</head>
+<body>
+<main>
+<h1># 404</h1>
+<p>Nothing is formatted at this address.</p>
+<p><a href="/">markfmt.com</a></p>
+</main>
+</body>
+</html>
