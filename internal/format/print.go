@@ -1797,7 +1797,9 @@ func (p *printer) exit() {
 			p.writePrefix(true)
 			p.write(lineFeed)
 		}
-		p.blanks, quoteBlanks = 0, true
+		// The blank lines end the paragraph of every quote that they are in,
+		// so no gap line goes before the next block.
+		p.blanks, quoteBlanks, p.lastLeaf = 0, true, markdown.BlankLine
 	}
 	g := *f
 	p.stack = p.stack[:len(p.stack)-1]
