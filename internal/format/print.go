@@ -69,6 +69,14 @@ type printer struct {
 	skipToOK bool
 	skipOK   bool
 
+	// inputPrefix holds the bytes of the prefix leaf of each container that
+	// the input line being read matched, outermost first. A line whose content
+	// is in a dialect span writes them in place of the canonical markers: a
+	// marker of another width moves the column that a tab expands to, and with
+	// it the meaning of the indentation after it.
+	inputPrefix [][]byte
+	lineTab     bool // the input line being read holds a tab
+
 	lineBreak []byte // a paragraph line with a backslash, for the break decisions
 	runs      []bool // the backtick run lengths of the code span being printed
 
@@ -290,6 +298,10 @@ func (p *printer) node(id markdown.NodeID) {
 		p.lineBegin = p.inputLine
 		if p.inputLine {
 			p.matched, p.indent = p.layout.Matched(id)
+			p.inputPrefix = p.inputPrefix[:0]
+		}
+		if k.Prefix() {
+			p.inputPrefix = append(p.inputPrefix, t.Raw(id))
 		}
 		start, end := p.layout.Visit(id)
 		raw := t.Raw(id)
@@ -562,11 +574,19 @@ func (p *printer) firstLine(id markdown.NodeID) []byte {
 // blank line gets the prefixes without trailing spaces.
 func (p *printer) writePrefix(blank bool) {
 	start, n, opened := len(p.out), 0, 0
+	// A tab is the one byte whose meaning follows the column it starts at,
+	// and a dialect span keeps its tabs as written, so the line keeps the
+	// prefixes of its input as well.
+	kept := p.inSpan > 0 && p.lineTab
 prefixes:
 	for i := range p.stack {
 		f := &p.stack[i]
 		if !f.container {
 			continue
+		}
+		marker, rest := f.marker, f.rest()
+		if kept && n < len(p.inputPrefix) {
+			marker, rest = p.inputPrefix[n], p.inputPrefix[n]
 		}
 		switch {
 		case !f.started && blank:
@@ -578,7 +598,7 @@ prefixes:
 				p.nextPrefixLine(start, i)
 				start, opened = len(p.out), 0
 			}
-			p.write(f.marker)
+			p.write(marker)
 			f.started = true
 			opened++
 			// Padding would take the columns that the content starts with, the
@@ -589,7 +609,7 @@ prefixes:
 				start, opened = len(p.out), 0
 			}
 		case blank || n < p.matched:
-			p.write(f.rest())
+			p.write(rest)
 		default:
 			break prefixes
 		}
@@ -1130,6 +1150,9 @@ func (p *printer) content(id markdown.NodeID, start int) {
 			k != markdown.SetextUnderline {
 			p.continuation(id)
 		}
+		// Only a line of a dialect span reads its tabs, and only it keeps the
+		// prefixes of its input, so no other line pays for this.
+		p.lineTab = p.inSpan > 0 && bytes.IndexByte(t.RestOfLine(id), '\t') >= 0
 		p.lead = p.pad > 0 || p.indent >= 0 && start > p.indent || t.SplitTab(id) > 0 || b[0] == ' ' || b[0] == '\t'
 		p.writePrefix(false)
 		p.lineStart = false
