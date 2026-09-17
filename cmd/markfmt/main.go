@@ -23,6 +23,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"runtime/debug"
 	"strings"
 	"sync"
 
@@ -43,6 +44,11 @@ func main() {
 	flag.Parse()
 
 	if *printVersion {
+		// go install builds without the release's -ldflags, but records the
+		// module version.
+		if info, ok := debug.ReadBuildInfo(); ok && version == "0.0.0-dev" && strings.HasPrefix(info.Main.Version, "v") {
+			version = strings.TrimPrefix(info.Main.Version, "v")
+		}
 		fmt.Printf("markfmt %s (revision %s, built %s)\n", version, revision, date)
 		return
 	}
