@@ -383,10 +383,21 @@ fixture yet.
   Twenty-five minutes of fuzzing then gives `"* 0\r--\n  |-"`: an item holds
   a paragraph and a table whose header row is `--`. The header prints as
   `| --  |`, which reads as the delimiter row of the paragraph above it, so
-  the paragraph becomes the header. A blank line between them would make the
-  list loose, and printing the table as written gives `--`, which reads as a
-  delimiter row as well. The header cell needs an escape, which no printer
-  rule writes today. `Source` returns an error, so no output is wrong.
+  the paragraph becomes the header. Every layout fails: a blank line between
+  them makes the list loose, printing the table as written gives `--`, which
+  reads as a delimiter row as well, and a delimiter cell takes only spaces,
+  dashes and colons, so no padding breaks the shape. `Source` returns an
+  error, so no output is wrong.
+
+  A backslash in the header cell does work: `| \-- |` reads as a header, and
+  `\-` renders as `-`. It was written and reverted, because design 12 makes
+  the output a function of the projection and the kept syntax, and `Kept`
+  asserts that the escapes of the input and the output are equal, so an
+  escape that the printer invents fails the gate. The choice is the owner's:
+  either the printer may add an escape where no layout works, and `Kept`
+  compares the value of an escape rather than its bytes, or an input of this
+  shape has no canonical form and the gate names it. Nothing else in the
+  fuzzing corpus needs this.
 
   On 4,000 real files (39 MB of module caches) the branch gives the output of
   main, byte for byte, with no error, and formatting them again changes
