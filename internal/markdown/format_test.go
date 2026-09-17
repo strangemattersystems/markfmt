@@ -53,6 +53,10 @@ func TestFormatSource(t *testing.T) {
 	})
 
 	t.Run("pathological", func(t *testing.T) {
+		if testing.Short() {
+			t.Skip("the pathological subtests measure time, which takes about 20 s")
+		}
+
 		inputs := formatInputs()
 		for _, name := range slices.Sorted(maps.Keys(inputs)) {
 			if name == "empty" {
@@ -137,6 +141,15 @@ func formatInputs() map[string]func(n int) []byte {
 	}
 	inputs["nested list items then an HTML block of one long line"] = func(n int) []byte {
 		return []byte(strings.Repeat("- ", n/4) + "a\n\n<div " + strings.Repeat("a", n/2))
+	}
+	inputs["escapes before emphasis"] = func(n int) []byte {
+		return []byte(strings.Repeat("\\!", n/2) + "*a*")
+	}
+	inputs["nested block quotes then blank quote lines"] = func(n int) []byte {
+		return []byte(strings.Repeat(">", n/2) + "a\n" + strings.Repeat(">\n", n/4))
+	}
+	inputs["nested strong emphasis"] = func(n int) []byte {
+		return []byte(strings.Repeat("**", n/4) + "a" + strings.Repeat("**", n/4))
 	}
 	inputs["emphasis in nested emphasis"] = func(n int) []byte {
 		return []byte(strings.Repeat("*a ", n/6) + strings.Repeat("*b* ", n/8) + strings.Repeat("a* ", n/6))

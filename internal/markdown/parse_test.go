@@ -240,6 +240,10 @@ func TestParse(t *testing.T) {
 	})
 
 	t.Run("pathological", func(t *testing.T) {
+		if testing.Short() {
+			t.Skip("the pathological subtests measure time, which takes about 20 s")
+		}
+
 		for _, in := range pathologicalInputs {
 			t.Run(in.name, func(t *testing.T) {
 				// The 10n run takes at least 50 ms, so the n run is long enough to
@@ -463,6 +467,32 @@ var pathologicalInputs = []struct {
 	}},
 	{"nested footnote references across lines", func(n int) []byte {
 		return []byte(strings.Repeat("[^\n", n/4) + "a" + strings.Repeat("]", n/4))
+	}},
+	{"definitions then a line of trailing spaces", func(n int) []byte {
+		return []byte(strings.Repeat("[a]: b\n", n/14) + "x" + strings.Repeat(" ", n/2))
+	}},
+	{"nested full reference images", func(n int) []byte {
+		k := n / 6
+		return []byte(strings.Repeat("![", k) + "a" + strings.Repeat("][x]", k) + "\n\n[x]: u")
+	}},
+	{"nested dialect spans", func(n int) []byte {
+		var b []byte
+		for j := 1; len(b) < n; j++ {
+			b = append(append(b, strings.Repeat(">", j)...), '\n')
+			b = append(append(b, strings.Repeat(">", j+99)...), "- x\n"...)
+		}
+		return b
+	}},
+	{"table cells with dialect spans in nested block quotes", func(n int) []byte {
+		k := max(n/16, 1)
+		row := strings.Repeat(">", k) + "|" + strings.Repeat("£*a*|", k) + "\n"
+		return []byte(row + strings.Repeat(">", k) + "|" + strings.Repeat("-|", k) + "\n" + row)
+	}},
+	{"brackets without closers", func(n int) []byte {
+		return []byte(strings.Repeat("[", n))
+	}},
+	{"emphasis characters in pairs", func(n int) []byte {
+		return []byte("a" + strings.Repeat("*_", n/2))
 	}},
 	{"tables with many rows", func(n int) []byte {
 		return []byte("| a |\n| - |\n" + strings.Repeat("| b |\n", n/6))
