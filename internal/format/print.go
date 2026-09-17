@@ -75,7 +75,8 @@ type printer struct {
 	// another width moves the column that a tab expands to, and with it the
 	// meaning of the indentation after it.
 	inputPrefix []markdown.NodeID
-	lineTab     bool // the input line being read holds a tab
+	lineTab     bool   // the input line being read holds a tab
+	keptMarker  []byte // an input marker with the sign of its list
 
 	lineBreak []byte // a paragraph line with a backslash, for the break decisions
 	runs      []bool // the backtick run lengths of the code span being printed
@@ -173,6 +174,12 @@ func (f *frame) rest() []byte {
 // sign returns the first byte of the marker of container f after its
 // indentation, or 0. A list item that keeps its input marker starts it with
 // the item's indentation.
+// signIndex returns the index of the sign of a list marker, its last byte
+// that is not a space or a tab, or -1.
+func signIndex(marker []byte) int {
+	return len(bytes.TrimRight(marker, " \t")) - 1
+}
+
 func (f *frame) sign() byte {
 	if m := bytes.TrimLeft(f.marker, " "); len(m) > 0 {
 		return m[0]
@@ -590,7 +597,17 @@ prefixes:
 			// so the input's leaf must be a marker and not the indentation of a
 			// line that continues it.
 			id := p.inputPrefix[n]
-			if kind := p.tree.Kind(id); f.started || kind == markdown.QuoteMarker || kind == markdown.ListMarker {
+			switch kind := p.tree.Kind(id); {
+			case kind == markdown.ListMarker:
+				// Every sign is one column wide, so the canonical sign keeps the
+				// columns of the input's marker, where another sign would start
+				// another list (spec 5.3).
+				p.keptMarker = append(p.keptMarker[:0], p.tree.Raw(id)...)
+				if i, j := signIndex(p.keptMarker), signIndex(f.marker); i >= 0 && j >= 0 {
+					p.keptMarker[i] = f.marker[j]
+				}
+				marker, rest = p.keptMarker, p.keptMarker
+			case f.started || kind == markdown.QuoteMarker:
 				marker, rest = p.tree.Raw(id), p.tree.Raw(id)
 			}
 		}
