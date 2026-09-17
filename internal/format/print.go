@@ -468,8 +468,10 @@ func (p *printer) separate(parent int, id markdown.NodeID, k markdown.Kind, span
 			// The paragraph continues the definition's lines: after a blank
 			// line its first line would start a block. A line that would
 			// interrupt the paragraph gets padding.
+			// A lazy line is not in the containers that the padding would
+			// indent it in, where its content would start a block anyway.
 			n = 0
-			if markdown.InterruptsParagraph(p.firstLine(id), false) {
+			if markdown.InterruptsParagraph(p.firstLine(id), false) && !p.lazyFirst(id) {
 				p.pad = 4
 			}
 		case (k == markdown.Paragraph || k == markdown.LinkReferenceDefinition) && p.lazyFirst(id):
