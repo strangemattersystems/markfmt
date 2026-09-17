@@ -1024,13 +1024,13 @@ func (p *printer) indentAfter(id markdown.NodeID) int {
 	return cols
 }
 
-// blockIndent is a result of [printer.indentAfter] for the node after a list.
+// blockIndent is a result of indentAfter for the node after a list.
 type blockIndent struct {
 	next markdown.NodeID
 	cols int
 }
 
-// indentAt returns what [printer.indentAfter] returns for the node next, which
+// indentAt returns what indentAfter returns for the node next, which
 // ok reports is in the tree.
 func (p *printer) indentAt(next markdown.NodeID, ok bool) int {
 	t := p.tree
@@ -1126,9 +1126,9 @@ const (
 )
 
 // titleQuotes returns the quotes around the title of link reference
-// definition id: '"', or '\” when the title has '"', or parentheses when it
-// has both, or the input's quotes when it also has a parenthesis. A title
-// decodes the same in each (spec 4.7).
+// definition id: '"', or a single quote when the title has '"', or
+// parentheses when it has both, or the input's quotes when it also has a
+// parenthesis. A title decodes the same in each (spec 4.7).
 func (p *printer) titleQuotes(id markdown.NodeID) [2]byte {
 	t := p.tree
 	end, _ := t.Next(id)
@@ -1791,7 +1791,6 @@ type tableCell struct {
 	start, end, width int
 }
 
-// lineCells returns the cells of line i.
 func (tb *table) lineCells(i int) []tableCell {
 	end := len(tb.cells)
 	if i+1 < len(tb.lines) {

@@ -440,7 +440,7 @@ func (s *inlineParser) linkTitle() bool {
 }
 
 // spaceLine pushes the spaces and tabs at the position, up to one line
-// ending, and the prefix and Indent leaves of the next line. It reports
+// ending, and the prefix and [Indent] leaves of the next line. It reports
 // whether it pushed any.
 func (s *inlineParser) spaceLine() bool {
 	n := len(s.pieces)

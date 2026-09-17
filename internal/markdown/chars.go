@@ -243,7 +243,6 @@ func (f *labelFolder) leaf(k Kind, b []byte) {
 	case k == LineEnding, k == VerbatimLineEnding:
 		f.write(lineFeed)
 	case k == CellPipeEscape:
-		// Its bytes without the backslash of its "\|" pair (design 6.7).
 		f.write(b[:len(b)-2])
 		f.write(pipe)
 	default:

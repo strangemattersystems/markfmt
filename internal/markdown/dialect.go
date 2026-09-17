@@ -305,7 +305,7 @@ func (f *spanFinder) addInterrupted(id uint32, row dialectRow) {
 }
 
 // line runs the predicates that read the start of a line at leaf id, the
-// first leaf of the line after its prefix and Indent leaves.
+// first leaf of the line after its prefix and [Indent] leaves.
 func (f *spanFinder) line(id uint32, n Node) {
 	t := f.t
 	if t.src[n.start] != '<' {

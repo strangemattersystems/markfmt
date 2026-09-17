@@ -597,7 +597,6 @@ var gitHubDecorations = []struct {
 	{regexp.MustCompile(`<pre lang="([^"]*)"><code>`), `<pre><code class="language-$1">`},
 }
 
-// tag returns the start tag of an element, or its end tag and a line ending.
 // escapeHref escapes a link destination as cmark's houdini_escape_href does:
 // it keeps ASCII letters, digits and -_.+!*(),%#@?=;:/$~, writes & and ' as
 // character references, and percent-encodes every other byte.
@@ -656,6 +655,7 @@ func inlineTag(name string, end bool) string {
 	return "<" + name + ">"
 }
 
+// tag returns the start tag of an element, or its end tag and a line ending.
 func tag(name string, end bool) string {
 	if end {
 		return "</" + name + ">\n"

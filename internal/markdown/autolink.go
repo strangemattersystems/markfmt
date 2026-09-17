@@ -237,7 +237,7 @@ func (s *inlineParser) wwwAutolink(i, end uint32) bool {
 // that ends at end, and reports whether there is one, as cmark-gfm's url_match
 // finds it: no bracket is open, the letters before i are http, https or ftp in
 // any case, then "://", a host character and a domain (design 6.2). The last
-// Text piece gives the letters back.
+// [Text] piece gives the letters back.
 func (s *inlineParser) urlAutolink(i, end uint32) bool {
 	if len(s.brackets) > 0 || end-i < 4 || s.src[i+1] != '/' || s.src[i+2] != '/' {
 		return false
@@ -272,8 +272,8 @@ func (s *inlineParser) urlAutolink(i, end uint32) bool {
 }
 
 // pushAutolink pushes an extended autolink from the end of the last piece to
-// end. Its text is not decoded, so it is Text pieces, and CellPipeEscape pieces
-// with pipes.
+// end. Its text is not decoded, so it is [Text] pieces, and [CellPipeEscape]
+// pieces with pipes.
 func (s *inlineParser) pushAutolink(end uint32) {
 	n := len(s.pieces)
 	s.pushContent(Text, end)
@@ -349,8 +349,8 @@ func linkEnd(src []byte, j, end uint32) uint32 {
 
 // autolinkDelim returns the end of the extended autolink in src[start:end] after
 // cmark-gfm's autolink_delim: the link ends before a '<', and loses a trailing
-// '?', '!', '.', ',', ':', '*', '_', '~', '\” or '"', a trailing ')' while it
-// has more ')' than '(', and a trailing "&letters;" or ';'.
+// '?', '!', '.', ',', ':', '*', '_', '~', an apostrophe or '"', a trailing ')'
+// while it has more ')' than '(', and a trailing "&letters;" or ';'.
 func autolinkDelim(src []byte, start, end uint32) uint32 {
 	opening, closing := 0, 0
 	for i := start; i < end; i++ {

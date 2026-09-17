@@ -708,15 +708,16 @@ func (l *Layout) Visit(id NodeID) (start, end int) {
 	return l.w.visit(uint32(id))
 }
 
-// ItemIndent returns the columns that the list item that Visit entered last
-// continues on: its indentation, marker and padding (design 5.5).
+// ItemIndent returns the columns that the list item that [Layout.Visit]
+// entered last continues on: its indentation, marker and padding (design 5.5).
 func (l *Layout) ItemIndent() int {
 	return l.w.chain[len(l.w.chain)-1].indent
 }
 
 // ItemIndentOf returns the columns that the open list item id continues on,
 // counted from its own first column: its indentation, marker and padding
-// (design 5.5). The item must be one that Visit entered and has not left.
+// (design 5.5). The item must be one that [Layout.Visit] entered and has not
+// left.
 func (l *Layout) ItemIndentOf(id NodeID) int {
 	for _, c := range l.w.chain {
 		if c.id == uint32(id) {
@@ -750,7 +751,7 @@ type openContainer struct {
 }
 
 // visit moves the walk to node i, the node after the last one it visited,
-// and returns the columns of a leaf, as [Tree.leafColumns] gives them.
+// and returns the columns of a leaf, as Tree.leafColumns gives them.
 func (w *containerWalk) visit(i uint32) (start, end int) {
 	w.pop(i)
 	t := w.t

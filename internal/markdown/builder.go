@@ -114,7 +114,7 @@ func (b *builder) appendLeaf(k Kind, end, link uint32) {
 	b.pos, b.split = end, 0
 }
 
-// leafIf is [builder.leaf], but appends nothing when end is the end of the
+// leafIf is leaf, but appends nothing when end is the end of the
 // last leaf.
 func (b *builder) leafIf(k Kind, end uint32) {
 	if end != b.pos {

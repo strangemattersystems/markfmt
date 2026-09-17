@@ -27,8 +27,8 @@ func footnoteStart(src []byte, first, end uint32) (labelEnd, contentStart uint32
 
 // startFootnote opens a footnote definition that starts at first, whose label
 // ends at labelEnd and whose content starts at contentStart, appends its
-// Indent, label and Whitespace leaves, and records its label in the footnote
-// label list.
+// [Indent], label and [Whitespace] leaves, and records its label in the
+// footnote label list.
 func (p *blockParser) startFootnote(first, labelEnd, contentStart uint32) {
 	p.b.open(FootnoteDefinition)
 	p.push(container{kind: FootnoteDefinition, node: p.b.top()})
@@ -51,9 +51,9 @@ func (p *blockParser) startFootnote(first, labelEnd, contentStart uint32) {
 
 // continueFootnote reports whether footnote definition c continues on the rest
 // of the line: on 4 columns of indentation, which it consumes as a
-// FootnoteIndent leaf, or on a line with no byte before its line ending. cmark-gfm
-// tests the whole line, so a line of spaces and a line with a prefix end it
-// (design 5.1, 9.2).
+// [FootnoteIndent] leaf, or on a line with no byte before its line ending.
+// cmark-gfm tests the whole line, so a line of spaces and a line with a prefix
+// end it (design 5.1, 9.2).
 func (p *blockParser) continueFootnote(c container) bool {
 	if _, indent := p.indentation(); indent < 4 {
 		return p.l.start == p.l.end

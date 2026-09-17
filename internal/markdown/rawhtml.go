@@ -154,7 +154,7 @@ func (s *inlineParser) search(p pos, c int) (pos, bool) {
 	return pos{}, false
 }
 
-// AppendRawHTML appends the value of raw HTML id to dst: its HTMLText leaves,
+// AppendRawHTML appends the value of raw HTML id to dst: its [HTMLText] leaves,
 // with a line feed for each line ending and a '|' for each cell pipe escape.
 func (t *Tree) AppendRawHTML(dst []byte, id NodeID) []byte {
 	for i := id + 1; i < NodeID(t.nodes[id].link); i++ {
