@@ -27,7 +27,13 @@ markfmt README.md docs/
 Check formatting in CI. markfmt lists each unformatted file and exits with status 1:
 
 ```sh
-markfmt -check .
+markfmt --check .
+```
+
+Directories skip hidden files and directories. Skip more by name, glob or path:
+
+```sh
+markfmt --exclude testdata --exclude 'CHANGELOG*' .
 ```
 
 With no path, markfmt reads standard input and writes standard output.

@@ -14,16 +14,35 @@ func TestInputs(t *testing.T) {
 		t.Parallel()
 
 		root := tree(t, "b.md", "a.markdown", "sub/c.MD", "d.txt", "sub/e.mdx")
-		if got, want := paths(t, inputs([]string{root}), root), []string{"a.markdown", "b.md", "sub/c.MD"}; !slices.Equal(got, want) {
+		if got, want := paths(t, inputs([]string{root}, nil), root), []string{"a.markdown", "b.md", "sub/c.MD"}; !slices.Equal(got, want) {
 			t.Fatalf("inputs = %q, want %q", got, want)
 		}
 	})
 
-	t.Run("skips testdata, hidden and vendored directories", func(t *testing.T) {
+	t.Run("walks testdata and vendored directories", func(t *testing.T) {
 		t.Parallel()
 
-		root := tree(t, "a.md", "testdata/b.md", ".github/c.md", "vendor/d.md", "node_modules/e.md", "sub/testdata/f.md", "sub/.x.md")
-		if got, want := paths(t, inputs([]string{root}), root), []string{"a.md", "sub/.x.md"}; !slices.Equal(got, want) {
+		root := tree(t, "testdata/a.md", "vendor/b.md", "node_modules/c.md")
+		if got, want := paths(t, inputs([]string{root}, nil), root), []string{"node_modules/c.md", "testdata/a.md", "vendor/b.md"}; !slices.Equal(got, want) {
+			t.Fatalf("inputs = %q, want %q", got, want)
+		}
+	})
+
+	t.Run("skips hidden files and directories", func(t *testing.T) {
+		t.Parallel()
+
+		root := tree(t, "a.md", ".github/b.md", "sub/.c.md")
+		if got, want := paths(t, inputs([]string{root}, nil), root), []string{"a.md"}; !slices.Equal(got, want) {
+			t.Fatalf("inputs = %q, want %q", got, want)
+		}
+	})
+
+	t.Run("skips excluded files and directories by name or path", func(t *testing.T) {
+		t.Parallel()
+
+		root := tree(t, "a.md", "b.markdown", "testdata/c.md", "sub/testdata/d.md", "docs/e.md", "docs/f.md")
+		exclude := []string{"testdata", "*.markdown", filepath.Join(root, "docs", "e.md")}
+		if got, want := paths(t, inputs([]string{root}, exclude), root), []string{"a.md", "docs/f.md"}; !slices.Equal(got, want) {
 			t.Fatalf("inputs = %q, want %q", got, want)
 		}
 	})
@@ -31,8 +50,12 @@ func TestInputs(t *testing.T) {
 	t.Run("walks a root that a skip would match", func(t *testing.T) {
 		t.Parallel()
 
-		root := filepath.Join(tree(t, "testdata/a.md"), "testdata")
-		if got, want := paths(t, inputs([]string{root}), root), []string{"a.md"}; !slices.Equal(got, want) {
+		root := filepath.Join(tree(t, ".github/a.md", "testdata/b.md"), ".github")
+		if got, want := paths(t, inputs([]string{root}, nil), root), []string{"a.md"}; !slices.Equal(got, want) {
+			t.Fatalf("inputs = %q, want %q", got, want)
+		}
+		root = filepath.Join(filepath.Dir(root), "testdata")
+		if got, want := paths(t, inputs([]string{root}, []string{"testdata"}), root), []string{"b.md"}; !slices.Equal(got, want) {
 			t.Fatalf("inputs = %q, want %q", got, want)
 		}
 	})
@@ -42,7 +65,7 @@ func TestInputs(t *testing.T) {
 
 		root := tree(t, "notes.txt")
 		file := filepath.Join(root, "notes.txt")
-		got := inputs([]string{file, "-"})
+		got := inputs([]string{file, "-"}, nil)
 		if len(got) != 2 || got[0].path != file || got[1].path != "-" || got[0].err != nil || got[1].err != nil {
 			t.Fatalf("inputs = %v, want %s and - without errors", got, file)
 		}
@@ -52,7 +75,7 @@ func TestInputs(t *testing.T) {
 		t.Parallel()
 
 		missing := filepath.Join(t.TempDir(), "missing")
-		if got := inputs([]string{missing}); len(got) != 1 || got[0].err == nil {
+		if got := inputs([]string{missing}, nil); len(got) != 1 || got[0].err == nil {
 			t.Fatalf("inputs = %v, want one input with an error", got)
 		}
 	})

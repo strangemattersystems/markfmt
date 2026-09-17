@@ -19,7 +19,7 @@ tasks:
       - go build -o {{.BINARY}} ./cmd/markfmt
 
   exec:
-    desc: Build and run the markfmt binary (e.g. task exec -- -check README.md)
+    desc: Build and run the markfmt binary (e.g. task exec -- --check README.md)
     cmds:
       - task: build
       - ./{{.BINARY}} {{.CLI_ARGS}}

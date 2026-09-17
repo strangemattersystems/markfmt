@@ -2,16 +2,20 @@
 //
 // Usage:
 //
-//	markfmt [-check] [path ...]
-//	markfmt -version
+//	markfmt [--check] [--exclude pattern]... [path ...]
+//	markfmt --version
 //
 // Markfmt rewrites each path in place. A directory path gives each file below
-// it with the extension .md or .markdown, outside directories named testdata,
-// vendor or node_modules and hidden directories. With no path, or the path
-// "-", it reads standard input and writes standard output.
+// it with the extension .md or .markdown, and skips the files and directories
+// below it whose names start with a dot. With no path, or the path "-", it
+// reads standard input and writes standard output.
 //
-// With -check, markfmt rewrites nothing. It prints each input that is not
+// With --check, markfmt rewrites nothing. It prints each input that is not
 // formatted and exits with status 1.
+//
+// With --exclude, markfmt also skips each file and directory below a path whose
+// name, or path as markfmt prints it, matches the pattern. The pattern syntax
+// is that of [filepath.Match]. The flag can repeat.
 package main
 
 import (
@@ -40,7 +44,17 @@ var (
 
 func main() {
 	check := flag.Bool("check", false, "print unformatted inputs and exit with status 1; rewrite nothing")
+	var exclude []string
+	flag.Func("exclude", "skip files and directories below a path whose name or path matches `pattern`; repeatable", func(pattern string) error {
+		pattern = filepath.Clean(pattern)
+		if _, err := filepath.Match(pattern, ""); err != nil {
+			return err
+		}
+		exclude = append(exclude, pattern)
+		return nil
+	})
 	printVersion := flag.Bool("version", false, "print the version and exit")
+	flag.Usage = usage
 	flag.Parse()
 
 	if *printVersion {
@@ -58,7 +72,7 @@ func main() {
 		paths = []string{"-"}
 	}
 
-	ins := inputs(paths)
+	ins := inputs(paths, exclude)
 	results := make([]result, len(ins))
 	// Peak memory follows the input bytes that are formatted at once, so they
 	// stay within the input limit of one file (design 7.2).
@@ -94,6 +108,19 @@ func main() {
 	os.Exit(status)
 }
 
+// usage prints the flags with two dashes. The flag package accepts one or two.
+func usage() {
+	fmt.Fprintln(os.Stderr, "usage: markfmt [--check] [--exclude pattern]... [path ...]")
+	fmt.Fprintln(os.Stderr, "       markfmt --version")
+	flag.VisitAll(func(f *flag.Flag) {
+		name, usage := flag.UnquoteUsage(f)
+		if name != "" {
+			name = " " + name
+		}
+		fmt.Fprintf(os.Stderr, "  --%s%s\n    \t%s\n", f.Name, name, usage)
+	})
+}
+
 // input is a path to format, or the error of finding it.
 type input struct {
 	path string
@@ -106,8 +133,9 @@ type result struct {
 }
 
 // inputs returns the inputs of paths in order: a directory gives its Markdown
-// files in lexical order, and any other path is kept as given.
-func inputs(paths []string) []input {
+// files in lexical order, less those that [skip] reports, and any other path is
+// kept as given.
+func inputs(paths, exclude []string) []input {
 	var ins []input
 	for _, root := range paths {
 		info, err := os.Stat(root)
@@ -123,8 +151,11 @@ func inputs(paths []string) []input {
 			switch {
 			case err != nil:
 				ins = append(ins, input{path: path, err: err})
-			case d.IsDir() && path != root && skipDir(d.Name()):
-				return filepath.SkipDir
+			case path == root:
+			case skip(path, d.Name(), exclude):
+				if d.IsDir() {
+					return filepath.SkipDir
+				}
 			case d.Type().IsRegular() && isMarkdown(path):
 				ins = append(ins, input{path: path})
 			}
@@ -137,10 +168,22 @@ func inputs(paths []string) []input {
 	return ins
 }
 
-// skipDir reports whether a directory below a path holds files that are not
-// the project's own: test data, vendored code or hidden tool state.
-func skipDir(name string) bool {
-	return name == "testdata" || name == "vendor" || name == "node_modules" || strings.HasPrefix(name, ".")
+// skip reports whether a walk leaves out the entry at path: a hidden entry, or
+// one whose name or path matches an exclude pattern.
+func skip(path, name string, exclude []string) bool {
+	if strings.HasPrefix(name, ".") {
+		return true
+	}
+	for _, pattern := range exclude {
+		// flag.Parse rejects a malformed pattern, so Match returns no error.
+		if m, _ := filepath.Match(pattern, name); m {
+			return true
+		}
+		if m, _ := filepath.Match(pattern, path); m {
+			return true
+		}
+	}
+	return false
 }
 
 func isMarkdown(path string) bool {
