@@ -462,7 +462,8 @@ func (p *printer) separate(parent int, id markdown.NodeID, k markdown.Kind, span
 			// indentation that hides its block start, and after a blank line
 			// that indentation would start code instead.
 			n = 0
-		case k == markdown.Paragraph && f.lastChild == markdown.LinkReferenceDefinition && p.blanks == 0 &&
+		case (k == markdown.Paragraph || k == markdown.LinkReferenceDefinition) &&
+			f.lastChild == markdown.LinkReferenceDefinition && p.blanks == 0 &&
 			(markdown.InterruptsParagraph(p.firstLine(id), false) || markdown.StartsBlock(p.firstLine(id))):
 			// The paragraph continues the definition's lines: after a blank
 			// line its first line would start a block. A line that would
