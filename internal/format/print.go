@@ -960,6 +960,7 @@ func (p *printer) prescan() (map[markdown.NodeID][2]bool, int) {
 // fitMarker moves the kept marker of item f left until its sign is before
 // column limit, where the items of the list above the item's list continue.
 // A marker at that column is a line of that list's last item, not a marker.
+// The item keeps the columns that it continues on.
 func (p *printer) fitMarker(f *frame, limit int) {
 	if limit == 0 {
 		return
@@ -967,7 +968,10 @@ func (p *printer) fitMarker(f *frame, limit int) {
 	lead := len(f.marker) - len(bytes.TrimLeft(f.marker, " "))
 	sign := p.column() + len(bytes.TrimRight(f.marker, " ")) - 1
 	if over := min(sign-limit+1, lead); over > 0 {
-		f.marker = f.marker[over:]
+		// The padding grows by what the indentation loses, so the item still
+		// continues on the columns of its input, as every item of its list
+		// does (design 12).
+		f.marker = append(f.marker[over:], spaces[:over]...)
 	}
 }
 
