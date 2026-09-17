@@ -39,7 +39,7 @@ section numbers are cited below as "design 5.4".
 
 ## Current state
 
-Last updated: 2026-09-16. Everything up to `bbeb624` is pushed.
+Last updated: 2026-09-17. Everything is pushed; v0.0.1 is the first release.
 
 | Commit | Content |
 | --- | --- |
@@ -56,7 +56,7 @@ Last updated: 2026-09-16. Everything up to `bbeb624` is pushed.
 | `6110977` onwards | Stage 4: the GFM tag filter, GitHub fixtures and the GitHub normalizer, strikethrough, tables, cell pipe escapes, task list items, extended www, URL and email autolinks, footnote definitions and references, the indentation memo |
 | `f51a4c6` onwards | Stage 5: `FuzzDifferential` against goldmark v2.0.2, the differential cases and their predicates, fixes for NUL, control characters, VT and FF, kind 7 tag names and code span closers |
 | `dfc151f` onwards | Stage 6: the canonical style survey, `Source` on the new parser, `FuzzFormat`, dialect predicates and spans in `Equal`, a printer for every node kind, display width from Unicode `EastAsianWidth.txt`, aligned tables, the GitHub printer fixtures and their API check, output bounds, fixes for the `FuzzFormat` findings, and the kept marker rule |
-| `1d28ee8`, `e064ce8` | Stage 8 in part: CLI directory walking, the goreleaser release |
+| `1d28ee8` onwards | Stage 8: CLI directory walking, the goreleaser release and the Homebrew cask, v0.0.1 |
 | The commit after `5d4e86a` | Stage 7: goldmark, `differential_test.go` and `go.sum` removed; the root `go.mod` has no requirements |
 
 Layout:
@@ -400,8 +400,10 @@ files can stay as data, with their MIT notice.
 
 - [x] CLI directory walking that skips `testdata`, hidden directories and
   vendored code. Concurrent work is limited by input bytes.
-- [ ] Release setup: goreleaser, version stamping, `release.yml`, Homebrew
-  tap. Follow hamnir's conventions.
+- [x] Release setup: goreleaser, version stamping, `release.yml`, Homebrew
+  tap. Follow hamnir's conventions. v0.0.1 released on 2026-09-17: archives,
+  signed checksums, SBOMs, attestations, the GHCR image and the cask all
+  checked from outside, and `go install ...@latest` works.
   - [x] goreleaser, `-version` stamping, `release.yml`, the GHCR image, SBOMs
     and cosign signing, as hamnir has them. `task release-snapshot` builds
     every archive and both images (2026-09-16).
@@ -416,7 +418,11 @@ files can stay as data, with their MIT notice.
     and `task warm-proxy` read the module from proxy.golang.org, which cannot
     fetch a private module. Public since 2026-09-17, after a gitleaks scan of
     the whole history.
-- [ ] markfmt.com.
+- [x] markfmt.com. Cloudflare Pages serves `website/` and deploys each push
+  to `main` through the Cloudflare GitHub app. `www.markfmt.com` is a proxied
+  `AAAA 100::` record with a 301 redirect rule to the apex, and Always Use
+  HTTPS is on (2026-09-17). The site's download links use
+  `releases/latest/download`, so release archives carry no version.
 
 ## Testing strategy
 
