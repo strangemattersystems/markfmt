@@ -69,6 +69,12 @@ func (t *Tree) SplitTab(id NodeID) int {
 	return int(t.nodes[id].virt)
 }
 
+// NodeSpan returns the input bytes that node id covers.
+func (t *Tree) NodeSpan(id NodeID) (start, end uint32) {
+	n := t.nodes[id]
+	return n.start, n.end
+}
+
 // Raw returns the source bytes of node id.
 func (t *Tree) Raw(id NodeID) []byte {
 	n := t.nodes[id]

@@ -2,6 +2,7 @@ package format
 
 import (
 	"bytes"
+	"cmp"
 	"slices"
 	"strconv"
 	"strings"
@@ -60,6 +61,10 @@ type printer struct {
 	textBlock  markdown.NodeID
 	delimScope markdown.NodeID
 	delimText  [4]bool
+
+	wordScope  markdown.NodeID // the text block that wordSpaces and wordStarts describe
+	wordSpaces []uint32        // the offsets of whitespace in it
+	wordStarts []span          // the offsets of each "://" and "www." in it
 
 	table *table // the table that prints, or nil
 
@@ -725,7 +730,7 @@ func (p *printer) leaf(id markdown.NodeID, k markdown.Kind, start, end int) {
 			} else {
 				p.write(spaces[:2])
 			}
-		case p.backslash || p.bracket0 || autolinkWord(lastWord(p.out)):
+		case p.backslash || p.bracket0 || autolinkWordBytes(lastWord(p.out)):
 			p.write(spaces[:2])
 		default:
 			p.write([]byte{'\\'})
@@ -1231,9 +1236,12 @@ func (p *printer) delimiter(id markdown.NodeID, k markdown.Kind) []byte {
 	raw, open := t.Raw(id), t.Raw(id+1)
 	var closer []byte
 	end, _ := t.Next(id)
+	_, contentStart := t.NodeSpan(id + 1)
+	_, contentEnd := t.NodeSpan(id)
 	for i := end - 1; i > id; i-- {
 		if t.Kind(i) == markdown.Delimiter {
 			closer = t.Raw(i)
+			contentEnd, _ = t.NodeSpan(i)
 			break
 		}
 	}
@@ -1242,7 +1250,10 @@ func (p *printer) delimiter(id markdown.NodeID, k markdown.Kind) []byte {
 		// An extended www autolink depends on the byte before it (design 6.2).
 		return nil
 	}
-	if p.inAutolinkWord(id) || autolinkWord(lastWord(content)) {
+	// An extended autolink can start in the word before the node, which its
+	// bytes continue, or in the last word of its content (design 6.2).
+	nodeStart, _ := t.NodeSpan(id)
+	if p.autolinkWord(0, nodeStart) || p.autolinkWord(contentStart, contentEnd) {
 		// An underscore in the last two segments of a domain keeps an
 		// extended autolink from forming (design 6.2), so '*' would make one,
 		// of the word before the node or of the word that its content ends
@@ -1284,32 +1295,68 @@ func (p *printer) delimiter(id markdown.NodeID, k markdown.Kind) []byte {
 	}
 }
 
-// inAutolinkWord reports whether the word before node id holds the start of
-// an extended autolink. The bytes of the node follow that word without a
-// space, so they can be part of it.
-func (p *printer) inAutolinkWord(id markdown.NodeID) bool {
-	t := p.tree
-	var word []byte
-	for i := id - 1; i > p.textBlock && t.Kind(i).Leaf(); i-- {
-		b := t.Raw(i)
-		if j := bytes.LastIndexAny(b, " \t\n\r"); j >= 0 {
-			word = append(bytes.Clone(b[j+1:]), word...)
-			break
-		}
-		word = append(bytes.Clone(b), word...)
-	}
-	return autolinkWord(word)
-}
-
 // lastWord returns the bytes of b after its last whitespace.
 func lastWord(b []byte) []byte {
 	return b[bytes.LastIndexAny(b, " \t\n\r")+1:]
 }
 
-// autolinkWord reports whether word holds "://" or "www.", the start of an
-// extended autolink (design 6.2).
-func autolinkWord(word []byte) bool {
-	return bytes.Contains(word, []byte("://")) || bytes.Contains(bytes.ToLower(word), []byte("www."))
+// autolinkWordBytes reports whether word holds "://" or "www.", the start of
+// an extended autolink (design 6.2). The printer asks this of its output,
+// where no input offsets exist.
+func autolinkWordBytes(word []byte) bool {
+	if bytes.Contains(word, []byte("://")) {
+		return true
+	}
+	for i := 0; i+4 <= len(word); i++ {
+		if (word[i] == 'w' || word[i] == 'W') && bytes.EqualFold(word[i:i+4], []byte("www.")) {
+			return true
+		}
+	}
+	return false
+}
+
+// span is a range of input bytes.
+type span struct{ start, end uint32 }
+
+// autolinkWord reports whether the word that ends at input offset end holds
+// "://" or "www.", the start of an extended autolink (design 6.2). The word
+// starts after the last whitespace before end, and never before low.
+//
+// The offsets come from one pass over the text block, because reading the
+// word for each node of a block costs O(n^2).
+func (p *printer) autolinkWord(low, end uint32) bool {
+	p.wordFacts()
+	if i, _ := slices.BinarySearch(p.wordSpaces, end); i > 0 && p.wordSpaces[i-1] >= low {
+		low = p.wordSpaces[i-1] + 1
+	}
+	i, _ := slices.BinarySearchFunc(p.wordStarts, low, func(s span, low uint32) int {
+		return cmp.Compare(s.start, low)
+	})
+	// The starts are in order, so a later one ends later than this one.
+	return i < len(p.wordStarts) && p.wordStarts[i].end <= end
+}
+
+// wordFacts fills wordSpaces and wordStarts for the text block being
+// printed.
+func (p *printer) wordFacts() {
+	if p.wordScope == p.textBlock {
+		return
+	}
+	raw := p.tree.Raw(p.textBlock)
+	low, _ := p.tree.NodeSpan(p.textBlock)
+	p.wordScope = p.textBlock
+	p.wordSpaces, p.wordStarts = p.wordSpaces[:0], p.wordStarts[:0]
+	for i, c := range raw {
+		at := low + uint32(i)
+		switch {
+		case c == ' ' || c == '\t' || c == '\n' || c == '\r':
+			p.wordSpaces = append(p.wordSpaces, at)
+		case c == ':' && bytes.HasPrefix(raw[i:], []byte("://")):
+			p.wordStarts = append(p.wordStarts, span{at, at + 3})
+		case (c == 'w' || c == 'W') && len(raw)-i >= 4 && bytes.EqualFold(raw[i:i+4], []byte("www.")):
+			p.wordStarts = append(p.wordStarts, span{at, at + 4})
+		}
+	}
 }
 
 // inText reports whether the last paragraph, heading or table cell that
