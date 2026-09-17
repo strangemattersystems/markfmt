@@ -1565,6 +1565,13 @@ func (p *printer) tailLeaf(in *inlineFrame, id markdown.NodeID, k markdown.Kind,
 			p.write(spaces[:1])
 		}
 		switch {
+		case k == markdown.LineEnding && p.inText('<'):
+			// A destination in angle brackets holds no line ending, so where
+			// the text has a '<' a space here could let one form across the
+			// line. The line ending stays.
+			in.gap = false
+			p.indent = -1
+			p.endLine()
 		case skip:
 			in.gap = true
 		case k == markdown.Paren:
