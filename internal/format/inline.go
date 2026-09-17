@@ -41,9 +41,10 @@ func isInline(k markdown.Kind) bool {
 type defPart uint8
 
 // titleQuotes returns the quotes around the title of link reference
-// definition id: '"', or a single quote when the title has '"', or
-// parentheses when it has both, or the input's quotes when it also has a
-// parenthesis. A title decodes the same in each (spec 4.7).
+// definition id: '"', or a single quote when the title or the text around it
+// has '"', or parentheses when they have both, or the input's quotes when
+// the title also has a parenthesis. A title decodes the same in each
+// (spec 4.7).
 func (p *printer) titleQuotes(id markdown.NodeID) [2]byte {
 	t := p.tree
 	end, _ := t.Next(id)
@@ -67,10 +68,12 @@ func (p *printer) titleQuotes(id markdown.NodeID) [2]byte {
 			}
 		}
 	}
+	// A quote that the text around the title also holds could pair with the
+	// one that prints, which would make a title of the text between them.
 	switch {
-	case bytes.IndexByte(title, '"') < 0:
+	case bytes.IndexByte(title, '"') < 0 && !p.inText('"'):
 		return [2]byte{'"', '"'}
-	case bytes.IndexByte(title, '\'') < 0:
+	case bytes.IndexByte(title, '\'') < 0 && !p.inText('\''):
 		return [2]byte{'\'', '\''}
 	case !bytes.ContainsAny(title, "()"):
 		return [2]byte{'(', ')'}
@@ -274,25 +277,28 @@ func (p *printer) wordFacts() {
 	}
 }
 
+// delimBytes are the bytes that [printer.inText] answers for.
+const delimBytes = "*_~<\"'"
+
 // inText reports whether the last paragraph, heading or table cell that
-// started has a text leaf with c, which is '*', '_', '~' or '<'. A canonical
-// delimiter could pair with a run of c that is text, where the input's
-// delimiter does not, and '_' next to a '<' could start an attribute name of
-// a tag.
+// started has a text leaf with c, one of [delimBytes]. A canonical delimiter
+// could pair with a run of c that is text, where the input's delimiter does
+// not, '_' next to a '<' could start an attribute name of a tag, and a quote
+// could close the title that a canonical quote opens.
 func (p *printer) inText(c byte) bool {
 	t := p.tree
 	if scope := p.textBlock; scope != p.delimScope {
-		p.delimScope, p.delimText = scope, [4]bool{}
+		p.delimScope, p.delimText = scope, [len(delimBytes)]bool{}
 		end, _ := t.Next(scope)
 		for j := scope + 1; j < end; j++ {
 			if t.Kind(j) == markdown.Text {
-				for k, d := range []byte("*_~<") {
+				for k, d := range []byte(delimBytes) {
 					p.delimText[k] = p.delimText[k] || bytes.IndexByte(t.Raw(j), d) >= 0
 				}
 			}
 		}
 	}
-	return p.delimText[strings.IndexByte("*_~<", c)]
+	return p.delimText[strings.IndexByte(delimBytes, c)]
 }
 
 // spaceLike reports whether c, the byte next to an emphasis delimiter, is

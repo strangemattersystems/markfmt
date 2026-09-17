@@ -56,7 +56,7 @@ type printer struct {
 	// '<'.
 	textBlock  markdown.NodeID
 	delimScope markdown.NodeID
-	delimText  [4]bool
+	delimText  [len(delimBytes)]bool
 
 	// The last run of blank lines and prefix leaves that afterBlanks passed:
 	// from its first node to the node after it.
