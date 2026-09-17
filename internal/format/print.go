@@ -69,12 +69,12 @@ type printer struct {
 	skipToOK bool
 	skipOK   bool
 
-	// inputPrefix holds the bytes of the prefix leaf of each container that
-	// the input line being read matched, outermost first. A line whose content
-	// is in a dialect span writes them in place of the canonical markers: a
-	// marker of another width moves the column that a tab expands to, and with
-	// it the meaning of the indentation after it.
-	inputPrefix [][]byte
+	// inputPrefix holds the prefix leaf of each container that the input line
+	// being read matched, outermost first. A line whose content is in a
+	// dialect span writes them in place of the canonical markers: a marker of
+	// another width moves the column that a tab expands to, and with it the
+	// meaning of the indentation after it.
+	inputPrefix []markdown.NodeID
 	lineTab     bool // the input line being read holds a tab
 
 	lineBreak []byte // a paragraph line with a backslash, for the break decisions
@@ -301,7 +301,7 @@ func (p *printer) node(id markdown.NodeID) {
 			p.inputPrefix = p.inputPrefix[:0]
 		}
 		if k.Prefix() {
-			p.inputPrefix = append(p.inputPrefix, t.Raw(id))
+			p.inputPrefix = append(p.inputPrefix, id)
 		}
 		start, end := p.layout.Visit(id)
 		raw := t.Raw(id)
@@ -586,7 +586,13 @@ prefixes:
 		}
 		marker, rest := f.marker, f.rest()
 		if kept && n < len(p.inputPrefix) {
-			marker, rest = p.inputPrefix[n], p.inputPrefix[n]
+			// A container that has not started writes its marker on this line,
+			// so the input's leaf must be a marker and not the indentation of a
+			// line that continues it.
+			id := p.inputPrefix[n]
+			if kind := p.tree.Kind(id); f.started || kind == markdown.QuoteMarker || kind == markdown.ListMarker {
+				marker, rest = p.tree.Raw(id), p.tree.Raw(id)
+			}
 		}
 		switch {
 		case !f.started && blank:
