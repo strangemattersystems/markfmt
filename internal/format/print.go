@@ -457,10 +457,12 @@ func (p *printer) separate(parent int, id markdown.NodeID, k markdown.Kind, span
 			// The table split the paragraph off, which after a blank line
 			// would start with a link reference definition.
 			n = 0
-		case k == markdown.Table && f.lastChild == markdown.Paragraph && p.blanks == 0 && p.tableIndentHides(id):
-			// The first row of a table that prints as written keeps the
-			// indentation that hides its block start, and after a blank line
-			// that indentation would start code instead.
+		case k == markdown.Table && f.lastChild == markdown.Paragraph && p.blanks == 0 &&
+			(p.tableIndentHides(id) || markdown.InterruptsParagraph(p.firstLine(id), false) ||
+				markdown.StartsBlock(p.firstLine(id))):
+			// The table split the paragraph above it, so its first row is a line
+			// of that paragraph. After a blank line the line would start a block,
+			// or the indentation that hides its block start would start code.
 			n = 0
 		case (k == markdown.Paragraph || k == markdown.LinkReferenceDefinition) &&
 			f.lastChild == markdown.LinkReferenceDefinition && p.blanks == 0 &&
