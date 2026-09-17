@@ -22,7 +22,8 @@ type Node struct {
 // leaves tile the input.
 type Tree struct {
 	src   []byte
-	nodes []Node // nodes[0] is the document
+	nodes []Node        // nodes[0] is the document
+	spans []dialectSpan // the dialect spans, found on the first call
 }
 
 // NodeID is the index of a node in a [Tree].

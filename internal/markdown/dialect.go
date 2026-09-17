@@ -86,10 +86,18 @@ func (t *Tree) DialectSpans() []NodeID {
 	return ids
 }
 
-// dialectSpans returns the dialect spans of t in node order. Each predicate
-// is conservative: a span where GitHub gives the same meaning only keeps
-// bytes that the printer could have changed.
+// dialectSpans returns the dialect spans of t in node order, and finds them
+// on the first call: the printer asks for them, and so does each projection
+// of Equal. Each predicate is conservative: a span where GitHub gives the
+// same meaning only keeps bytes that the printer could have changed.
 func (t *Tree) dialectSpans() []dialectSpan {
+	if t.spans == nil {
+		t.spans = t.findDialectSpans()
+	}
+	return t.spans
+}
+
+func (t *Tree) findDialectSpans() []dialectSpan {
 	f := spanFinder{t: t, lineStart: true, newLine: true, vtff: bytes.ContainsAny(t.src, "\v\f")}
 	f.walk.t = t
 	for i := range t.nodes {
@@ -103,6 +111,10 @@ func (t *Tree) dialectSpans() []dialectSpan {
 			continue
 		}
 		merged = append(merged, s)
+	}
+	if merged == nil {
+		// A tree with no span must not find them again.
+		merged = []dialectSpan{}
 	}
 	return merged
 }
