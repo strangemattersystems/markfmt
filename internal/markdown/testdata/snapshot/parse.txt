@@ -1696,6 +1696,7 @@ testdata/pairs/trailing-space.b.md	Document( Paragraph( Text[0:1] SoftBreak( Lin
 ../format/testdata/cases/counts-the-blank-lines-of-an-empty-list-item-before-a-dialect-span.in.md	Document( List( ListItem( ListMarker[0:1] BlankLine[1:2] BlankLine[2:4])) HTMLBlock( HTMLText[4:12] VerbatimLineEnding[12:13]))
 ../format/testdata/cases/fences-an-indented-code-block-of-a-form-feed.in.md	Document( CodeBlock( CodeIndent[0:4] CodeText[4:5]))
 ../format/testdata/cases/fences-indented-code.in.md	Document( CodeBlock( CodeIndent[0:4] CodeText[4:5] VerbatimLineEnding[5:6] VerbatimLineEnding[6:7] CodeIndent[7:11] CodeText[11:12] VerbatimLineEnding[12:13]))
+../format/testdata/cases/fits-a-kept-marker-before-the-list-above-it.in.md	Document( List( ListItem( ListMarker[0:4] Paragraph( Text[4:5] LineEnding[5:6]))) List( ListItem( ListMarker[6:9] BlankLine[9:10])) HTMLBlock( HTMLText[10:15]))
 ../format/testdata/cases/formats-a-list-and-a-fence.in.md	Document( List( ListItem( ListMarker[0:3] Paragraph( Text[3:4] LineEnding[4:5])) ListItem( ListMarker[5:8] Paragraph( Text[8:9] LineEnding[9:10]) BlankLine[10:11] BlankLine[11:12])) CodeBlock( FenceMarker[12:15] InfoString[15:17] LineEnding[17:18] CodeText[18:19] VerbatimLineEnding[19:20] FenceMarker[20:23] LineEnding[23:24]))
 ../format/testdata/cases/formats-an-empty-document.in.md	Document()
 ../format/testdata/cases/github-alerts-alone.in.md	Document( BlockQuote( QuoteMarker[0:2] Paragraph( Text[2:9] LineEnding[9:10])))

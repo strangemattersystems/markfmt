@@ -69,8 +69,9 @@ type printer struct {
 	skipToOK bool
 	skipOK   bool
 
-	lineBreak []byte // a paragraph line with a backslash, for the break decisions
-	runs      []bool // the backtick run lengths of the code span being printed
+	lineOffset int    // where the open line of the output starts
+	lineBreak  []byte // a paragraph line with a backslash, for the break decisions
+	runs       []bool // the backtick run lengths of the code span being printed
 
 	wordScope  markdown.NodeID // the text block that wordSpaces and wordStarts describe
 	wordSpaces []uint32        // the offsets of whitespace in it
@@ -138,6 +139,8 @@ type frame struct {
 	// The last list that ended in the node.
 	listOrdered, listAlt bool
 	listBullet           byte
+	outContent           int // the output column where the content of this container starts
+	lastList             int // the output column where the items of the last child list continue, or 0
 
 	// A block quote, list item or footnote definition writes marker on its
 	// first line and the rest of its marker on its other lines. With
@@ -152,6 +155,13 @@ type frame struct {
 // rest returns the prefix that container f writes on the lines after its
 // first: its marker for a block quote, 4 columns for a footnote definition
 // (appendix B, trap 18), and the columns of its marker for a list item.
+// column returns the output column that the next byte of the open line
+// starts at. Only prefixes and indentation are written before the content of
+// a line, and they hold no byte that is wider than one column.
+func (p *printer) column() int {
+	return len(p.out) - p.lineOffset
+}
+
 func (f *frame) rest() []byte {
 	switch f.kind {
 	case markdown.BlockQuote:
@@ -206,6 +216,9 @@ func (p *printer) write(b []byte) {
 	if p.full || len(p.out)+len(b) > p.max {
 		p.full = true
 		return
+	}
+	if i := bytes.LastIndexByte(b, '\n'); i >= 0 {
+		p.lineOffset = len(p.out) + i + 1
 	}
 	p.out = append(p.out, b...)
 }
@@ -581,9 +594,16 @@ prefixes:
 				p.nextPrefixLine(start, i)
 				start, opened = len(p.out), 0
 			}
+			col := p.column()
 			p.write(marker)
 			f.started = true
 			opened++
+			// An item whose marker line is blank continues one column after its
+			// marker (spec 5.2); every other container after its prefix.
+			f.outContent = p.column()
+			if f.keepBlank {
+				f.outContent = col + len(bytes.TrimRight(marker, " ")) + 1
+			}
 			// Padding would take the columns that the content starts with, the
 			// item keeps its blank marker line, or the indentation of a kept
 			// marker after it would pad its marker.
@@ -843,6 +863,7 @@ func (p *printer) listMarker(f *frame, id markdown.NodeID, start int) {
 		// marker line stays blank, so that a second format reads the same
 		// item and keeps the same marker (design 12).
 		f.marker, f.keepBlank = p.sourceMarker(f, id, start, minIndent, f.marker[len(f.marker)-1]), blank
+		p.fitMarker(f, p.stack[len(p.stack)-3].lastList)
 	} else {
 		f.marker = append(f.marker, spaces[:padding]...)
 	}
@@ -934,6 +955,20 @@ func (p *printer) prescan() (map[markdown.NodeID][2]bool, int) {
 		}
 	}
 	return breaks, depth
+}
+
+// fitMarker moves the kept marker of item f left until its sign is before
+// column limit, where the items of the list above the item's list continue.
+// A marker at that column is a line of that list's last item, not a marker.
+func (p *printer) fitMarker(f *frame, limit int) {
+	if limit == 0 {
+		return
+	}
+	lead := len(f.marker) - len(bytes.TrimLeft(f.marker, " "))
+	sign := p.column() + len(bytes.TrimRight(f.marker, " ")) - 1
+	if over := min(sign-limit+1, lead); over > 0 {
+		f.marker = f.marker[over:]
+	}
 }
 
 // sourceMarker returns the indentation, marker and padding of list item f of
@@ -1902,10 +1937,16 @@ func (p *printer) exit() {
 	case g.kind == markdown.BlockQuote:
 		p.open, p.span = false, p.span || g.span
 		p.quoteGap, p.quoteParent = p.lastLeaf == markdown.Paragraph && !quoteBlanks, len(p.stack)-1
+	case g.kind == markdown.ListItem:
+		// The list keeps the greatest column that an item of it continues on,
+		// for the block that follows the list.
+		list := &p.stack[len(p.stack)-1]
+		list.lastList = max(list.lastList, g.outContent)
 	case g.kind == markdown.List:
 		p.span = p.span || g.span
 		parent := &p.stack[len(p.stack)-1]
 		parent.listOrdered, parent.listAlt, parent.listBullet = g.ordered, g.alt, g.bullet
+		parent.lastList = g.lastList
 	case isBlock(g.kind):
 		p.span = p.span || g.span
 	case g.kind == markdown.Document:
