@@ -69,6 +69,9 @@ type printer struct {
 	skipToOK bool
 	skipOK   bool
 
+	lineBreak []byte // a paragraph line with a backslash, for the break decisions
+	runs      []bool // the backtick run lengths of the code span being printed
+
 	wordScope  markdown.NodeID // the text block that wordSpaces and wordStarts describe
 	wordSpaces []uint32        // the offsets of whitespace in it
 	wordStarts []span          // the offsets of each "://" and "www." in it
@@ -1475,17 +1478,22 @@ func (p *printer) codeSpan(id markdown.NodeID) []byte {
 	if padded {
 		value = value[1 : len(value)-1]
 	}
-	runs := make(map[int]bool)
+	// runs[n] reports whether the value holds a run of n backticks. append
+	// writes false, so the buffer of the last code span is not read again.
+	p.runs = p.runs[:0]
 	for run, i := 0, 0; i <= len(value); i++ {
 		if i < len(value) && value[i] == '`' {
 			run++
 			continue
 		}
-		runs[run] = true
-		run = 0
+		for len(p.runs) <= run {
+			p.runs = append(p.runs, false)
+		}
+		p.runs[run], run = true, 0
 	}
+	runs := func(n int) bool { return n < len(p.runs) && p.runs[n] }
 	n := 1
-	for runs[n] {
+	for runs(n) {
 		n++
 	}
 	fence := bytes.Repeat([]byte{'`'}, n)
@@ -1703,7 +1711,8 @@ func (p *printer) continuation(id markdown.NodeID) {
 	// the line without a last backslash and with one, and a second format
 	// decides the same.
 	line := bytes.TrimSuffix(bytes.TrimRight(p.tree.RestOfLine(id), " \t"), []byte{'\\'})
-	withBreak := append(bytes.Clone(line), '\\')
+	p.lineBreak = append(append(p.lineBreak[:0], line...), '\\')
+	withBreak := p.lineBreak
 	interrupts := func(lazy bool) bool {
 		return markdown.InterruptsParagraph(line, lazy) || markdown.InterruptsParagraph(withBreak, lazy)
 	}
