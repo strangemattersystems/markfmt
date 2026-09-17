@@ -1,11 +1,4 @@
-# build artifacts
 /markfmt
-
-# macOS
 .DS_Store
-
-# local research and review notes
 /.scratch/
-
-# goreleaser dist directory
 /dist/

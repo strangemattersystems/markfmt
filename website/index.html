@@ -39,7 +39,7 @@ h1.cursor::after {
 h1.cursor.done::after { animation: blink 1s steps(1) 4 forwards; }
 @keyframes blink { 50%, to { opacity: 0; } }
 
-/* The Markdown marks are decoration: the "/ ''" form hides them from screen
+/* The Markdown marks are decoration: the / "" form hides them from screen
    readers, and the plain declaration before it covers browsers without it. */
 h1::before { content: "# "; content: "# " / ""; color: var(--mark); }
 h2::before { content: "## "; content: "## " / ""; color: var(--mark); }

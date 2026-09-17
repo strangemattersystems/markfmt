@@ -1,4 +1,3 @@
-# https://goreleaser.com — v2 config.
 version: 2
 
 project_name: markfmt
