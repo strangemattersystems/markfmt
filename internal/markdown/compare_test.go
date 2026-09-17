@@ -585,3 +585,18 @@ func blankLinesAfter(tree *Tree, i int) int {
 	}
 	return 0
 }
+
+// TestEqual_SpanMarks covers the marks that equalSpans records for a span
+// inside a span: the fuzz corpus reached them, and no pair did.
+func TestEqual_SpanMarks(t *testing.T) {
+	t.Parallel()
+
+	t.Run("compares a span that ends where the span holding it ends", func(t *testing.T) {
+		t.Parallel()
+
+		src := "\\|\n0\n -|\n0*\x80"
+		if err := Equal(Parse([]byte(src)), Parse([]byte(src+"\n"))); err != nil {
+			t.Fatalf("Equal of %q and the same input with a line ending = %v, want nil", src, err)
+		}
+	})
+}

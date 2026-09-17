@@ -517,6 +517,9 @@ func (r *spanReader) next() []byte {
 func (r *spanReader) read() []byte {
 	for len(r.b) == 0 {
 		if r.i == r.end {
+			// A span that ends where the span holding it ends has no node
+			// after it to mark, so the end of the read marks it.
+			r.marks.at(int(r.end), r.off)
 			return nil
 		}
 		m := r.t.nodes[r.i]
@@ -590,6 +593,7 @@ func (s *spanLines) next() (int, bool) {
 			return matched, true
 		}
 	}
+	s.marks.at(int(s.end), s.lines)
 	return 0, false
 }
 
