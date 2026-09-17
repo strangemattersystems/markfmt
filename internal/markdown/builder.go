@@ -15,8 +15,13 @@ type builder struct {
 	split uint8    // virt of the next leaf: the columns left of a split tab at its start
 }
 
-func newBuilder(src []byte) *builder {
-	return &builder{tree: Tree{src: src}, size: inputSize(src)}
+// newBuilder returns a builder for src with room for nodes nodes. Growing
+// the node array from nothing costs about five times its final size in
+// allocated bytes, and most of the parser's memory traffic is that growth.
+func newBuilder(src []byte, nodes int) *builder {
+	b := &builder{tree: Tree{src: src}, size: inputSize(src)}
+	b.tree.nodes = make([]Node, 0, nodes)
+	return b
 }
 
 func (b *builder) next() uint32 {
