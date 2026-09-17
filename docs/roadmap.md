@@ -365,12 +365,17 @@ fixture yet.
   the output limit.
 - [x] Dialect predicates and spans in `Equal` (design 10.4).
 - [ ] `FuzzFormat`: no check mismatch on any input, and equal test HTML for
-  input and output (design 10.5). The seed corpus passes since the kept blank
-  lines of a quote were fixed (2026-09-17). Three minutes of fuzzing then gave
-  `"  * 0\n   *\n  <!A"`, where the canonical bullet makes the marker line of
-  an empty item a setext underline, and `Source` returns an error. The bullet
-  choice needs the printer to know the columns that an item's marker line
-  prints at, which is the facts pass of the printer work.
+  input and output (design 10.5). Six findings of 2026-09-17 are fixed, each
+  with a case and a seed: the kept blank lines of a quote, a kept marker at
+  the column where its list continues, a definition below a definition, the
+  padding of a lazy line, the first line of code that prints as a fence, and
+  a link tail line ending. Ten minutes of fuzzing then gives `">> \t\f"`,
+  where the canonical quote markers move the column that a tab expands to, so
+  the paragraph of a dialect span becomes indented code. Its fix needs the
+  printer to keep the columns of the containers around a span, which is the
+  column model of the printer work. On 4,000 real files (39 MB of module
+  caches) the branch gives the output of main, byte for byte, with no error,
+  and formatting them again changes nothing (2026-09-17).
 - [x] Move `internal/format` to the new parser and delete the goldmark-based
   code. Keep `testdata/cases` and make every case pass.
 
