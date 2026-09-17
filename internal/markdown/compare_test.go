@@ -117,6 +117,7 @@ func TestEqual(t *testing.T) {
 		for _, pair := range [][2]string{
 			{"a  \n<search>", "a\n<search>"},
 			{"> a\n> b\n<search>", "> a\nb\n<search>"},
+			{"£~!a~", "£~~!a~~"},
 		} {
 			if err := Equal(Parse([]byte(pair[0])), Parse([]byte(pair[1]))); err == nil {
 				t.Errorf("Equal of %q and %q = nil, want a difference", pair[0], pair[1])

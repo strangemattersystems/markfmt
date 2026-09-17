@@ -374,14 +374,15 @@ func isGitHubComment(v []byte) bool {
 		!bytes.HasSuffix(text, []byte("-")) && !bytes.Contains(text, []byte("--"))
 }
 
-// flankingDiffers reports whether a run of '*' or '_' in b is next to a
+// flankingDiffers reports whether a run of '*', '_' or '~' in b is next to a
 // character that markfmt reads as punctuation for flanking and GitHub does
 // not: a Unicode symbol that is neither ASCII nor punctuation, or U+FFFD,
-// which NUL and invalid UTF-8 also give (design 6.7).
+// which NUL and invalid UTF-8 also give (design 6.7). cmark-gfm scans a
+// strikethrough run with the same punctuation test as emphasis.
 func flankingDiffers(b []byte) bool {
 	for i := 0; i < len(b); {
 		c := b[i]
-		if c != '*' && c != '_' {
+		if c != '*' && c != '_' && c != '~' {
 			i++
 			continue
 		}
