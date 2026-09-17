@@ -69,9 +69,10 @@ type printer struct {
 	skipToOK bool
 	skipOK   bool
 
-	lineOffset int    // where the open line of the output starts
-	lineBreak  []byte // a paragraph line with a backslash, for the break decisions
-	runs       []bool // the backtick run lengths of the code span being printed
+	lineOffset     int    // where the open line of the output starts
+	lineBreak      []byte // a paragraph line with a backslash, for the break decisions
+	firstLineBreak []byte // a block's first line with a backslash, for the same decisions
+	runs           []bool // the backtick run lengths of the code span being printed
 
 	wordScope  markdown.NodeID // the text block that wordSpaces and wordStarts describe
 	wordSpaces []uint32        // the offsets of whitespace in it
@@ -471,22 +472,21 @@ func (p *printer) separate(parent int, id markdown.NodeID, k markdown.Kind, span
 			// would start with a link reference definition.
 			n = 0
 		case k == markdown.Table && f.lastChild == markdown.Paragraph && p.blanks == 0 &&
-			(p.tableIndentHides(id) || markdown.InterruptsParagraph(p.firstLine(id), false) ||
-				markdown.StartsBlock(p.firstLine(id))):
+			(p.tableIndentHides(id) || p.interrupts(id, false) || p.startsBlock(id)):
 			// The table split the paragraph above it, so its first row is a line
 			// of that paragraph. After a blank line the line would start a block,
 			// or the indentation that hides its block start would start code.
 			n = 0
 		case (k == markdown.Paragraph || k == markdown.LinkReferenceDefinition) &&
 			f.lastChild == markdown.LinkReferenceDefinition && p.blanks == 0 &&
-			(markdown.InterruptsParagraph(p.firstLine(id), false) || markdown.StartsBlock(p.firstLine(id))):
+			(p.interrupts(id, false) || p.startsBlock(id)):
 			// The paragraph continues the definition's lines: after a blank
 			// line its first line would start a block. A line that would
 			// interrupt the paragraph gets padding.
 			// A lazy line is not in the containers that the padding would
 			// indent it in, where its content would start a block anyway.
 			n = 0
-			if markdown.InterruptsParagraph(p.firstLine(id), false) && !p.lazyFirst(id) {
+			if p.interrupts(id, false) && !p.lazyFirst(id) {
 				p.pad = 4
 			}
 		case (k == markdown.Paragraph || k == markdown.LinkReferenceDefinition) && p.lazyFirst(id):
@@ -502,7 +502,7 @@ func (p *printer) separate(parent int, id markdown.NodeID, k markdown.Kind, span
 			// loose (spec 5.3).
 			n = 0
 		}
-		if n == 0 && p.quoteGap && p.quoteParent == parent && !markdown.InterruptsParagraph(p.firstLine(id), true) {
+		if n == 0 && p.quoteGap && p.quoteParent == parent && !p.interrupts(id, true) {
 			// Without a blank line in the block quote, the block would
 			// continue the quote's paragraph as a lazy line.
 			for i := range p.stack[:parent+1] {
@@ -574,6 +574,26 @@ func (p *printer) firstLine(id markdown.NodeID) []byte {
 		i++
 	}
 	return bytes.Trim(t.RestOfLine(i), " \t")
+}
+
+// interrupts reports whether the first line of block id, as it prints, would
+// interrupt a paragraph above it, and startsBlock whether it would start a
+// block. A hard break of spaces can print as a backslash, so both read the
+// line in either form, and a second format decides the same.
+func (p *printer) interrupts(id markdown.NodeID, lazy bool) bool {
+	line, withBreak := p.firstLines(id)
+	return markdown.InterruptsParagraph(line, lazy) || markdown.InterruptsParagraph(withBreak, lazy)
+}
+
+func (p *printer) startsBlock(id markdown.NodeID) bool {
+	line, withBreak := p.firstLines(id)
+	return markdown.StartsBlock(line) || markdown.StartsBlock(withBreak)
+}
+
+func (p *printer) firstLines(id markdown.NodeID) (line, withBreak []byte) {
+	line = bytes.TrimSuffix(p.firstLine(id), []byte{'\\'})
+	p.firstLineBreak = append(append(p.firstLineBreak[:0], line...), '\\')
+	return line, p.firstLineBreak
 }
 
 // writePrefix writes the prefixes of the open containers at the start of a
