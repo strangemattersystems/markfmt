@@ -43,6 +43,13 @@ func Equal(a, b *Tree) error {
 type comparer struct {
 	a, b           *Tree
 	labelA, labelB []byte // normalized labels, bounded by the label cap
+
+	// The readers of the values that a comparison reads. They are fields, so
+	// that comparing a content run or a key allocates nothing.
+	runA, runB   runReader
+	infoA, infoB valueReader
+	textA, textB verbatimReader
+	codeA, codeB codeSpanReader
 }
 
 // compare reports the difference between event ea of a and event eb of b.
@@ -62,14 +69,20 @@ func (c *comparer) compare(ea event, okA bool, eb event, okB bool) error {
 		what = "different keys"
 	case ea.op == contentEvent && ea.group != eb.group:
 		what = "different content groups"
-	case ea.op == contentEvent && !equalPieces(
-		&runReader{t: c.a, i: uint32(ea.id), end: uint32(ea.end)},
-		&runReader{t: c.b, i: uint32(eb.id), end: uint32(eb.end)}):
+	case ea.op == contentEvent && !c.equalRuns(ea, eb):
 		what = "different content"
 	default:
 		return nil
 	}
 	return fmt.Errorf("markdown: %s: %s against %s", what, describe(c.a, ea, okA), describe(c.b, eb, okB))
+}
+
+// equalRuns reports whether the content runs of events ea and eb read the
+// same bytes.
+func (c *comparer) equalRuns(ea, eb event) bool {
+	c.runA = runReader{t: c.a, i: uint32(ea.id), end: uint32(ea.end)}
+	c.runB = runReader{t: c.b, i: uint32(eb.id), end: uint32(eb.end)}
+	return equalPieces(&c.runA, &c.runB)
 }
 
 func describe(t *Tree, e event, ok bool) string {
@@ -103,12 +116,12 @@ func (c *comparer) equalKeys(ia, ib NodeID) bool {
 	case Heading:
 		return a.HeadingLevel(ia) == b.HeadingLevel(ib)
 	case CodeBlock:
-		infoA, infoB := a.infoReader(ia), b.infoReader(ib)
-		ra, rb := newVerbatimReader(a, ia, CodeText), newVerbatimReader(b, ib, CodeText)
-		return equalPieces(&infoA, &infoB) && equalPieces(&ra, &rb)
+		c.infoA, c.infoB = a.infoReader(ia), b.infoReader(ib)
+		c.textA, c.textB = newVerbatimReader(a, ia, CodeText), newVerbatimReader(b, ib, CodeText)
+		return equalPieces(&c.infoA, &c.infoB) && equalPieces(&c.textA, &c.textB)
 	case HTMLBlock:
-		ra, rb := newVerbatimReader(a, ia, HTMLText), newVerbatimReader(b, ib, HTMLText)
-		return equalPieces(&ra, &rb)
+		c.textA, c.textB = newVerbatimReader(a, ia, HTMLText), newVerbatimReader(b, ib, HTMLText)
+		return equalPieces(&c.textA, &c.textB)
 	case Autolink:
 		return a.AutolinkAngle(ia) == b.AutolinkAngle(ib) && a.AutolinkEmail(ia) == b.AutolinkEmail(ib)
 	case Link, Image:
@@ -122,8 +135,8 @@ func (c *comparer) equalKeys(ia, ib NodeID) bool {
 		c.labelA, c.labelB = a.AppendLinkLabel(c.labelA[:0], ia), b.AppendLinkLabel(c.labelB[:0], ib)
 		return bytes.Equal(c.labelA, c.labelB)
 	case CodeSpan:
-		ra, rb := newCodeSpanReader(a, ia), newCodeSpanReader(b, ib)
-		return equalPieces(&ra, &rb)
+		c.codeA, c.codeB = newCodeSpanReader(a, ia), newCodeSpanReader(b, ib)
+		return equalPieces(&c.codeA, &c.codeB)
 	case LinkReferenceDefinition:
 		c.labelA, c.labelB = a.AppendLabel(c.labelA[:0], ia), b.AppendLabel(c.labelB[:0], ib)
 		return bytes.Equal(c.labelA, c.labelB)

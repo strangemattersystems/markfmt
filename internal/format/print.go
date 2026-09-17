@@ -243,6 +243,10 @@ func (p *printer) trimSpaces(start int) {
 // document prints the tree.
 func (p *printer) document() {
 	t := p.tree
+	// The output of the corpora is at most 3 times the input (design 12), and
+	// most of it is about its size, so out starts there and rarely grows.
+	_, size := t.NodeSpan(0)
+	p.out = make([]byte, 0, min(int(size), p.max))
 	p.layout, p.spans = t.Layout(), t.DialectSpans()
 	var depth int
 	p.lazy, p.kept = p.lazyItems()
