@@ -216,6 +216,30 @@ func TestParse(t *testing.T) {
 		}
 	})
 
+	t.Run("gives a task box to the first block of an item that is not a definition", func(t *testing.T) {
+		t.Parallel()
+
+		// Design 6.5: every line of a paragraph can be a definition, so the
+		// first block that remains is the one that can hold a box.
+		for _, tt := range []struct {
+			name string
+			src  string
+			want int
+		}{
+			{"the first block of the item", "- [ ] a\n", 1},
+			{"a later block of the item", "- a\n\n  [ ] b\n", 0},
+			{"the first block after definitions alone", "- [x]: /u\n\n  [ ] b\n", 1},
+		} {
+			t.Run(tt.name, func(t *testing.T) {
+				t.Parallel()
+
+				if n := countKind(Parse([]byte(tt.src)), TaskBox); n != tt.want {
+					t.Fatalf("Parse(%q) gives %d task boxes, want %d", tt.src, n, tt.want)
+				}
+			})
+		}
+	})
+
 	t.Run("counts a label without the indentation of its lines", func(t *testing.T) {
 		t.Parallel()
 
