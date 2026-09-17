@@ -118,6 +118,10 @@ func TestEqual(t *testing.T) {
 			{"a  \n<search>", "a\n<search>"},
 			{"> a\n> b\n<search>", "> a\nb\n<search>"},
 			{"£~!a~", "£~~!a~~"},
+			// GitHub opens no block after 99 on a line, so it reads the 100th
+			// marker as text (dialect.md).
+			{strings.Repeat(">", 99) + "*", strings.Repeat("> ", 99) + "-\n"},
+			{strings.Repeat("- ", 100) + "a", strings.Repeat("- ", 99) + "* a"},
 		} {
 			if err := Equal(Parse([]byte(pair[0])), Parse([]byte(pair[1]))); err == nil {
 				t.Errorf("Equal of %q and %q = nil, want a difference", pair[0], pair[1])
@@ -129,7 +133,6 @@ func TestEqual(t *testing.T) {
 			{"[x]: /u\n'", "[x]: /u\n'\n"},
 			{" ```\f\n\t0", " ```\f\n    0"},
 			{" ```\v\n ", " ```\v\n \n"},
-			{strings.Repeat(">", 99) + "*", strings.Repeat("> ", 99) + "-\n"},
 		} {
 			if err := Equal(Parse([]byte(pair[0])), Parse([]byte(pair[1]))); err != nil {
 				t.Errorf("Equal of %q and %q = %v, want nil", pair[0], pair[1], err)

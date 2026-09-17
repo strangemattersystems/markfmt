@@ -329,6 +329,9 @@ func (p *printer) enter(id markdown.NodeID, k markdown.Kind) {
 		// content of every item of the list starts.
 		f.minIndent = max(p.indentAfter(id)+1, p.kept[id])
 	}
+	if f.container && p.inSpan > 0 && t.Kind(id+1).Prefix() {
+		f.marker = t.Raw(id + 1)
+	}
 	if isLeafBlock(k) {
 		p.written, p.leafKind = false, k
 		p.prefixes, p.prefixLen = 0, 0
@@ -775,6 +778,10 @@ func (p *printer) leaf(id markdown.NodeID, k markdown.Kind, start, end int) {
 // ordered list the item's number and '.' or ')' (roadmap Decisions), with
 // the padding that the list's minimum indentation needs.
 func (p *printer) listMarker(f *frame, id markdown.NodeID, start int) {
+	if p.inSpan > 0 {
+		f.marker = p.tree.Raw(id)
+		return
+	}
 	list := &p.stack[len(p.stack)-2]
 	i := list.children - 1
 	switch {

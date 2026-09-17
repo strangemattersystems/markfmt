@@ -387,8 +387,8 @@ func equalSpans(pa *projection, ia NodeID, pb *projection, ib NodeID) bool {
 		}
 	}
 	a, b := pa.t, pb.t
-	ra := spanReader{t: a, i: uint32(ia) + 1, end: a.nodes[ia].link, marks: pa.marker(false)}
-	rb := spanReader{t: b, i: uint32(ib) + 1, end: b.nodes[ib].link, marks: pb.marker(false)}
+	ra := spanReader{t: a, span: uint32(ia), i: uint32(ia) + 1, end: a.nodes[ia].link, marks: pa.marker(false)}
+	rb := spanReader{t: b, span: uint32(ib), i: uint32(ib) + 1, end: b.nodes[ib].link, marks: pb.marker(false)}
 	if !equalPieces(&ra, &rb) {
 		return false
 	}
@@ -478,7 +478,8 @@ func (m *marker) record(id NodeID, pos int, start bool) {
 type spanReader struct {
 	t       *Tree
 	marks   *marker
-	off     int // bytes given
+	off     int    // bytes given
+	span    uint32 // the span node, whose own prefix leaves are not read
 	i, end  uint32
 	b       []byte // the rest of the last leaf
 	last    byte   // the last byte read
@@ -511,7 +512,11 @@ func (r *spanReader) read() []byte {
 		if m.kind.class() == classStructure {
 			continue
 		}
-		if _, prefix := m.kind.owner(); prefix || m.kind == CodeIndent {
+		// A prefix leaf of a container inside the span is read: past 99 blocks
+		// on a line GitHub reads a marker as text (dialect.md). The markers of
+		// the containers around the span are not, and code indentation can
+		// take columns inside a split tab, where no leaf holds them.
+		if _, prefix := m.kind.owner(); prefix && m.link <= r.span || m.kind == CodeIndent {
 			// The leaf is not read, but its line holds it, so the end of the
 			// input ends the line.
 			r.last, r.started = ' ', true
