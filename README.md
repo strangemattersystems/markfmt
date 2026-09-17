@@ -1,37 +1,39 @@
 # markfmt
 
-markfmt is a fast, zero-config formatter that rewrites Markdown into one canonical style.
+A fast, zero-config formatter that rewrites Markdown into one canonical style.
 
 ## Install
+
+```sh
+brew install strangemattersystems/tap/markfmt
+```
+
+Or with Go:
 
 ```sh
 go install github.com/strangemattersystems/markfmt/cmd/markfmt@latest
 ```
 
+Binaries for macOS, Linux and Windows are on the [releases page](https://github.com/strangemattersystems/markfmt/releases).
+
 ## Usage
 
-```sh
-markfmt [-check] [path ...]
-```
-
-markfmt rewrites each path in place. A directory gives each `.md` and `.markdown` file below it, and skips `testdata`, `vendor`, `node_modules` and hidden directories. With no path, or the path `-`, it reads standard input and writes standard output.
-
-With `-check`, markfmt rewrites nothing. It prints each input that is not formatted.
-
-| Exit status | Meaning                                              |
-| ----------- | ---------------------------------------------------- |
-| 0           | All inputs are formatted.                            |
-| 1           | With `-check`, one or more inputs are not formatted. |
-| 2           | markfmt cannot read, format or write an input.       |
-
-## Container
+Format files or directories in place:
 
 ```sh
-docker run --rm -v "$PWD:/work" -w /work --user "$(id -u):$(id -g)" ghcr.io/strangemattersystems/markfmt README.md
+markfmt README.md docs/
 ```
 
-The `--user` flag keeps the ownership of the files that markfmt rewrites.
+Check formatting in CI. markfmt lists each unformatted file and exits with status 1:
 
-## License
+```sh
+markfmt -check .
+```
 
-[MIT](LICENSE)
+With no path, markfmt reads standard input and writes standard output.
+
+## Docker
+
+```sh
+docker run --rm -v "$PWD:/work" -w /work --user "$(id -u):$(id -g)" ghcr.io/strangemattersystems/markfmt .
+```
