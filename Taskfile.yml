@@ -29,6 +29,14 @@ tasks:
     cmds:
       - go test -race -cover ./...
 
+  snapshot:
+    desc: Rewrite the output and tree snapshots, then review the diff
+    env:
+      MARKFMT_UPDATE: "1"
+    cmds:
+      - go test -count=1 -run='^Test(Format|Parse)Snapshot$' ./internal/markdown
+      - git diff --stat -- internal/markdown/testdata/snapshot
+
   fuzz:
     desc: Fuzz one target (e.g. task fuzz PKG=./internal/markdown FUZZ=FuzzParse -- -fuzztime=5m)
     vars:

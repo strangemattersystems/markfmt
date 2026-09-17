@@ -3,6 +3,7 @@ package markdown
 import (
 	"os"
 	"path/filepath"
+	"strconv"
 	"testing"
 )
 
@@ -34,6 +35,54 @@ func PathologicalInputs() map[string]func(n int) []byte {
 // Kept returns the kept syntax of tree (design 12).
 func Kept(tree *Tree) []string {
 	return kept(tree)
+}
+
+// LeafNode reports whether node id of t is a leaf.
+func LeafNode(t *Tree, id NodeID) bool {
+	return t.nodes[id].kind.class() != classStructure
+}
+
+// NodeRange returns the input bytes that node id of t covers.
+func NodeRange(t *Tree, id NodeID) (start, end int) {
+	n := t.nodes[id]
+	return int(n.start), int(n.end)
+}
+
+// Input is a test input, and the key that names it in a snapshot.
+type Input struct {
+	Key string
+	Src []byte
+}
+
+// SnapshotInputs returns every corpus example, pair file and printer case,
+// each with a key. A key holds while its file keeps the input, so a snapshot
+// diff names what changed.
+func SnapshotInputs(tb testing.TB) []Input {
+	tb.Helper()
+
+	var inputs []Input
+	for _, c := range corpora {
+		for _, ex := range readExamples(tb, c.path) {
+			inputs = append(inputs, Input{c.name + "/" + strconv.Itoa(ex.id), []byte(ex.markdown)})
+		}
+	}
+	for _, pattern := range []string{"testdata/pairs/*.md", "../format/testdata/cases/*.in.md"} {
+		paths, err := filepath.Glob(pattern)
+		if err != nil {
+			tb.Fatal(err)
+		}
+		if len(paths) == 0 {
+			tb.Fatalf("no files match %s", pattern)
+		}
+		for _, path := range paths {
+			src, err := os.ReadFile(path)
+			if err != nil {
+				tb.Fatal(err)
+			}
+			inputs = append(inputs, Input{filepath.ToSlash(path), src})
+		}
+	}
+	return inputs
 }
 
 // CorpusInputs returns the Markdown of every example of every corpus, and of
