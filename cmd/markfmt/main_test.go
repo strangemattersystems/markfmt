@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"slices"
 	"testing"
+
+	"github.com/strangemattersystems/markfmt/internal/format"
 )
 
 func TestInputs(t *testing.T) {
@@ -79,6 +81,62 @@ func TestInputs(t *testing.T) {
 			t.Fatalf("inputs = %v, want one input with an error", got)
 		}
 	})
+}
+
+func TestRead(t *testing.T) {
+	t.Parallel()
+
+	t.Run("reads a file", func(t *testing.T) {
+		t.Parallel()
+
+		root := tree(t, "a.md")
+		if src, err := read(filepath.Join(root, "a.md")); err != nil || string(src) != "a\n" {
+			t.Fatalf("read = %q, %v, want %q", src, err, "a\n")
+		}
+	})
+
+	t.Run("stops one byte past the input limit", func(t *testing.T) {
+		t.Parallel()
+
+		path := filepath.Join(t.TempDir(), "large.md")
+		if err := os.WriteFile(path, make([]byte, 2*format.MaxInput), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if src, err := read(path); err != nil || len(src) != format.MaxInput+1 {
+			t.Fatalf("read = %d bytes, %v, want %d bytes", len(src), err, format.MaxInput+1)
+		}
+	})
+
+	t.Run("gives an error for a file that does not exist", func(t *testing.T) {
+		t.Parallel()
+
+		if _, err := read(filepath.Join(t.TempDir(), "missing")); err == nil {
+			t.Fatal("read gives no error")
+		}
+	})
+}
+
+func TestCost(t *testing.T) {
+	t.Parallel()
+
+	for _, tt := range []struct {
+		name     string
+		n, procs int
+		want     int
+	}{
+		{"counts a small input at the share of one proc", 1, 4, format.MaxInput / 4},
+		{"counts a larger input at its size", format.MaxInput / 2, 4, format.MaxInput / 2},
+		{"caps an input at the input limit", format.MaxInput + 1, 4, format.MaxInput},
+		{"counts every input at the limit with one proc", 1, 1, format.MaxInput},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			if got := cost(tt.n, tt.procs); got != tt.want {
+				t.Fatalf("cost(%d, %d) = %d, want %d", tt.n, tt.procs, got, tt.want)
+			}
+		})
+	}
 }
 
 func TestBudget_Acquire(t *testing.T) {

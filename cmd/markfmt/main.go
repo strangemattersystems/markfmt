@@ -75,19 +75,27 @@ func main() {
 	ins := inputs(paths, exclude)
 	results := make([]result, len(ins))
 	// Peak memory follows the input bytes that are formatted at once, so they
-	// stay within the input limit of one file (design 7.2).
+	// stay within the input limit of one file (design 7.2). Each input is read
+	// before it takes its cost, so the cost is the bytes read, not a size from
+	// os.Stat that can change.
 	b := newBudget(format.MaxInput)
+	procs := runtime.GOMAXPROCS(0)
 	var wg sync.WaitGroup
 	for i, in := range ins {
 		if in.err != nil {
 			results[i].err = in.err
 			continue
 		}
-		cost := cost(in.path)
+		src, err := read(in.path)
+		if err != nil {
+			results[i].err = err
+			continue
+		}
+		cost := cost(len(src), procs)
 		b.acquire(cost)
 		wg.Go(func() {
 			defer b.release(cost)
-			results[i].changed, results[i].err = run(in.path, *check)
+			results[i].changed, results[i].err = run(in.path, src, *check)
 		})
 	}
 	wg.Wait()
@@ -194,32 +202,43 @@ func isMarkdown(path string) bool {
 	return false
 }
 
-// cost returns the budget that formatting path takes: its size up to the input
-// limit, and no less than a share of the limit for each CPU, which bounds the
-// number of files at once.
-func cost(path string) int64 {
-	size := int64(format.MaxInput)
-	if info, err := os.Stat(path); err == nil && path != "-" {
-		size = min(info.Size(), size)
+// read returns the contents of path, or standard input for "-". It stops one
+// byte past [format.MaxInput], so an input that [markfmt.Format] rejects costs
+// no more memory than one it accepts.
+func read(path string) ([]byte, error) {
+	f := os.Stdin
+	if path != "-" {
+		var err error
+		if f, err = os.Open(path); err != nil {
+			return nil, err
+		}
+		defer func() { _ = f.Close() }()
 	}
-	return max(size, int64(format.MaxInput/runtime.NumCPU()))
+	return io.ReadAll(io.LimitReader(f, format.MaxInput+1))
+}
+
+// cost returns the budget that formatting n input bytes takes: n up to the
+// input limit, and no less than the limit divided by procs, which bounds the
+// files at once to procs.
+func cost(n, procs int) int {
+	return max(min(n, format.MaxInput), format.MaxInput/procs)
 }
 
 // budget is a count of bytes that goroutines take and give back.
 type budget struct {
 	mu   sync.Mutex
 	cond sync.Cond
-	free int64
+	free int
 }
 
-func newBudget(n int64) *budget {
+func newBudget(n int) *budget {
 	b := &budget{free: n}
 	b.cond.L = &b.mu
 	return b
 }
 
 // acquire takes n bytes, and waits until they are free.
-func (b *budget) acquire(n int64) {
+func (b *budget) acquire(n int) {
 	b.mu.Lock()
 	for b.free < n {
 		b.cond.Wait()
@@ -228,26 +247,16 @@ func (b *budget) acquire(n int64) {
 	b.mu.Unlock()
 }
 
-func (b *budget) release(n int64) {
+func (b *budget) release(n int) {
 	b.mu.Lock()
 	b.free += n
 	b.mu.Unlock()
 	b.cond.Broadcast()
 }
 
-// run formats one input and reports whether formatting changed it.
-func run(path string, check bool) (bool, error) {
-	var src []byte
-	var err error
-	if path == "-" {
-		src, err = io.ReadAll(os.Stdin)
-	} else {
-		src, err = os.ReadFile(path)
-	}
-	if err != nil {
-		return false, err
-	}
-
+// run formats src, the contents of path, and reports whether formatting
+// changed it.
+func run(path string, src []byte, check bool) (bool, error) {
 	var out bytes.Buffer
 	if err := markfmt.Format(&out, bytes.NewReader(src)); err != nil {
 		return false, err
