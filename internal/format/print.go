@@ -62,6 +62,13 @@ type printer struct {
 	delimScope markdown.NodeID
 	delimText  [4]bool
 
+	// The last run of blank lines and prefix leaves that afterBlanks passed:
+	// from its first node to the node after it.
+	skipFrom markdown.NodeID
+	skipTo   markdown.NodeID
+	skipToOK bool
+	skipOK   bool
+
 	wordScope  markdown.NodeID // the text block that wordSpaces and wordStarts describe
 	wordSpaces []uint32        // the offsets of whitespace in it
 	wordStarts []span          // the offsets of each "://" and "www." in it
@@ -1714,6 +1721,26 @@ func (p *printer) prefixLazyLine() {
 	p.matched = p.prefixes
 }
 
+// afterBlanks returns the node after node id, its blank lines and its prefix
+// leaves, and false at the end of the tree.
+//
+// Block quotes that end together ask this of the same run, so the last run
+// passed is cached. Without it, exits at depth d walk the run d times.
+func (p *printer) afterBlanks(id markdown.NodeID) (markdown.NodeID, bool) {
+	t := p.tree
+	next, ok := t.Next(id)
+	from := next
+	for ok && (t.Kind(next) == markdown.BlankLine || isPrefix(t.Kind(next))) {
+		if p.skipOK && next == p.skipFrom {
+			next, ok = p.skipTo, p.skipToOK
+			break
+		}
+		next, ok = t.Next(next)
+	}
+	p.skipFrom, p.skipTo, p.skipToOK, p.skipOK = from, next, ok, true
+	return next, ok
+}
+
 func (p *printer) exit() {
 	t := p.tree
 	f := &p.stack[len(p.stack)-1]
@@ -1726,10 +1753,7 @@ func (p *printer) exit() {
 		p.write(lineFeed)
 	}
 	quoteBlanks := false
-	next, ok := t.Next(f.id)
-	for ok && (t.Kind(next) == markdown.BlankLine || isPrefix(t.Kind(next))) {
-		next, ok = t.Next(next)
-	}
+	next, ok := p.afterBlanks(f.id)
 	if f.kind == markdown.BlockQuote && p.blanks > 0 && ok && p.isSpan(next) {
 		// The blank lines before a dialect span are kept syntax (design 12).
 		// These are the quote's, so they stay in it: after the quote they
