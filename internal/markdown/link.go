@@ -264,6 +264,12 @@ func (t *Tree) AppendLinkLabel(dst []byte, id NodeID) []byte {
 	for i := uint32(id) + 1; i < t.nodes[id].link; i++ {
 		switch m := t.nodes[i]; {
 		case m.kind.class() == classStructure:
+			// A structure before the label holds none of its bytes. Reading it
+			// again for each nested reference costs O(n^2).
+			if brackets < first {
+				i = m.link - 1
+				continue
+			}
 			nested = max(nested, m.link)
 		case m.kind == Bracket && i >= nested:
 			if brackets++; brackets > first {
