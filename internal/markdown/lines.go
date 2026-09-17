@@ -32,9 +32,15 @@ func (it *lines) next() (line, bool) {
 	if it.pos == it.size {
 		return line{}, false
 	}
-	i := it.pos
-	for i < it.size && it.src[i] != '\n' && it.src[i] != '\r' {
-		i++
+	// A line feed is looked for first, because a carriage return is rare and
+	// only the bytes before the line feed can hold one.
+	rest := it.src[it.pos:it.size]
+	i := it.size
+	if j := bytes.IndexByte(rest, '\n'); j >= 0 {
+		i = it.pos + count(j)
+	}
+	if j := bytes.IndexByte(it.src[it.pos:i], '\r'); j >= 0 {
+		i = it.pos + count(j)
 	}
 	l := line{start: it.pos, end: i, eol: i}
 	switch {
