@@ -179,7 +179,8 @@ type projection struct {
 	spans    []dialectSpan // the dialect spans after the walk, in node order
 	dialect  bool          // the tree has dialect spans, so walk follows the walk
 	walk     containerWalk
-	spanWalk containerWalk // walk at the last dialect span entered
+	spanWalk containerWalk       // walk at the last dialect span entered
+	marks    map[NodeID]spanMark // where a nested span sits in the span that holds it
 }
 
 func newProjection(t *Tree) projection {
@@ -217,7 +218,11 @@ func (p *projection) next() (event, bool) {
 			for len(p.spans) > 0 && p.spans[0].id <= i {
 				if p.spans[0].id == i {
 					e.rows = p.spans[0].rows
-					p.spanWalk = containerWalk{t: p.t, col: p.walk.col, chain: slices.Clone(p.walk.chain)}
+					// The chain is shared, not copied: a container that is open
+					// at a span stays open until after the span, so the walk
+					// never rewrites these entries, and the full capacity makes
+					// an append by the span's own walk copy.
+					p.spanWalk = containerWalk{t: p.t, col: p.walk.col, chain: slices.Clip(p.walk.chain)}
 				}
 				p.spans = p.spans[1:]
 			}
@@ -374,14 +379,21 @@ func (r *runReader) next() []byte {
 // leaves, and the same number of matched containers on each line after the
 // first that is not blank (design 10.4).
 func equalSpans(pa *projection, ia NodeID, pb *projection, ib NodeID) bool {
+	if ma, okA := pa.marks[ia]; okA {
+		// The streams of the span that holds both are equal, so the same
+		// positions in them prove these spans equal.
+		if mb, okB := pb.marks[ib]; okB {
+			return ma == mb
+		}
+	}
 	a, b := pa.t, pb.t
-	ra := spanReader{t: a, i: uint32(ia) + 1, end: a.nodes[ia].link}
-	rb := spanReader{t: b, i: uint32(ib) + 1, end: b.nodes[ib].link}
+	ra := spanReader{t: a, i: uint32(ia) + 1, end: a.nodes[ia].link, marks: pa.marker(false)}
+	rb := spanReader{t: b, i: uint32(ib) + 1, end: b.nodes[ib].link, marks: pb.marker(false)}
 	if !equalPieces(&ra, &rb) {
 		return false
 	}
-	la := spanLines{w: pa.spanWalk, i: uint32(ia) + 1, end: a.nodes[ia].link}
-	lb := spanLines{w: pb.spanWalk, i: uint32(ib) + 1, end: b.nodes[ib].link}
+	la := spanLines{w: pa.spanWalk, i: uint32(ia) + 1, end: a.nodes[ia].link, marks: pa.marker(true)}
+	lb := spanLines{w: pb.spanWalk, i: uint32(ib) + 1, end: b.nodes[ib].link, marks: pb.marker(true)}
 	for {
 		ma, okA := la.next()
 		mb, okB := lb.next()
@@ -394,6 +406,70 @@ func equalSpans(pa *projection, ia NodeID, pb *projection, ib NodeID) bool {
 	}
 }
 
+// spanMark is where a nested dialect span starts and ends in the byte stream
+// and the line stream of the span that holds it.
+type spanMark struct{ startBytes, endBytes, startLines, endLines int }
+
+// marker returns a marker for the dialect spans inside the span that the
+// projection entered last, which fills p.marks as a reader of that span
+// passes them. lines chooses the line stream.
+func (p *projection) marker(lines bool) *marker {
+	if p.marks == nil {
+		p.marks = make(map[NodeID]spanMark)
+	}
+	// p.spans holds the spans after id, so the spans inside it come first.
+	return &marker{t: p.t, spans: p.spans, marks: p.marks, lines: lines}
+}
+
+// marker records the marks of the dialect spans inside one span. A reader of
+// that span calls at for each of its nodes, in order, with the position that
+// the node starts at in the reader's stream.
+type marker struct {
+	t     *Tree
+	spans []dialectSpan // the spans after the one being read, in node order
+	open  []openSpan    // the spans entered, innermost last
+	marks map[NodeID]spanMark
+	lines bool
+}
+
+type openSpan struct {
+	id  NodeID
+	end uint32 // one past the last node of the span
+}
+
+func (m *marker) at(i, pos int) {
+	for len(m.open) > 0 && int(m.open[len(m.open)-1].end) <= i {
+		id := m.open[len(m.open)-1].id
+		m.open = m.open[:len(m.open)-1]
+		m.record(id, pos, false)
+	}
+	for len(m.spans) > 0 && int(m.spans[0].id) <= i {
+		span := m.spans[0]
+		m.spans = m.spans[1:]
+		if int(span.id) < i {
+			continue
+		}
+		m.record(NodeID(span.id), pos, true)
+		m.open = append(m.open, openSpan{NodeID(span.id), m.t.nodes[span.id].link})
+	}
+}
+
+// record writes one position of span id, the start or the end of its stream.
+func (m *marker) record(id NodeID, pos int, start bool) {
+	mark := m.marks[id]
+	switch {
+	case start && m.lines:
+		mark.startLines = pos
+	case start:
+		mark.startBytes = pos
+	case m.lines:
+		mark.endLines = pos
+	default:
+		mark.endBytes = pos
+	}
+	m.marks[id] = mark
+}
+
 // spanReader reads the bytes of the leaves of a dialect span that are not
 // prefix leaves or code indentation, with a split tab as its virt spaces
 // (design 4.3) and each line ending as a line feed. Code indentation is not
@@ -401,6 +477,8 @@ func equalSpans(pa *projection, ia NodeID, pb *projection, ib NodeID) bool {
 // holds them.
 type spanReader struct {
 	t       *Tree
+	marks   *marker
+	off     int // bytes given
 	i, end  uint32
 	b       []byte // the rest of the last leaf
 	last    byte   // the last byte read
@@ -413,6 +491,7 @@ func (r *spanReader) next() []byte {
 	switch {
 	case b != nil:
 		r.last, r.started = b[len(b)-1], true
+		r.off += len(b)
 	case r.started && r.last != '\n' && !r.done:
 		// The end of the input is a line ending (design 8.2).
 		r.done = true
@@ -427,6 +506,7 @@ func (r *spanReader) read() []byte {
 			return nil
 		}
 		m := r.t.nodes[r.i]
+		r.marks.at(int(r.i), r.off)
 		r.i++
 		if m.kind.class() == classStructure {
 			continue
@@ -460,6 +540,8 @@ func (r *spanReader) read() []byte {
 // matched, for the lines after its first line that are not blank.
 type spanLines struct {
 	w         containerWalk // at the span node
+	marks     *marker
+	lines     int // lines given
 	i, end    uint32
 	lineStart bool
 }
@@ -468,6 +550,7 @@ func (s *spanLines) next() (int, bool) {
 	t := s.w.t
 	for s.i < s.end {
 		i := s.i
+		s.marks.at(int(i), s.lines)
 		s.i++
 		n := t.nodes[i]
 		matched, found := 0, false
@@ -483,6 +566,7 @@ func (s *spanLines) next() (int, bool) {
 			s.lineStart = true
 		}
 		if found {
+			s.lines++
 			return matched, true
 		}
 	}
