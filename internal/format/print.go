@@ -1150,9 +1150,11 @@ func (p *printer) content(id markdown.NodeID, start int) {
 			k != markdown.SetextUnderline {
 			p.continuation(id)
 		}
-		// Only a line of a dialect span reads its tabs, and only it keeps the
-		// prefixes of its input, so no other line pays for this.
-		p.lineTab = p.inSpan > 0 && bytes.IndexByte(t.RestOfLine(id), '\t') >= 0
+		// Only a line of a dialect span keeps the prefixes of its input, so no
+		// other line pays for this. A tab that a container took part of prints
+		// as the columns that are left of it, which the canonical prefixes give
+		// exactly (design 4.3).
+		p.lineTab = p.inSpan > 0 && t.SplitTab(id) == 0 && bytes.IndexByte(t.RestOfLine(id), '\t') >= 0
 		p.lead = p.pad > 0 || p.indent >= 0 && start > p.indent || t.SplitTab(id) > 0 || b[0] == ' ' || b[0] == '\t'
 		p.writePrefix(false)
 		p.lineStart = false
