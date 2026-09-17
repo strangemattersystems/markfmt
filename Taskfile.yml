@@ -94,8 +94,13 @@ tasks:
             exit 0
           fi
           echo "warm-proxy: waiting for proxy.golang.org to report $module@$tag"
-          # A version requested before its tag was pushed can stay unknown to
-          # the proxy for up to 30 minutes (proxy.golang.org FAQ), so wait 35.
+          # The proxy can answer a new tag from its cached tags of the
+          # repository and cache that miss for up to 30 minutes
+          # (proxy.golang.org FAQ). A commit hash is never in that cache, so
+          # asking for it first makes the proxy fetch the repository again. The
+          # answer can name another tag of the same commit, so only the
+          # version's own .info below decides.
+          curl -fsS -o /dev/null "https://proxy.golang.org/$module/@v/$(git rev-list -n 1 "$tag").info" || true
           i=1
           while [ "$i" -le 70 ]; do
             # Asking for the version itself makes the proxy fetch it; @latest
