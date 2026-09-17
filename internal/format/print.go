@@ -520,6 +520,11 @@ func (p *printer) separate(parent int, id markdown.NodeID, k markdown.Kind, span
 	}
 	f.children++
 	f.lastChild = k
+	if k != markdown.List {
+		// Only a list that follows a list can have its marker read as a line
+		// of that list's last item.
+		f.lastList = 0
+	}
 	p.blanks, p.open, p.span, p.quoteGap = 0, false, false, false
 }
 
