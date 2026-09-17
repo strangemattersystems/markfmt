@@ -527,9 +527,11 @@ func (r *spanReader) read() []byte {
 		}
 		// A prefix leaf of a container inside the span is read: past 99 blocks
 		// on a line GitHub reads a marker as text (dialect.md). The markers of
-		// the containers around the span are not, and code indentation can
-		// take columns inside a split tab, where no leaf holds them.
-		if _, prefix := m.kind.owner(); prefix && m.link <= r.span || m.kind == CodeIndent {
+		// the containers around the span are not. Indentation is not read
+		// either: it means its columns, which a tab writes from the column it
+		// starts at, and the printer writes them as spaces. A change of
+		// indentation that changes a block shows in the events.
+		if _, prefix := m.kind.owner(); prefix && m.link <= r.span || m.kind == CodeIndent || m.kind == Indent {
 			// The leaf is not read, but its line holds it, so the end of the
 			// input ends the line.
 			r.last, r.started = ' ', true

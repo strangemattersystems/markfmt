@@ -69,15 +69,6 @@ type printer struct {
 	skipToOK bool
 	skipOK   bool
 
-	// inputPrefix holds the prefix leaf of each container that the input line
-	// being read matched, outermost first. A line whose content is in a
-	// dialect span writes them in place of the canonical markers: a marker of
-	// another width moves the column that a tab expands to, and with it the
-	// meaning of the indentation after it.
-	inputPrefix []markdown.NodeID
-	lineTab     bool   // the input line being read holds a tab
-	keptMarker  []byte // an input marker with the sign of its list
-
 	lineBreak []byte // a paragraph line with a backslash, for the break decisions
 	runs      []bool // the backtick run lengths of the code span being printed
 
@@ -174,12 +165,6 @@ func (f *frame) rest() []byte {
 // sign returns the first byte of the marker of container f after its
 // indentation, or 0. A list item that keeps its input marker starts it with
 // the item's indentation.
-// signIndex returns the index of the sign of a list marker, its last byte
-// that is not a space or a tab, or -1.
-func signIndex(marker []byte) int {
-	return len(bytes.TrimRight(marker, " \t")) - 1
-}
-
 func (f *frame) sign() byte {
 	if m := bytes.TrimLeft(f.marker, " "); len(m) > 0 {
 		return m[0]
@@ -305,10 +290,6 @@ func (p *printer) node(id markdown.NodeID) {
 		p.lineBegin = p.inputLine
 		if p.inputLine {
 			p.matched, p.indent = p.layout.Matched(id)
-			p.inputPrefix = p.inputPrefix[:0]
-		}
-		if k.Prefix() {
-			p.inputPrefix = append(p.inputPrefix, id)
 		}
 		start, end := p.layout.Visit(id)
 		raw := t.Raw(id)
@@ -581,10 +562,6 @@ func (p *printer) firstLine(id markdown.NodeID) []byte {
 // blank line gets the prefixes without trailing spaces.
 func (p *printer) writePrefix(blank bool) {
 	start, n, opened := len(p.out), 0, 0
-	// A tab is the one byte whose meaning follows the column it starts at,
-	// and a dialect span keeps its tabs as written, so the line keeps the
-	// prefixes of its input as well.
-	kept := p.inSpan > 0 && p.lineTab
 prefixes:
 	for i := range p.stack {
 		f := &p.stack[i]
@@ -592,25 +569,6 @@ prefixes:
 			continue
 		}
 		marker, rest := f.marker, f.rest()
-		if kept && n < len(p.inputPrefix) {
-			// A container that has not started writes its marker on this line,
-			// so the input's leaf must be a marker and not the indentation of a
-			// line that continues it.
-			id := p.inputPrefix[n]
-			switch kind := p.tree.Kind(id); {
-			case kind == markdown.ListMarker:
-				// Every sign is one column wide, so the canonical sign keeps the
-				// columns of the input's marker, where another sign would start
-				// another list (spec 5.3).
-				p.keptMarker = append(p.keptMarker[:0], p.tree.Raw(id)...)
-				if i, j := signIndex(p.keptMarker), signIndex(f.marker); i >= 0 && j >= 0 {
-					p.keptMarker[i] = f.marker[j]
-				}
-				marker, rest = p.keptMarker, p.keptMarker
-			case f.started || kind == markdown.QuoteMarker:
-				marker, rest = p.tree.Raw(id), p.tree.Raw(id)
-			}
-		}
 		switch {
 		case !f.started && blank:
 			break prefixes
@@ -774,9 +732,11 @@ func (p *printer) leaf(id markdown.NodeID, k markdown.Kind, start, end int) {
 		// first row of a table is not meaning. A table that prints as written
 		// would start indented code with it.
 		p.indent = -1
-	case (k == markdown.Indent || k == markdown.CodeIndent) && p.inSpan == 0:
+	case k == markdown.Indent || k == markdown.CodeIndent:
 		// Indentation is its columns, whatever tabs it holds (design 4.3):
-		// content writes them.
+		// content writes them. A dialect span keeps bytes, but not these: a
+		// tab's columns follow the column it starts at, and the markers around
+		// the span can print in another width.
 	case k == markdown.Whitespace && p.afterBox && p.inSpan == 0:
 		p.write(spaces[:1])
 	case k == markdown.TrailingSpace && p.inSpan == 0 && p.inLabel == 0:
@@ -1173,11 +1133,6 @@ func (p *printer) content(id markdown.NodeID, start int) {
 			k != markdown.SetextUnderline {
 			p.continuation(id)
 		}
-		// Only a line of a dialect span keeps the prefixes of its input, so no
-		// other line pays for this. A tab that a container took part of prints
-		// as the columns that are left of it, which the canonical prefixes give
-		// exactly (design 4.3).
-		p.lineTab = p.inSpan > 0 && t.SplitTab(id) == 0 && bytes.IndexByte(t.RestOfLine(id), '\t') >= 0
 		p.lead = p.pad > 0 || p.indent >= 0 && start > p.indent || t.SplitTab(id) > 0 || b[0] == ' ' || b[0] == '\t'
 		p.writePrefix(false)
 		p.lineStart = false
