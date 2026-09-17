@@ -543,6 +543,12 @@ func (p *printer) lazyFirst(id markdown.NodeID) bool {
 // indentation, without trailing spaces and tabs.
 func (p *printer) firstLine(id markdown.NodeID) []byte {
 	t := p.tree
+	if t.Kind(id) == markdown.CodeBlock && !p.isSpan(id) {
+		// Code outside a dialect span prints as a fence, whatever the form of
+		// its input, and the decisions above read the line that prints.
+		fence, _ := p.codeFence(id)
+		return fence
+	}
 	i := id + 1
 	for !t.Kind(i).Leaf() || t.Kind(i) == markdown.Indent {
 		i++
