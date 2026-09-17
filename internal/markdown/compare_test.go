@@ -366,6 +366,36 @@ func swapLineEnding(b []byte) []byte {
 	return b
 }
 
+// TestComparer_Compare covers the guards of compare that no pair of trees
+// reaches: Equal stops at an earlier difference before a projection can run
+// out of events or give two content runs of different groups.
+func TestComparer_Compare(t *testing.T) {
+	t.Parallel()
+
+	tree := Parse([]byte("a\n"))
+	c := comparer{a: tree, b: tree}
+
+	t.Run("reports that one tree has more events", func(t *testing.T) {
+		t.Parallel()
+
+		enter := event{op: enterEvent}
+		if err := c.compare(enter, true, enter, false); err == nil {
+			t.Fatal("compare gives no error where one tree has no more events")
+		}
+	})
+
+	t.Run("reports different content groups", func(t *testing.T) {
+		t.Parallel()
+
+		content := event{op: contentEvent, group: Paragraph}
+		other := content
+		other.group = Heading
+		if err := c.compare(content, true, other, true); err == nil {
+			t.Fatal("compare gives no error for content runs of different groups")
+		}
+	})
+}
+
 func TestKept(t *testing.T) {
 	t.Parallel()
 

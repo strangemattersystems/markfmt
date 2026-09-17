@@ -23,14 +23,28 @@ func Source(src []byte) ([]byte, error) {
 	if len(src) > MaxInput {
 		return nil, fmt.Errorf("input of %d bytes is larger than %d bytes", len(src), MaxInput)
 	}
-	in := markdown.Parse(src)
-	p := printer{tree: in, max: MaxOutput}
+	return sourceTree(markdown.Parse(src), MaxOutput)
+}
+
+// sourceTree prints tree and checks the output. limit is the output limit,
+// which a test lowers.
+func sourceTree(tree *markdown.Tree, limit int) ([]byte, error) {
+	p := printer{tree: tree, max: limit}
 	p.document()
 	if p.full {
-		return nil, fmt.Errorf("output is larger than %d bytes", MaxOutput)
+		return nil, fmt.Errorf("output is larger than %d bytes", limit)
 	}
-	if err := markdown.Equal(in, markdown.Parse(p.out)); err != nil {
-		return nil, fmt.Errorf("the output would change the meaning of the input: %w", err)
+	if err := check(tree, p.out); err != nil {
+		return nil, err
 	}
 	return p.out, nil
+}
+
+// check reports whether out, the printed form of tree, would change what the
+// input means (design 10).
+func check(tree *markdown.Tree, out []byte) error {
+	if err := markdown.Equal(tree, markdown.Parse(out)); err != nil {
+		return fmt.Errorf("the output would change the meaning of the input: %w", err)
+	}
+	return nil
 }

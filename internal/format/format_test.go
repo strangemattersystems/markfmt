@@ -10,7 +10,49 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+
+	"github.com/strangemattersystems/markfmt/internal/markdown"
 )
+
+func TestCheck(t *testing.T) {
+	t.Parallel()
+
+	t.Run("accepts an output with the meaning of the input", func(t *testing.T) {
+		t.Parallel()
+
+		if err := check(markdown.Parse([]byte("*a*\n")), []byte("_a_\n")); err != nil {
+			t.Fatalf("check gives %v, want no error", err)
+		}
+	})
+
+	t.Run("rejects an output that changes the meaning", func(t *testing.T) {
+		t.Parallel()
+
+		if err := check(markdown.Parse([]byte("*a*\n")), []byte("a\n")); err == nil {
+			t.Fatal("check gives no error for an output without its emphasis")
+		}
+	})
+}
+
+func TestSourceTree(t *testing.T) {
+	t.Parallel()
+
+	t.Run("rejects an output above the limit", func(t *testing.T) {
+		t.Parallel()
+
+		if _, err := sourceTree(markdown.Parse([]byte("# a\n")), 2); err == nil {
+			t.Fatal("sourceTree gives no error for an output above the limit")
+		}
+	})
+
+	t.Run("prints a tree within the limit", func(t *testing.T) {
+		t.Parallel()
+
+		if out, err := sourceTree(markdown.Parse([]byte("#  a\n")), MaxOutput); err != nil || string(out) != "# a\n" {
+			t.Fatalf("sourceTree = %q, %v, want %q", out, err, "# a\n")
+		}
+	})
+}
 
 func TestSource(t *testing.T) {
 	t.Parallel()
