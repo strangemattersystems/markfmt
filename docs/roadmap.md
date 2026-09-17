@@ -372,14 +372,21 @@ fixture yet.
   link tail line ending, the indentation of a span line with a tab, the sign
   of a kept marker, and a table below the paragraph that it split.
 
-  Fifteen minutes of fuzzing then gives `"  * 0\n  +\n  <!A"`, where the
-  marker of a list that keeps its input columns lands at the column where the
-  items of the list above it continue, so it is a line of that list's last
-  item. A clamp against that column moves markers that read correctly today,
-  because the printer has no model of the columns that a block prints at: it
-  keeps some columns of the input and writes others in the canonical style,
-  and only the two together decide what a line means. That model is the next
-  piece of printer work.
+  Five more findings of 2026-09-18 are fixed with the column model: the
+  printer now knows the column it writes at and the column each container
+  continues on, so a kept marker moves left to clear the list above it and
+  pads itself back to its own columns. The others are a marker below a list
+  that a block separates, a block's first line in both hard break forms, the
+  bullet risk of a table that prints with pipes, and the indentation of a
+  label line.
+
+  Twenty-five minutes of fuzzing then gives `"* 0\r--\n  |-"`: an item holds
+  a paragraph and a table whose header row is `--`. The header prints as
+  `| --  |`, which reads as the delimiter row of the paragraph above it, so
+  the paragraph becomes the header. A blank line between them would make the
+  list loose, and printing the table as written gives `--`, which reads as a
+  delimiter row as well. The header cell needs an escape, which no printer
+  rule writes today. `Source` returns an error, so no output is wrong.
 
   On 4,000 real files (39 MB of module caches) the branch gives the output of
   main, byte for byte, with no error, and formatting them again changes
