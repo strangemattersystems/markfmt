@@ -262,9 +262,7 @@ func (p *printer) enter(id markdown.NodeID, k markdown.Kind) {
 	if k == markdown.Paragraph || k == markdown.Heading || k == markdown.TableCell {
 		p.textBlock = id
 	}
-	if k == markdown.Table && p.inSpan == 0 && !p.spanInside(id) && !p.oddSpace(id) {
-		// Padding and pipes would change the bytes of a dialect span in a
-		// cell, so such a table prints as written.
+	if k == markdown.Table && p.inSpan == 0 && p.tablePipes(id) {
 		p.table = &table{start: len(p.out)}
 	}
 	if k == markdown.TableCell && p.table != nil {

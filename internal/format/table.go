@@ -6,6 +6,16 @@ import (
 	"github.com/strangemattersystems/markfmt/internal/markdown"
 )
 
+// pipe is the first byte of a line of a table that prints with pipes.
+var pipe = []byte("|")
+
+// tablePipes reports whether table id prints its cells between pipes: a
+// dialect span in it keeps its bytes, and so does whitespace that a canonical
+// table would drop (design 12).
+func (p *printer) tablePipes(id markdown.NodeID) bool {
+	return !p.isSpan(id) && !p.spanInside(id) && !p.oddSpace(id)
+}
+
 // oddSpace reports whether a whitespace leaf of table id holds a byte that is
 // not a space or a tab. A canonical table writes its own spaces, so it would
 // drop a vertical tab or a form feed, which GitHub reads as a character of a
