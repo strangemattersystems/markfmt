@@ -40,3 +40,9 @@ jobs:
       - run: task ${{ matrix.task }}
       - if: matrix.os == 'ubuntu-latest'
         run: task long
+      # FuzzFormat is left to the nightly workflow: it has an open failure.
+      - if: matrix.os == 'ubuntu-latest'
+        name: Fuzz the parser and the comparison for a minute each
+        run: |
+          task fuzz FUZZ=FuzzParse -- -fuzztime=60s
+          task fuzz FUZZ=FuzzEqual -- -fuzztime=60s

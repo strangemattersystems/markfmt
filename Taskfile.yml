@@ -2,9 +2,13 @@ version: "3"
 
 vars:
   BINARY: markfmt
-  # golangci-lint lives in tools/go.mod so its dependencies stay out of go.mod.
+  # golangci-lint and benchstat live in tools/go.mod so their dependencies stay
+  # out of go.mod.
   GOLANGCI_LINT: go tool -modfile=tools/go.mod golangci-lint
+  BENCHSTAT: go tool -modfile=tools/go.mod benchstat
   GORELEASER: go run github.com/goreleaser/goreleaser/v2@v2.17.0
+  # Benchmark output, ignored by git.
+  BENCH_DIR: .bench
 
 tasks:
   default:
@@ -51,6 +55,83 @@ tasks:
       MARKFMT_LONG: "1"
     cmds:
       - go test -count=1 -timeout=60m -v -run='^TestParse$/^long$|^TestFormatSource$/^long$|^TestMaxrssBytes$' ./internal/markdown
+
+  bench:
+    desc: Run every benchmark 6 times
+    cmds:
+      - cmd: |
+          set -eu -o pipefail
+          mkdir -p {{.BENCH_DIR}}
+          go test -run='^$' -bench=. -benchmem -count=6 ./... | tee {{.BENCH_DIR}}/bench.txt
+
+  bench-compare:
+    desc: >-
+      Compare the benchmarks of the working tree with a base
+      (e.g. task bench-compare BASE=main PKG=./internal/format)
+    vars:
+      BASE: '{{.BASE | default "main"}}'
+      PKG: '{{.PKG | default "./internal/format"}}'
+      BENCHTIME: '{{.BENCHTIME | default "1s"}}'
+      RUNS: '{{.RUNS | default 10}}'
+    cmds:
+      - cmd: |
+          set -eu -o pipefail
+          out="$PWD/{{.BENCH_DIR}}"
+          mkdir -p "$out"
+          dir="$(echo '{{.PKG}}' | sed 's|^\./||')"
+          base="$(mktemp -d)"
+          trap 'rm -rf "$base"' EXIT
+          git archive '{{.BASE}}' | tar -x -C "$base"
+          # The benchmarks and their frozen inputs come from the working tree on
+          # both sides, so a benchmark that the base does not have still
+          # compares, and both sides measure the same work.
+          for f in $(git ls-files -co --exclude-standard '*bench_test.go'); do
+            mkdir -p "$base/$(dirname "$f")"
+            cp "$f" "$base/$f"
+          done
+          # The benchmark inputs come from the working tree as well, so both
+          # sides measure the same bytes. A base that cannot format a case the
+          # head adds fails here, and names it.
+          for d in internal/markdown/testdata/bench internal/format/testdata/cases; do
+            rm -rf "$base/$d"
+            mkdir -p "$base/$d"
+            cp "$d"/* "$base/$d/"
+          done
+          go test -c -o "$out/head.test" '{{.PKG}}'
+          (cd "$base" && go test -c -o "$out/base.test" '{{.PKG}}')
+          : >"$out/base.txt"
+          : >"$out/head.txt"
+          i=1
+          # Alternating the two binaries run by run cancels the drift of the
+          # machine: consecutive runs of one binary differ by about 8%,
+          # alternating runs by about 1%.
+          while [ "$i" -le {{.RUNS}} ]; do
+            echo "bench-compare: run $i of {{.RUNS}}"
+            (cd "$base/$dir" && "$out/base.test" -test.run='^$' -test.bench=. -test.benchmem -test.benchtime={{.BENCHTIME}}) >>"$out/base.txt"
+            (cd "$dir" && "$out/head.test" -test.run='^$' -test.bench=. -test.benchmem -test.benchtime={{.BENCHTIME}}) >>"$out/head.txt"
+            i=$((i + 1))
+          done
+          {{.BENCHSTAT}} "base={{.BENCH_DIR}}/base.txt" "head={{.BENCH_DIR}}/head.txt" | tee "$out/compare.txt"
+
+  profile:
+    desc: >-
+      Profile one benchmark
+      (e.g. task profile PKG=./internal/format BENCH='^BenchmarkSource$/design')
+    vars:
+      PKG: '{{.PKG | default "./internal/format"}}'
+      BENCH: '{{.BENCH | default "^BenchmarkSource$"}}'
+      BENCHTIME: '{{.BENCHTIME | default "3s"}}'
+      NODES: '{{.NODES | default 20}}'
+    cmds:
+      - mkdir -p {{.BENCH_DIR}}
+      - >-
+        go test -run='^$' -bench='{{.BENCH}}' -benchtime={{.BENCHTIME}}
+        -cpuprofile={{.BENCH_DIR}}/cpu.out -memprofile={{.BENCH_DIR}}/mem.out
+        -o {{.BENCH_DIR}}/profile.test {{.PKG}}
+      - go tool pprof -top -nodecount={{.NODES}} {{.BENCH_DIR}}/profile.test {{.BENCH_DIR}}/cpu.out
+      - >-
+        go tool pprof -top -nodecount={{.NODES}} -sample_index=alloc_space
+        {{.BENCH_DIR}}/profile.test {{.BENCH_DIR}}/mem.out
 
   lint:
     desc: Run golangci-lint
