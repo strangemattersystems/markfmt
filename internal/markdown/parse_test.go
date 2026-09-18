@@ -229,11 +229,17 @@ func TestParse(t *testing.T) {
 			{"the first block of the item", "- [ ] a\n", 1},
 			{"a later block of the item", "- a\n\n  [ ] b\n", 0},
 			{"the first block after definitions alone", "- [x]: /u\n\n  [ ] b\n", 1},
+			{"a block after a list", "- - a\n\n  [x] b\n", 0},
+			{"a block after a list of an empty item", "-\n  -\n\n  [x] b\n", 0},
 		} {
 			t.Run(tt.name, func(t *testing.T) {
 				t.Parallel()
 
-				if n := countKind(Parse([]byte(tt.src)), TaskBox); n != tt.want {
+				tree := Parse([]byte(tt.src))
+				if err := tree.Verify(); err != nil {
+					t.Fatal(err)
+				}
+				if n := countKind(tree, TaskBox); n != tt.want {
 					t.Fatalf("Parse(%q) gives %d task boxes, want %d", tt.src, n, tt.want)
 				}
 			})
