@@ -40,11 +40,11 @@ func isInline(k markdown.Kind) bool {
 // defPart is the part of a link reference definition that prints.
 type defPart uint8
 
-// titleQuotes returns the quotes around the title of link reference
-// definition id: '"', or a single quote when the title or the text around it
-// has '"', or parentheses when they have both, or the input's quotes when
-// the title also has a parenthesis. A title decodes the same in each
-// (spec 4.7).
+// titleQuotes returns the quotes around the title of link id: '"', or a
+// single quote when the title has '"', or parentheses when it has both, or
+// the input's quotes when it also has a parenthesis. A title decodes the same
+// in each (spec 4.7). A quote that the text around the title holds is not
+// used, and neither is one when the text holds a quote of the input.
 func (p *printer) titleQuotes(id markdown.NodeID) [2]byte {
 	t := p.tree
 	end, _ := t.Next(id)
@@ -68,15 +68,17 @@ func (p *printer) titleQuotes(id markdown.NodeID) [2]byte {
 			}
 		}
 	}
-	// A quote that the text around the title also holds could pair with the
-	// one that prints, which would make a title of the text between them.
-	switch {
-	case bytes.IndexByte(title, '"') < 0 && !p.inText('"'):
-		return [2]byte{'"', '"'}
-	case bytes.IndexByte(title, '\'') < 0 && !p.inText('\''):
-		return [2]byte{'\'', '\''}
-	case !bytes.ContainsAny(title, "()"):
-		return [2]byte{'(', ')'}
+	// The quotes decide which bytes of the paragraph are quotes. Where the
+	// text around the title holds a quote of the input or a quote that would
+	// print, the two could pair differently, so the title keeps its quotes.
+	holds := func(q [2]byte) bool { return p.inText(q[0]) || p.inText(q[1]) }
+	if quotes > 0 && holds(source) {
+		return source
+	}
+	for _, q := range [][2]byte{{'"', '"'}, {'\'', '\''}, {'(', ')'}} {
+		if !bytes.ContainsAny(title, string(q[:])) && !holds(q) {
+			return q
+		}
 	}
 	return source
 }
@@ -278,7 +280,7 @@ func (p *printer) wordFacts() {
 }
 
 // delimBytes are the bytes that [printer.inText] answers for.
-const delimBytes = "*_~<\"'"
+const delimBytes = "*_~<\"'()"
 
 // inText reports whether the last paragraph, heading or table cell that
 // started has a text leaf with c, one of [delimBytes]. A canonical delimiter

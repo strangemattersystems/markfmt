@@ -57,6 +57,18 @@ func TestSourceTree(t *testing.T) {
 func TestSource(t *testing.T) {
 	t.Parallel()
 
+	t.Run("formats a link title in text that holds its quotes", func(t *testing.T) {
+		t.Parallel()
+
+		for _, src := range []string{
+			`[](0 "[](0 "")")`,
+			`[[](0 '](0 '')')`,
+			`[](0 "[](0 ')')`,
+		} {
+			checkSource(t, []byte(src))
+		}
+	})
+
 	t.Run("formats a dialect span whose lines hold tabs and deep markers", func(t *testing.T) {
 		t.Parallel()
 
