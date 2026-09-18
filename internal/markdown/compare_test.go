@@ -122,6 +122,15 @@ func TestEqual(t *testing.T) {
 			// marker as text (dialect.md).
 			{strings.Repeat(">", 99) + "*", strings.Repeat("> ", 99) + "-\n"},
 			{strings.Repeat("- ", 100) + "a", strings.Repeat("- ", 99) + "* a"},
+			// A span right after a span: the paragraph that a table split off,
+			// and a second line of 100 markers.
+			{"a\\|b\n| x |\n| - |\n", "a\\|b\n|x|\n|-|\n"},
+			{strings.Repeat(strings.Repeat("- ", 100)+"a\n", 2), strings.Repeat("- ", 100) + "a\n" + strings.Repeat("- ", 99) + "* a\n"},
+			// Indentation that GitHub reads: an HTML block starts after at most
+			// 3 columns, and past 99 blocks a line of 4 more columns is code.
+			{"a\n    <source>\n", "a\n   <source>\n"},
+			{"> a\n    <b x=1>\n", "> a\n  <b x=1>\n"},
+			{strings.Repeat("- ", 100) + "a\n\n" + strings.Repeat(" ", 202) + "b\n", strings.Repeat("- ", 100) + "a\n\n" + strings.Repeat(" ", 200) + "b\n"},
 		} {
 			if err := Equal(Parse([]byte(pair[0])), Parse([]byte(pair[1]))); err == nil {
 				t.Errorf("Equal of %q and %q = nil, want a difference", pair[0], pair[1])
@@ -133,6 +142,10 @@ func TestEqual(t *testing.T) {
 			{"[x]: /u\n'", "[x]: /u\n'\n"},
 			{" ```\f\n\t0", " ```\f\n    0"},
 			{" ```\v\n ", " ```\v\n \n"},
+			// A span that ends where the span holding it ends.
+			{"\\|\n0\n -|\n0*\x80", "\\|\n0\n -|\n0*\x80\n"},
+			// A tab and spaces of equal columns, in the lines of a span.
+			{strings.Repeat("- ", 100) + "a\n\n" + strings.Repeat("\t", 3) + "b\n", strings.Repeat("- ", 100) + "a\n\n" + strings.Repeat(" ", 12) + "b\n"},
 		} {
 			if err := Equal(Parse([]byte(pair[0])), Parse([]byte(pair[1]))); err != nil {
 				t.Errorf("Equal of %q and %q = %v, want nil", pair[0], pair[1], err)
@@ -584,19 +597,4 @@ func blankLinesAfter(tree *Tree, i int) int {
 		}
 	}
 	return 0
-}
-
-// TestEqual_SpanMarks covers the marks that equalSpans records for a span
-// inside a span: the fuzz corpus reached them, and no pair did.
-func TestEqual_SpanMarks(t *testing.T) {
-	t.Parallel()
-
-	t.Run("compares a span that ends where the span holding it ends", func(t *testing.T) {
-		t.Parallel()
-
-		src := "\\|\n0\n -|\n0*\x80"
-		if err := Equal(Parse([]byte(src)), Parse([]byte(src+"\n"))); err != nil {
-			t.Fatalf("Equal of %q and the same input with a line ending = %v, want nil", src, err)
-		}
-	})
 }

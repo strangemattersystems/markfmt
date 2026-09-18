@@ -57,6 +57,19 @@ func TestSourceTree(t *testing.T) {
 func TestSource(t *testing.T) {
 	t.Parallel()
 
+	t.Run("formats a dialect span whose lines hold tabs and deep markers", func(t *testing.T) {
+		t.Parallel()
+
+		for _, src := range []string{
+			strings.Repeat("- ", 100) + "a\n\n" + strings.Repeat("\t", 50) + "b\n",
+			strings.Repeat(">", 99) + "* ",
+			strings.Repeat("* ", 100) + "*\x00",
+			"-  " + strings.Repeat("- ", 99) + "a\n\n\t£_b_£\n",
+		} {
+			checkSource(t, []byte(src))
+		}
+	})
+
 	t.Run("cases", func(t *testing.T) {
 		t.Parallel()
 

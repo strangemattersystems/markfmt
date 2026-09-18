@@ -982,15 +982,25 @@ adds its set of `Dialect(row)` values to its Enter event. `Equal` requires:
 
 - equal row sets at every event, in both directions, so the printer can neither
   create nor remove a place where GitHub and CommonMark disagree;
-- for each span, equal bytes of the leaves that are not prefix leaves or
-  CodeIndent, with a split tab read as its `virt` spaces (section 4.3) and
-  each line ending as LF (product rule 7). Code indentation can take columns
-  inside a split tab, where no leaf holds them, so its leaves are not read
-  either; the CodeBlock key compares the code. And for
-  each of its lines after the first that is not blank the same number of
-  matched containers, so a lazy line stays lazy. The prefix leaves of a line
-  do not give that number: a container that consumes columns only inside a
-  split tab has no leaf. The cost is O(span bytes).
+- for each span, equal bytes of its leaves, with each line ending as LF
+  (product rule 7). The bytes leave out the prefix leaves of the span and of
+  the containers around it, which print in the canonical style, and all
+  indentation: `Indent`, `CodeIndent`, `ItemIndent`, `FootnoteIndent`, and
+  the rest of a split tab (section 4.3) outside code and HTML, where those
+  columns are spaces of the value. The markers of the containers inside the
+  span are read, because past 99 blocks on a line GitHub reads a marker as
+  text (`dialect.md`), except for the spaces after a marker that ends its
+  line;
+- for each line of the span after the first that is not blank, the same
+  number of matched containers, so a lazy line stays lazy, and the same
+  columns of indentation between their prefixes and its content, which a tab
+  gives from the column where it starts. The prefix leaves of a line do not
+  give either: a container that consumes columns only inside a split tab has
+  no leaf, so both come from the walk of the containers;
+- a span inside a span is not read again. The read of the outer span covers
+  its bytes and its lines, and the events compare the value of each run on
+  both sides of its bounds, so every span costs O(bytes of the outermost
+  span that holds it).
 
 ### 10.5 Tests of the check
 

@@ -14,6 +14,11 @@ import (
 func Equal(a, b *Tree) error {
 	c := comparer{a: a, b: b}
 	pa, pb := newProjection(a), newProjection(b)
+	// spanEnd is one past the last node of the dialect span of a that Equal
+	// read last. A span inside it needs no read of its own: the read of the
+	// span that holds it covered its bytes and its lines, and the events
+	// compare the value of each run on both sides of its bounds.
+	spanEnd := uint32(0)
 	for {
 		ea, okA := pa.next()
 		eb, okB := pb.next()
@@ -34,8 +39,11 @@ func Equal(a, b *Tree) error {
 		if err := c.compare(ea, okA, eb, okB); err != nil {
 			return err
 		}
-		if ea.op == enterEvent && ea.rows != 0 && !equalSpans(&pa, ea.id, &pb, eb.id) {
-			return fmt.Errorf("markdown: different dialect spans: %s against %s", describe(a, ea, okA), describe(b, eb, okB))
+		if ea.op == enterEvent && ea.rows != 0 && uint32(ea.id) >= spanEnd {
+			if !equalSpans(&pa, ea.id, &pb, eb.id) {
+				return fmt.Errorf("markdown: different dialect spans: %s against %s", describe(a, ea, okA), describe(b, eb, okB))
+			}
+			spanEnd = a.nodes[ea.id].link
 		}
 	}
 }
@@ -192,8 +200,7 @@ type projection struct {
 	spans    []dialectSpan // the dialect spans after the walk, in node order
 	dialect  bool          // the tree has dialect spans, so walk follows the walk
 	walk     containerWalk
-	spanWalk containerWalk       // walk at the last dialect span entered
-	marks    map[NodeID]spanMark // where a nested span sits in the span that holds it
+	spanWalk containerWalk // walk at the last dialect span entered
 }
 
 func newProjection(t *Tree) projection {
@@ -388,25 +395,18 @@ func (r *runReader) next() []byte {
 }
 
 // equalSpans reports whether the dialect spans ia of pa's tree and ib of pb's
-// tree, which the projections entered last, have equal bytes outside prefix
-// leaves, and the same number of matched containers on each line after the
-// first that is not blank (design 10.4).
+// tree, which the projections entered last, have equal bytes and equal lines
+// (design 10.4): the same containers matched on each line after the first
+// that is not blank, and the same columns of indentation before its content.
 func equalSpans(pa *projection, ia NodeID, pb *projection, ib NodeID) bool {
-	if ma, okA := pa.marks[ia]; okA {
-		// The streams of the span that holds both are equal, so the same
-		// positions in them prove these spans equal.
-		if mb, okB := pb.marks[ib]; okB {
-			return ma == mb
-		}
-	}
 	a, b := pa.t, pb.t
-	ra := spanReader{t: a, span: uint32(ia), i: uint32(ia) + 1, end: a.nodes[ia].link, marks: pa.marker(false)}
-	rb := spanReader{t: b, span: uint32(ib), i: uint32(ib) + 1, end: b.nodes[ib].link, marks: pb.marker(false)}
+	ra := spanReader{t: a, span: uint32(ia), i: uint32(ia) + 1, end: a.nodes[ia].link}
+	rb := spanReader{t: b, span: uint32(ib), i: uint32(ib) + 1, end: b.nodes[ib].link}
 	if !equalPieces(&ra, &rb) {
 		return false
 	}
-	la := spanLines{w: pa.spanWalk, i: uint32(ia) + 1, end: a.nodes[ia].link, marks: pa.marker(true)}
-	lb := spanLines{w: pb.spanWalk, i: uint32(ib) + 1, end: b.nodes[ib].link, marks: pb.marker(true)}
+	la := spanLines{w: pa.spanWalk, i: uint32(ia) + 1, end: a.nodes[ia].link}
+	lb := spanLines{w: pb.spanWalk, i: uint32(ib) + 1, end: b.nodes[ib].link}
 	for {
 		ma, okA := la.next()
 		mb, okB := lb.next()
@@ -419,80 +419,18 @@ func equalSpans(pa *projection, ia NodeID, pb *projection, ib NodeID) bool {
 	}
 }
 
-// spanMark is where a nested dialect span starts and ends in the byte stream
-// and the line stream of the span that holds it.
-type spanMark struct{ startBytes, endBytes, startLines, endLines int }
-
-// marker returns a marker for the dialect spans inside the span that the
-// projection entered last, which fills p.marks as a reader of that span
-// passes them. lines chooses the line stream.
-func (p *projection) marker(lines bool) *marker {
-	if p.marks == nil {
-		p.marks = make(map[NodeID]spanMark)
-	}
-	// p.spans holds the spans after id, so the spans inside it come first.
-	return &marker{t: p.t, spans: p.spans, marks: p.marks, lines: lines}
-}
-
-// marker records the marks of the dialect spans inside one span. A reader of
-// that span calls at for each of its nodes, in order, with the position that
-// the node starts at in the reader's stream.
-type marker struct {
-	t     *Tree
-	spans []dialectSpan // the spans after the one being read, in node order
-	open  []openSpan    // the spans entered, innermost last
-	marks map[NodeID]spanMark
-	lines bool
-}
-
-type openSpan struct {
-	id  NodeID
-	end uint32 // one past the last node of the span
-}
-
-func (m *marker) at(i, pos int) {
-	for len(m.open) > 0 && int(m.open[len(m.open)-1].end) <= i {
-		id := m.open[len(m.open)-1].id
-		m.open = m.open[:len(m.open)-1]
-		m.record(id, pos, false)
-	}
-	for len(m.spans) > 0 && int(m.spans[0].id) <= i {
-		span := m.spans[0]
-		m.spans = m.spans[1:]
-		if int(span.id) < i {
-			continue
-		}
-		m.record(NodeID(span.id), pos, true)
-		m.open = append(m.open, openSpan{NodeID(span.id), m.t.nodes[span.id].link})
-	}
-}
-
-// record writes one position of span id, the start or the end of its stream.
-func (m *marker) record(id NodeID, pos int, start bool) {
-	mark := m.marks[id]
-	switch {
-	case start && m.lines:
-		mark.startLines = pos
-	case start:
-		mark.startBytes = pos
-	case m.lines:
-		mark.endLines = pos
-	default:
-		mark.endBytes = pos
-	}
-	m.marks[id] = mark
-}
-
-// spanReader reads the bytes of the leaves of a dialect span that are not
-// prefix leaves or code indentation, with a split tab as its virt spaces
-// (design 4.3) and each line ending as a line feed. Code indentation is not
-// read because it can take columns inside a split tab too, where no leaf
-// holds them.
+// spanReader reads the bytes of the leaves of a dialect span, with each line
+// ending as a line feed.
+//
+// It does not read the prefix leaves of the span or of the containers around
+// it, which print in the canonical style, nor any indentation: indentation
+// means its columns, which a tab writes from the column that it starts at,
+// and spanLines compares them. It reads the markers of the containers inside
+// the span, because past 99 blocks on a line GitHub reads a marker as text
+// (dialect.md), except for the spaces after a marker that ends its line.
 type spanReader struct {
 	t       *Tree
-	marks   *marker
-	off     int    // bytes given
-	span    uint32 // the span node, whose own prefix leaves are not read
+	span    uint32
 	i, end  uint32
 	b       []byte // the rest of the last leaf
 	last    byte   // the last byte read
@@ -505,7 +443,6 @@ func (r *spanReader) next() []byte {
 	switch {
 	case b != nil:
 		r.last, r.started = b[len(b)-1], true
-		r.off += len(b)
 	case r.started && r.last != '\n' && !r.done:
 		// The end of the input is a line ending (design 8.2).
 		r.done = true
@@ -517,33 +454,32 @@ func (r *spanReader) next() []byte {
 func (r *spanReader) read() []byte {
 	for len(r.b) == 0 {
 		if r.i == r.end {
-			// A span that ends where the span holding it ends has no node
-			// after it to mark, so the end of the read marks it.
-			r.marks.at(int(r.end), r.off)
 			return nil
 		}
 		m := r.t.nodes[r.i]
-		r.marks.at(int(r.i), r.off)
 		r.i++
 		if m.kind.class() == classStructure {
 			continue
 		}
-		// A prefix leaf of a container inside the span is read: past 99 blocks
-		// on a line GitHub reads a marker as text (dialect.md). The markers of
-		// the containers around the span are not. Indentation is not read
-		// either: it means its columns, which a tab writes from the column it
-		// starts at, and the printer writes them as spaces. A change of
-		// indentation that changes a block shows in the events.
-		if _, prefix := m.kind.owner(); prefix && m.link <= r.span || m.kind == CodeIndent || m.kind == Indent {
+		_, prefix := m.kind.owner()
+		indent := m.kind == Indent || m.kind == CodeIndent || m.kind == ItemIndent || m.kind == FootnoteIndent
+		if indent || prefix && m.link <= r.span {
 			// The leaf is not read, but its line holds it, so the end of the
 			// input ends the line.
 			r.last, r.started = ' ', true
 			continue
 		}
 		r.b = r.t.src[m.start:m.end]
+		if prefix && (r.i == r.end || r.t.nodes[r.i].kind == BlankLine || r.t.nodes[r.i].kind == LineEnding) {
+			r.b = bytes.TrimRight(r.b, " \t")
+		}
 		if m.virt > 0 {
+			// The rest of a split tab (design 4.3) is indentation, except in
+			// code and HTML, where it is spaces of the value.
 			r.b = r.b[1:]
-			return spaces[:m.virt:m.virt]
+			if m.kind == CodeText || m.kind == HTMLText {
+				return spaces[:m.virt:m.virt]
+			}
 		}
 	}
 	b := r.b
@@ -559,42 +495,56 @@ func (r *spanReader) read() []byte {
 	return lineFeed[:1:1]
 }
 
-// spanLines yields the number of containers that each line of a dialect span
-// matched, for the lines after its first line that are not blank.
+// spanLine is a line of a dialect span: the containers that it matched, and
+// the columns of indentation between their prefixes and its content, which a
+// tab gives from the column that it starts at.
+type spanLine struct{ matched, indent int }
+
+// spanLines yields the lines of a dialect span after its first line that are
+// not blank.
 type spanLines struct {
 	w         containerWalk // at the span node
-	marks     *marker
-	lines     int // lines given
 	i, end    uint32
 	lineStart bool
 }
 
-func (s *spanLines) next() (int, bool) {
+func (s *spanLines) next() (spanLine, bool) {
 	t := s.w.t
+	var line spanLine
+	pending, base := false, 0
 	for s.i < s.end {
 		i := s.i
-		s.marks.at(int(i), s.lines)
 		s.i++
 		n := t.nodes[i]
-		matched, found := 0, false
-		if s.lineStart && n.kind.class() != classStructure {
+		leaf := n.kind.class() != classStructure
+		if s.lineStart && leaf {
 			s.lineStart = false
 			if !t.blankRest(i, s.end) {
-				matched, _ = s.w.matched(i)
-				found = true
+				line.matched, base = s.w.matched(i)
+				pending = true
 			}
 		}
-		s.w.visit(i)
-		if c := t.src[n.end-1]; n.kind.class() != classStructure && (c == '\n' || c == '\r') {
+		start, _ := s.w.visit(i)
+		if !leaf {
+			continue
+		}
+		if c := t.src[n.end-1]; c == '\n' || c == '\r' {
 			s.lineStart = true
 		}
-		if found {
-			s.lines++
-			return matched, true
+		if !pending {
+			continue
+		}
+		if _, prefix := n.kind.owner(); !prefix && n.kind != Indent && n.kind != CodeIndent {
+			line.indent = start - base
+			if n.kind != CodeText && n.kind != HTMLText {
+				// The rest of a split tab at the start of the leaf is
+				// indentation, where code and HTML read it as spaces.
+				line.indent += int(n.virt)
+			}
+			return line, true
 		}
 	}
-	s.marks.at(int(s.end), s.lines)
-	return 0, false
+	return spanLine{}, false
 }
 
 // blankRest reports whether the line from leaf i, before node end, has only
