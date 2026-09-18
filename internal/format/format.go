@@ -2,6 +2,7 @@
 package format
 
 import (
+	"bytes"
 	"fmt"
 
 	"github.com/strangemattersystems/markfmt/internal/markdown"
@@ -33,6 +34,11 @@ func sourceTree(tree *markdown.Tree, limit int) ([]byte, error) {
 	p.document()
 	if p.full {
 		return nil, fmt.Errorf("output is larger than %d bytes", limit)
+	}
+	if bytes.Equal(p.out, tree.Raw(0)) {
+		// The output parses to the tree of the input, so the check has
+		// nothing to find, and a formatted file is the common input.
+		return p.out, nil
 	}
 	if err := check(tree, p.out); err != nil {
 		return nil, err

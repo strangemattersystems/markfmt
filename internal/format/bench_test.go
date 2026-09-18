@@ -24,7 +24,8 @@ func (in benchInput) size() int {
 }
 
 // benchInputs returns the benchmark inputs by name: the frozen design
-// document, every printer case, and the frozen small document.
+// document, that document formatted, which is what a check of a formatted
+// project reads, every printer case, and the frozen small document.
 //
 // The cases stay separate documents. Joined into one, they are an input that
 // [Source] rejects today, which is a formatter bug and not a benchmark.
@@ -49,8 +50,14 @@ func benchInputs(b *testing.B) []benchInput {
 	for _, path := range paths {
 		cases = append(cases, read(path))
 	}
+	design := read("../markdown/testdata/bench/design.md")
+	formatted, err := Source(design)
+	if err != nil {
+		b.Fatal(err)
+	}
 	return []benchInput{
-		{"design", [][]byte{read("../markdown/testdata/bench/design.md")}},
+		{"design", [][]byte{design}},
+		{"formatted", [][]byte{formatted}},
 		{"cases", cases},
 		{"small", [][]byte{read("../markdown/testdata/bench/small.md")}},
 	}
