@@ -544,6 +544,9 @@ var pathologicalInputs = []struct {
 	{"emphasis characters in pairs", func(n int) []byte {
 		return []byte("a" + strings.Repeat("*_", n/2))
 	}},
+	{"lines that end with a carriage return", func(n int) []byte {
+		return []byte(strings.Repeat("a\r", n/2))
+	}},
 	{"tables with many rows", func(n int) []byte {
 		return []byte("| a |\n| - |\n" + strings.Repeat("| b |\n", n/6))
 	}},

@@ -16,6 +16,7 @@ type line struct {
 type lines struct {
 	src       []byte
 	pos, size uint32
+	lf        uint32 // the next line feed at or after pos, or size
 }
 
 func newLines(src []byte) lines {
@@ -23,7 +24,16 @@ func newLines(src []byte) lines {
 	if bytes.HasPrefix(src, []byte(bom)) {
 		it.pos = uint32(len(bom))
 	}
+	it.findLF()
 	return it
+}
+
+// findLF sets lf to the next line feed at or after pos, or to size.
+func (it *lines) findLF() {
+	it.lf = it.size
+	if j := bytes.IndexByte(it.src[it.pos:it.size], '\n'); j >= 0 {
+		it.lf = it.pos + count(j)
+	}
 }
 
 // next returns the next line, or false after the last line. The last line
@@ -33,12 +43,13 @@ func (it *lines) next() (line, bool) {
 		return line{}, false
 	}
 	// A line feed is looked for first, because a carriage return is rare and
-	// only the bytes before the line feed can hold one.
-	rest := it.src[it.pos:it.size]
-	i := it.size
-	if j := bytes.IndexByte(rest, '\n'); j >= 0 {
-		i = it.pos + count(j)
+	// only the bytes before the line feed can hold one. The line feed is kept
+	// until a line passes it: lines that end with a carriage return would
+	// otherwise search the rest of the input each, which is O(n^2).
+	if it.lf < it.pos {
+		it.findLF()
 	}
+	i := it.lf
 	if j := bytes.IndexByte(it.src[it.pos:i], '\r'); j >= 0 {
 		i = it.pos + count(j)
 	}
