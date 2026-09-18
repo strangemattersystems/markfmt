@@ -703,8 +703,9 @@ in one pre-pass and holds only what a node's own kind needs.
 | Input | 8 MiB | Worst case 3.85 GiB peak, measured at stage 6 for block quotes nested on one line; real documents about 120 to 140 MiB. |
 | Output | 16 MiB, absolute | The printer writes into a writer that fails at the limit, so it never builds more. Appendix B bounds each expanding rule, so real files stay far below it. |
 
-Both limits are constants, not options. `Format` returns an error above
-either. The long test (section 11.1) measures peak memory in a child process
+Both limits are constants, not options: `markfmt.MaxInput` and
+`markfmt.MaxOutput`. Above either, `Format` returns an error that wraps
+`markfmt.ErrTooLarge`. The long test (section 11.1) measures peak memory in a child process
 at the input limit: `Parse`, `Verify` and `Equal` of a tree with itself from
 stage 2, and `Format` within the 4 GiB budget from stage 6. The stage 8 CLI limits concurrent work
 by input bytes, not by file count.

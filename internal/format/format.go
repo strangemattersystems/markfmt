@@ -10,11 +10,15 @@ import (
 )
 
 // MaxInput and MaxOutput are the sizes in bytes above which [Source] returns
-// an error (design 7.2).
+// an error that wraps [ErrTooLarge] (design 7.2).
 const (
 	MaxInput  = 8 << 20
 	MaxOutput = 16 << 20
 )
+
+// ErrTooLarge is the error for an input above [MaxInput] or an output above
+// [MaxOutput].
+var ErrTooLarge = errors.New("larger than the limit")
 
 // Source returns src in the canonical style, with LF line endings. A
 // top-level block whose canonical form would change what the input means
@@ -26,7 +30,7 @@ const (
 // output would be larger than [MaxOutput].
 func Source(src []byte) ([]byte, error) {
 	if len(src) > MaxInput {
-		return nil, fmt.Errorf("input of %d bytes is larger than %d bytes", len(src), MaxInput)
+		return nil, fmt.Errorf("the input is %w of %d bytes", ErrTooLarge, MaxInput)
 	}
 	tree := markdown.Parse(src)
 	var raw map[markdown.NodeID]bool
@@ -68,7 +72,7 @@ const maxRetries = 4
 // that the printer cannot write is a failure and not a quiet copy.
 func Strict(src []byte) ([]byte, error) {
 	if len(src) > MaxInput {
-		return nil, fmt.Errorf("input of %d bytes is larger than %d bytes", len(src), MaxInput)
+		return nil, fmt.Errorf("the input is %w of %d bytes", ErrTooLarge, MaxInput)
 	}
 	return sourceTree(markdown.Parse(src), nil, MaxOutput)
 }
@@ -80,7 +84,7 @@ func sourceTree(tree *markdown.Tree, raw map[markdown.NodeID]bool, limit int) ([
 	p := printer{tree: tree, max: limit, raw: raw}
 	p.document()
 	if p.full {
-		return nil, fmt.Errorf("output is larger than %d bytes", limit)
+		return nil, fmt.Errorf("the output is %w of %d bytes", ErrTooLarge, limit)
 	}
 	if bytes.Equal(p.out, tree.Raw(0)) {
 		// The output parses to the tree of the input, so the check has

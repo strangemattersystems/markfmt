@@ -8,7 +8,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/strangemattersystems/markfmt/internal/format"
+	"github.com/strangemattersystems/markfmt"
 )
 
 // BenchmarkCheckDir walks a directory of small documents and checks each one,
@@ -41,7 +41,7 @@ func BenchmarkCheckDir(b *testing.B) {
 func checkDir(b *testing.B, dir string) {
 	b.Helper()
 
-	budget := newBudget(format.MaxInput)
+	budget := newBudget(markfmt.MaxInput)
 	procs := runtime.GOMAXPROCS(0)
 	var wg sync.WaitGroup
 	for _, in := range inputs([]string{dir}, nil) {

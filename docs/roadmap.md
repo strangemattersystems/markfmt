@@ -134,7 +134,7 @@ Layout:
 | Grammar scope: CommonMark, GFM, front matter, and GitHub footnotes | Most users expect what GitHub renders. GitHub math and alerts are HTML filters, not grammar: the runtime check compares every input they read, so no math or alert kinds exist. Design 9. |
 | Dialect rows and predicates | Where GitHub and CommonMark 0.31.2 disagree, a `dialect.md` row records it. At stage 6 a predicate finds each span, `Equal` compares spans both ways with their bytes, and the printer keeps them. Design 2.1, 10.4. |
 | Input limit 8 MiB, output limit 16 MiB | Constants, not options, chosen from a 4 GiB worst-case memory budget. Design 7.2. |
-| `Format` recovers panics | A parser or printer bug returns an error and writes nothing, so one bad file does not stop the CLI. Design 1. |
+| `Format` recovers panics | A parser or printer bug returns an `*InternalError` and writes nothing, so one bad file does not stop the CLI. The error holds the stack, and `Error()` leaves it out; the CLI prints it. Design 1. |
 | One grammar in production and tests | No test-only grammar switch. Core examples that markfmt's GFM or front matter rules change are listed in `grammar-differs.txt`, each with a case of markfmt's expected result. Design 11.2. |
 | Streaming not planned | The documents that would need it are one top-level block, so per-block streaming would not help. Design 7.4. |
 | Design document at `docs/design/parser.md` | It is reviewed and versioned with the code. |

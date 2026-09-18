@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/strangemattersystems/markfmt/internal/format"
+	"github.com/strangemattersystems/markfmt"
 )
 
 func TestInputs(t *testing.T) {
@@ -104,11 +104,11 @@ func TestRead(t *testing.T) {
 		t.Parallel()
 
 		path := filepath.Join(t.TempDir(), "large.md")
-		if err := os.WriteFile(path, make([]byte, 2*format.MaxInput), 0o600); err != nil {
+		if err := os.WriteFile(path, make([]byte, 2*markfmt.MaxInput), 0o600); err != nil {
 			t.Fatal(err)
 		}
-		if src, err := read(path); err != nil || len(src) != format.MaxInput+1 {
-			t.Fatalf("read = %d bytes, %v, want %d bytes", len(src), err, format.MaxInput+1)
+		if src, err := read(path); err != nil || len(src) != markfmt.MaxInput+1 {
+			t.Fatalf("read = %d bytes, %v, want %d bytes", len(src), err, markfmt.MaxInput+1)
 		}
 	})
 
@@ -129,10 +129,10 @@ func TestCost(t *testing.T) {
 		n, procs int
 		want     int
 	}{
-		{"counts a small input at the share of one proc", 1, 4, format.MaxInput / 4},
-		{"counts a larger input at its size", format.MaxInput / 2, 4, format.MaxInput / 2},
-		{"caps an input at the input limit", format.MaxInput + 1, 4, format.MaxInput},
-		{"counts every input at the limit with one proc", 1, 1, format.MaxInput},
+		{"counts a small input at the share of one proc", 1, 4, markfmt.MaxInput / 4},
+		{"counts a larger input at its size", markfmt.MaxInput / 2, 4, markfmt.MaxInput / 2},
+		{"caps an input at the input limit", markfmt.MaxInput + 1, 4, markfmt.MaxInput},
+		{"counts every input at the limit with one proc", 1, 1, markfmt.MaxInput},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
@@ -396,12 +396,12 @@ func TestMarkfmt(t *testing.T) {
 		t.Parallel()
 
 		dir := t.TempDir()
-		if err := os.WriteFile(filepath.Join(dir, "large.md"), make([]byte, format.MaxInput+1), 0o600); err != nil {
+		if err := os.WriteFile(filepath.Join(dir, "large.md"), make([]byte, markfmt.MaxInput+1), 0o600); err != nil {
 			t.Fatal(err)
 		}
 		got := runMarkfmt(t, dir, "", "large.md")
-		if got.status != 2 || !strings.Contains(got.stderr, strconv.Itoa(format.MaxInput)) {
-			t.Fatalf("markfmt large.md = %+v, want status 2 and %d on stderr", got, format.MaxInput)
+		if got.status != 2 || !strings.Contains(got.stderr, strconv.Itoa(markfmt.MaxInput)) {
+			t.Fatalf("markfmt large.md = %+v, want status 2 and %d on stderr", got, markfmt.MaxInput)
 		}
 	})
 }

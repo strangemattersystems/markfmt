@@ -2,6 +2,7 @@ package markfmt_test
 
 import (
 	"bytes"
+	"errors"
 	"io"
 	"strings"
 	"testing"
@@ -25,19 +26,23 @@ func TestFormat(t *testing.T) {
 		t.Parallel()
 
 		var out bytes.Buffer
-		err := markfmt.Format(&out, io.LimitReader(zeros{}, 8<<20+1))
-		if err == nil || out.Len() > 0 {
-			t.Fatalf("Format wrote %d bytes, error %v, want no output and an error", out.Len(), err)
+		err := markfmt.Format(&out, io.LimitReader(zeros{}, markfmt.MaxInput+1))
+		if !errors.Is(err, markfmt.ErrTooLarge) || out.Len() > 0 {
+			t.Fatalf("Format wrote %d bytes, error %v, want no output and ErrTooLarge", out.Len(), err)
 		}
 	})
 
-	t.Run("returns a panic as an error with its stack", func(t *testing.T) {
+	t.Run("returns a panic as an internal error with its stack", func(t *testing.T) {
 		t.Parallel()
 
 		var out bytes.Buffer
 		err := markfmt.Format(&out, panicReader{})
-		if err == nil || !strings.Contains(err.Error(), "boom") || !strings.Contains(err.Error(), "goroutine") {
-			t.Fatalf("Format error = %v, want the panic value and a stack", err)
+		var ie *markfmt.InternalError
+		if !errors.As(err, &ie) || ie.Value != "boom" || !bytes.Contains(ie.Stack, []byte("goroutine")) {
+			t.Fatalf("Format error = %#v, want an InternalError with the panic value and a stack", err)
+		}
+		if strings.Contains(err.Error(), "goroutine") {
+			t.Fatalf("Error() = %q, want no stack", err.Error())
 		}
 	})
 }
