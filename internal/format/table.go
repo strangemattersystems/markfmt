@@ -32,14 +32,15 @@ func (p *printer) oddSpace(id markdown.NodeID) bool {
 }
 
 // tableIndentHides reports whether the first row of table id starts with
-// indentation that keeps its line from starting a block.
+// indentation that keeps its line from starting a block. A table that prints
+// with pipes has no such row.
 func (p *printer) tableIndentHides(id markdown.NodeID) bool {
 	end, _ := p.tree.Next(id)
 	leaf := id + 1
 	for leaf < end && !p.tree.Kind(leaf).Leaf() {
 		leaf++
 	}
-	return leaf < end && p.tree.Kind(leaf) == markdown.Indent && p.indentHides(leaf)
+	return leaf < end && p.tree.Kind(leaf) == markdown.Indent && p.indentHides(leaf) && !p.tablePipes(id)
 }
 
 // table is a table that prints: the lines that the printer wrote for it, which
