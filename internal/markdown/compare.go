@@ -41,7 +41,7 @@ func Equal(a, b *Tree) error {
 		}
 		if ea.op == enterEvent && ea.rows != 0 && uint32(ea.id) >= spanEnd {
 			if !equalSpans(&pa, ea.id, &pb, eb.id) {
-				return fmt.Errorf("markdown: different dialect spans: %s against %s", describe(a, ea, okA), describe(b, eb, okB))
+				return &MismatchError{At: ea.id, msg: fmt.Sprintf("markdown: different dialect spans: %s against %s", describe(a, ea, okA), describe(b, eb, okB))}
 			}
 			spanEnd = a.nodes[ea.id].link
 		}
@@ -82,8 +82,22 @@ func (c *comparer) compare(ea event, okA bool, eb event, okB bool) error {
 	default:
 		return nil
 	}
-	return fmt.Errorf("markdown: %s: %s against %s", what, describe(c.a, ea, okA), describe(c.b, eb, okB))
+	at := NodeID(0)
+	if okA {
+		at = ea.id
+	}
+	return &MismatchError{At: at, msg: fmt.Sprintf("markdown: %s: %s against %s", what, describe(c.a, ea, okA), describe(c.b, eb, okB))}
 }
+
+// A MismatchError is a difference that [Equal] or [KeptMismatch] finds between two
+// trees. At is the node of the first tree where they part, or 0 where the
+// first tree has no node there.
+type MismatchError struct {
+	At  NodeID
+	msg string
+}
+
+func (m *MismatchError) Error() string { return m.msg }
 
 // equalRuns reports whether the content runs of events ea and eb read the
 // same bytes.

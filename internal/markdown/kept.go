@@ -12,33 +12,65 @@ import (
 // each label, each NUL and invalid UTF-8 sequence in a content leaf, and each
 // ordered list with lazy numbering.
 func Kept(tree *Tree) []string {
-	var events []string
+	events := keptEvents(tree)
+	texts := make([]string, len(events))
+	for i, e := range events {
+		texts[i] = e.text
+	}
+	return texts
+}
+
+// KeptMismatch returns a [MismatchError] at the first event of kept syntax where
+// a and b differ, or nil.
+func KeptMismatch(a, b *Tree) error {
+	ea, eb := keptEvents(a), keptEvents(b)
+	for i := range max(len(ea), len(eb)) {
+		if i < len(ea) && i < len(eb) && ea[i].text == eb[i].text {
+			continue
+		}
+		at := NodeID(0)
+		if i < len(ea) {
+			at = ea[i].at
+		}
+		return &MismatchError{At: at, msg: fmt.Sprintf("markdown: different kept syntax at event %d", i)}
+	}
+	return nil
+}
+
+// keptEvent is an event of kept syntax, and the node that it comes from.
+type keptEvent struct {
+	at   NodeID
+	text string
+}
+
+func keptEvents(tree *Tree) []keptEvent {
+	var events []keptEvent
 	spans := tree.dialectSpans()
 	for i, n := range tree.nodes {
 		id := NodeID(i)
 		b := tree.src[n.start:n.end]
 		if len(spans) > 0 && spans[0].id == uint32(i) {
-			events = append(events, fmt.Sprintf("span %b, blank lines %d and %d", spans[0].rows, blankLinesBefore(tree, i), blankLinesAfter(tree, int(n.link))))
+			events = append(events, keptEvent{id, fmt.Sprintf("span %b, blank lines %d and %d", spans[0].rows, blankLinesBefore(tree, i), blankLinesAfter(tree, int(n.link)))})
 			spans = spans[1:]
 		}
 		switch n.kind {
 		case Escape, EntityRef, CellPipeEscape:
-			events = append(events, n.kind.String()+" "+string(b))
+			events = append(events, keptEvent{id, n.kind.String() + " " + string(b)})
 		case LinkReferenceDefinition, FootnoteReference:
-			events = append(events, "label "+string(rawLabel(tree, id, 1)))
+			events = append(events, keptEvent{id, "label " + string(rawLabel(tree, id, 1))})
 		case FootnoteDefinition:
-			events = append(events, "label "+string(tree.FootnoteDefinitionLabel(id)))
+			events = append(events, keptEvent{id, "label " + string(tree.FootnoteDefinitionLabel(id))})
 		case Link, Image:
 			switch tree.LinkForm(id) {
 			case FullReference:
-				events = append(events, "label "+string(rawLabel(tree, id, 3)))
+				events = append(events, keptEvent{id, "label " + string(rawLabel(tree, id, 3))})
 			case CollapsedReference, ShortcutReference:
-				events = append(events, "label "+string(rawLabel(tree, id, 1)))
+				events = append(events, keptEvent{id, "label " + string(rawLabel(tree, id, 1))})
 			case InlineLink:
 			}
 		case List:
 			if lazyNumbering(tree, id) {
-				events = append(events, "lazy numbering")
+				events = append(events, keptEvent{id, "lazy numbering"})
 			}
 		}
 		// Only a NUL or an invalid sequence is kept, and most text has none,
@@ -49,7 +81,7 @@ func Kept(tree *Tree) []string {
 		for len(b) > 0 {
 			r, size := decodeRune(b)
 			if r == '�' && !bytes.HasPrefix(b, []byte("�")) {
-				events = append(events, "invalid "+string(b[:size]))
+				events = append(events, keptEvent{id, "invalid " + string(b[:size])})
 			}
 			b = b[size:]
 		}

@@ -70,6 +70,11 @@ func (t *Tree) SplitTab(id NodeID) int {
 	return int(t.nodes[id].virt)
 }
 
+// Len returns the number of nodes of t.
+func (t *Tree) Len() int {
+	return len(t.nodes)
+}
+
 // NodeSpan returns the input bytes that node id covers.
 func (t *Tree) NodeSpan(id NodeID) (start, end uint32) {
 	n := t.nodes[id]

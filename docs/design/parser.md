@@ -909,8 +909,18 @@ so the filters read the same text in input and output.
 ## 10. Runtime check
 
 `markfmt.Format` parses the input, prints it, parses the output, and calls
-`markdown.Equal`. A mismatch, or a recovered panic, returns an error and
-writes nothing.
+`markdown.Equal` and `markdown.KeptMismatch` (section 12). Output that equals
+the input skips both: it parses to the same tree.
+
+A mismatch does not fail the input. markfmt formats what it can and changes
+nothing that it cannot keep: the mismatch names a node of the input, and the
+block of the document that holds it prints again as the input holds it, with
+LF line endings and the input's blank lines around it. When that block
+already keeps its bytes, the block before it does too, since the canonical
+form of a block can join the next one. After 4 prints, or with no block to
+name, the whole input stays as it is. `format.Strict` keeps the error, for
+the tests of the printer, where a block that keeps its bytes is a bug. A
+recovered panic returns an error and writes nothing.
 
 ### 10.1 Events
 

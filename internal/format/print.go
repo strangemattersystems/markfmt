@@ -15,6 +15,7 @@ var (
 // printer writes a tree in the canonical style.
 type printer struct {
 	tree *markdown.Tree
+	raw  map[markdown.NodeID]bool // the blocks of the document that print as the input holds them
 	out  []byte
 	max  int  // the output limit
 	full bool // a write would have passed max, so out is incomplete
@@ -164,12 +165,37 @@ func (p *printer) document() {
 	p.lineStart, p.inputLine, p.indent = true, true, -1
 	c := t.Walk()
 	for e, ok := c.Next(); ok && !p.full; e, ok = c.Next() {
-		if e.Exit {
+		switch {
+		case e.Exit:
 			p.exit()
-		} else {
+		case p.raw[e.ID]:
+			p.rawBlock(&c, e.ID)
+		default:
 			p.node(e.ID)
 		}
 	}
+}
+
+// rawBlock writes block id of the document as the input holds it, with LF
+// line endings, and walks the cursor past its nodes. The blank lines of the
+// input before and after it stay: canonical ones could join it to the block
+// next to it.
+func (p *printer) rawBlock(c *markdown.Cursor, id markdown.NodeID) {
+	t := p.tree
+	k := t.Kind(id)
+	p.layout.Visit(id)
+	p.separate(len(p.stack)-1, id, k, true)
+	p.writeLF(t.Raw(id))
+	if !bytes.HasSuffix(p.out, lineFeed) {
+		p.write(lineFeed)
+	}
+	for e, ok := c.Next(); ok && (!e.Exit || e.ID != id); e, ok = c.Next() {
+		if !e.Exit {
+			p.layout.Visit(e.ID)
+		}
+	}
+	p.lineStart, p.inputLine, p.indent = true, true, -1
+	p.span, p.blanks, p.lastLeaf, p.open, p.quoteGap = true, 0, k, false, false
 }
 
 func (p *printer) node(id markdown.NodeID) {

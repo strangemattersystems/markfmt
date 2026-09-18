@@ -38,9 +38,9 @@ func TestFormatSource(t *testing.T) {
 		// The largest output-to-input ratio is a stage 6 gate (design 12).
 		largest, largestIn := 0.0, []byte(nil)
 		for _, src := range inputs {
-			out, err := format.Source(src)
+			out, err := format.Strict(src)
 			if err != nil {
-				t.Fatalf("Source(%q) error: %v", src, err)
+				t.Fatalf("Strict(%q) error: %v", src, err)
 			}
 			if ratio := float64(len(out)) / float64(max(len(src), 1)); ratio > largest {
 				largest, largestIn = ratio, src
@@ -238,13 +238,13 @@ func FuzzFormat(f *testing.F) {
 	}
 
 	f.Fuzz(func(t *testing.T, src []byte) {
-		out, err := format.Source(src)
+		out, err := format.Strict(src)
 		if err != nil {
-			t.Fatalf("Source(%q) error: %v", src, err)
+			t.Fatalf("Strict(%q) error: %v", src, err)
 		}
-		again, err := format.Source(out)
+		again, err := format.Strict(out)
 		if err != nil {
-			t.Fatalf("Source(%q), the output of Source(%q), error: %v", out, src, err)
+			t.Fatalf("Strict(%q), the output of Strict(%q), error: %v", out, src, err)
 		}
 		if !bytes.Equal(again, out) {
 			t.Fatalf("Source is not idempotent\ninput: %q\n once: %q\ntwice: %q", src, out, again)

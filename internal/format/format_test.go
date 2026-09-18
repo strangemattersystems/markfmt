@@ -49,7 +49,7 @@ func TestSourceTree(t *testing.T) {
 	t.Run("rejects an output above the limit", func(t *testing.T) {
 		t.Parallel()
 
-		if _, err := sourceTree(markdown.Parse([]byte("# a\n")), 2); err == nil {
+		if _, err := sourceTree(markdown.Parse([]byte("# a\n")), nil, 2); err == nil {
 			t.Fatal("sourceTree gives no error for an output above the limit")
 		}
 	})
@@ -57,7 +57,7 @@ func TestSourceTree(t *testing.T) {
 	t.Run("prints a tree within the limit", func(t *testing.T) {
 		t.Parallel()
 
-		if out, err := sourceTree(markdown.Parse([]byte("#  a\n")), MaxOutput); err != nil || string(out) != "# a\n" {
+		if out, err := sourceTree(markdown.Parse([]byte("#  a\n")), nil, MaxOutput); err != nil || string(out) != "# a\n" {
 			t.Fatalf("sourceTree = %q, %v, want %q", out, err, "# a\n")
 		}
 	})
@@ -65,6 +65,29 @@ func TestSourceTree(t *testing.T) {
 
 func TestSource(t *testing.T) {
 	t.Parallel()
+
+	t.Run("keeps a block that it cannot format as the input holds it", func(t *testing.T) {
+		t.Parallel()
+
+		// No layout keeps the tight list, the paragraph and a header row that
+		// reads as a delimiter row (roadmap, stage 6).
+		src := []byte("* 0\r--\n  |-")
+		if _, err := Strict(src); err == nil {
+			t.Fatalf("Strict(%q) gives no error, want one: the case is not open any more", src)
+		}
+		if out, err := Source(src); err != nil || string(out) != "* 0\n--\n  |-\n" {
+			t.Fatalf("Source(%q) = %q, %v, want %q", src, out, err, "* 0\n--\n  |-\n")
+		}
+	})
+
+	t.Run("formats the blocks around a block that it cannot format", func(t *testing.T) {
+		t.Parallel()
+
+		src := []byte("#  a\n\n* 0\r--\n  |-\n\n*b*\n")
+		if out, err := Source(src); err != nil || string(out) != "# a\n\n* 0\n--\n  |-\n\n_b_\n" {
+			t.Fatalf("Source(%q) = %q, %v, want %q", src, out, err, "# a\n\n* 0\n--\n  |-\n\n_b_\n")
+		}
+	})
 
 	t.Run("formats a link title in text that holds its quotes", func(t *testing.T) {
 		t.Parallel()
@@ -182,13 +205,13 @@ func TestSource(t *testing.T) {
 func checkSource(t testing.TB, in []byte) []byte {
 	t.Helper()
 
-	once, err := Source(in)
+	once, err := Strict(in)
 	if err != nil {
-		t.Fatalf("Source(%q) error: %v", in, err)
+		t.Fatalf("Strict(%q) error: %v", in, err)
 	}
-	twice, err := Source(once)
+	twice, err := Strict(once)
 	if err != nil {
-		t.Fatalf("Source(%q) error: %v", once, err)
+		t.Fatalf("Strict(%q) error: %v", once, err)
 	}
 	if !bytes.Equal(once, twice) {
 		t.Fatalf("Source is not idempotent\ninput: %q\n once: %q\ntwice: %q", in, once, twice)

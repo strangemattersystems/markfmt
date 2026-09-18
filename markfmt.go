@@ -11,10 +11,13 @@ import (
 
 // Format reads Markdown from r and writes it to w in the canonical style.
 //
+// A block of the document whose canonical form markfmt cannot show to have
+// the meaning of the input keeps the bytes of the input, with LF line
+// endings, so Format changes nothing that it cannot keep.
+//
 // Format writes nothing and returns an error if the input is larger than
-// 8 MiB, if the output would be larger than 16 MiB, or if markfmt cannot show
-// that the output has the meaning of the input. A panic while formatting is
-// returned as an error with its stack.
+// 8 MiB or the output would be larger than 16 MiB. A panic while formatting
+// is returned as an error with its stack.
 func Format(w io.Writer, r io.Reader) error {
 	out, err := source(r)
 	if err != nil {
