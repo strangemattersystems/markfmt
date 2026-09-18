@@ -158,6 +158,18 @@ func (p *printer) document() {
 	_, size := t.NodeSpan(0)
 	p.out = make([]byte, 0, min(int(size), p.max))
 	p.layout, p.spans = t.Layout(), t.DialectSpans()
+	// A block of the document that holds a dialect span prints as the input
+	// holds it: its bytes are its meaning where GitHub and CommonMark read it
+	// differently, and the canonical containers around a span would move the
+	// columns that its lines are read in (design 12).
+	for _, span := range p.spans {
+		if block, ok := topLevelBlock(t, span); ok && !p.raw[block] {
+			if p.raw == nil {
+				p.raw = make(map[markdown.NodeID]bool)
+			}
+			p.raw[block] = true
+		}
+	}
 	var depth int
 	p.lazy, p.kept = p.lazyItems()
 	p.breaks, depth = p.prescan()
