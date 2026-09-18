@@ -22,10 +22,6 @@ func (f *frame) sign() byte {
 // ordered list the item's number and '.' or ')' (roadmap Decisions), with
 // the padding that the list's minimum indentation needs.
 func (p *printer) listMarker(f *frame, id markdown.NodeID, start int) {
-	if p.inSpan > 0 {
-		f.marker = p.tree.Raw(id)
-		return
-	}
 	list := &p.stack[len(p.stack)-2]
 	i := list.children - 1
 	switch {
@@ -125,7 +121,7 @@ func (p *printer) prescan() (map[markdown.NodeID][2]bool, int) {
 			lists = append(lists, e.ID)
 		case k == markdown.ListItem:
 			items = append(items, [2]markdown.NodeID{e.ID, lists[len(lists)-1]})
-		case k == markdown.Heading && !p.multiLine(e.ID) && !p.isSpan(e.ID):
+		case k == markdown.Heading && !p.multiLine(e.ID):
 			// The heading prints as ATX, so its line starts with '#'.
 			items = items[:0]
 		case k == markdown.Table && p.tablePipes(e.ID):
@@ -144,9 +140,8 @@ func (p *printer) prescan() (map[markdown.NodeID][2]bool, int) {
 			dashes := len(bytes.Trim(line, "- \t")) == 0 && bytes.Count(line, []byte("-")) >= 2
 			stars := len(bytes.Trim(line, "* \t")) == 0 && bytes.Count(line, []byte("*")) >= 2
 			for _, item := range items {
-				if k == markdown.CodeIndent && !p.isSpan(item[0]) && !p.isSpan(e.ID-1) {
-					// The first line of indented code outside a dialect span is
-					// a fence line.
+				if k == markdown.CodeIndent {
+					// The first line of indented code prints as a fence line.
 					continue
 				}
 				if dashes || stars {

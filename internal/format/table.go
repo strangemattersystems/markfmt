@@ -9,26 +9,20 @@ import (
 // pipe is the first byte of a line of a table that prints with pipes.
 var pipe = []byte("|")
 
-// tablePipes reports whether table id prints its cells between pipes: a
-// dialect span in it keeps its bytes, and so does whitespace that a canonical
-// table would drop (design 12).
+// tablePipes reports whether table id prints its cells between pipes: no
+// whitespace leaf in it holds a byte that is not a space or a tab. A table
+// with pipes writes its own spaces, so it would drop a vertical tab or a form
+// feed, which GitHub reads as a character of a label or a destination
+// (dialect.md).
 func (p *printer) tablePipes(id markdown.NodeID) bool {
-	return !p.isSpan(id) && !p.spanInside(id) && !p.oddSpace(id)
-}
-
-// oddSpace reports whether a whitespace leaf of table id holds a byte that is
-// not a space or a tab. A canonical table writes its own spaces, so it would
-// drop a vertical tab or a form feed, which GitHub reads as a character of a
-// label or a destination (dialect.md).
-func (p *printer) oddSpace(id markdown.NodeID) bool {
 	t := p.tree
 	end, _ := t.Next(id)
 	for i := id + 1; i < end; i++ {
 		if t.Kind(i) == markdown.Whitespace && len(bytes.Trim(t.Raw(i), " \t")) > 0 {
-			return true
+			return false
 		}
 	}
-	return false
+	return true
 }
 
 // tableIndentHides reports whether the first row of table id starts with

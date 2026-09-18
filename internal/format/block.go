@@ -7,9 +7,8 @@ import (
 )
 
 // separate writes the blank lines before block id of kind k, which starts in
-// the frame at index parent. span reports whether the block is a dialect
-// span.
-func (p *printer) separate(parent int, id markdown.NodeID, k markdown.Kind, span bool) {
+// the frame at index parent. raw reports whether the block prints as written.
+func (p *printer) separate(parent int, id markdown.NodeID, k markdown.Kind, raw bool) {
 	f := &p.stack[parent]
 	p.afterText = false
 	if f.children > 0 {
@@ -17,7 +16,7 @@ func (p *printer) separate(parent int, id markdown.NodeID, k markdown.Kind, span
 		switch {
 		case p.open:
 			n = 0
-		case p.span || span || p.inSpan > 0:
+		case p.afterRaw || raw:
 			// Kept syntax (design 12).
 			n = p.blanks
 		case k == markdown.Table && f.lastChild == markdown.Paragraph && p.blanks == 0 && p.bracket:
@@ -80,7 +79,7 @@ func (p *printer) separate(parent int, id markdown.NodeID, k markdown.Kind, span
 		// of that list's last item.
 		f.lastList = 0
 	}
-	p.blanks, p.open, p.span, p.quoteGap = 0, false, false, false
+	p.blanks, p.open, p.afterRaw, p.quoteGap = 0, false, false, false
 }
 
 // lazyFirst reports whether the first line of block id is lazy: it matches
@@ -118,13 +117,13 @@ func (p *printer) lazyFirst(id markdown.NodeID) bool {
 // indentation, without trailing spaces and tabs.
 func (p *printer) firstLine(id markdown.NodeID) []byte {
 	t := p.tree
-	if t.Kind(id) == markdown.Table && p.inSpan == 0 && p.tablePipes(id) {
+	if t.Kind(id) == markdown.Table && p.tablePipes(id) {
 		// The table prints its cells between pipes, so its first line starts
 		// with one, which starts no block.
 		return pipe
 	}
-	if t.Kind(id) == markdown.CodeBlock && !p.isSpan(id) {
-		// Code outside a dialect span prints as a fence, whatever the form of
+	if t.Kind(id) == markdown.CodeBlock {
+		// Code prints as a fence, whatever the form of
 		// its input, and the decisions above read the line that prints.
 		fence, _ := p.codeFence(id)
 		return fence
@@ -158,9 +157,9 @@ func (p *printer) firstLines(id markdown.NodeID) (line, withBreak []byte) {
 
 // indentAfter returns the columns of indentation of the first line of the
 // block after node id, when that block is an HTML block or a block that
-// prints as written, both of which keep their indentation. Otherwise it returns 0. Nested lists that end
-// together share the block after them, so a result stays in p.afters while a
-// later list can ask for it.
+// prints as written, both of which keep their indentation. Otherwise it
+// returns 0. Nested lists that end together share the block after them, so a
+// result stays in p.afters while a later list can ask for it.
 func (p *printer) indentAfter(id markdown.NodeID) int {
 	next, ok := p.tree.Next(id)
 	for n := len(p.afters); n > 0 && p.afters[n-1].next < next; n-- {

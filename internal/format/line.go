@@ -89,7 +89,7 @@ prefixes:
 		case !f.started && blank:
 			break prefixes
 		case !f.started:
-			if opened >= 99 && f.kind != markdown.BlockQuote && p.inSpan == 0 {
+			if opened >= 99 && f.kind != markdown.BlockQuote {
 				// GitHub starts no list item or footnote definition after 99
 				// blocks on a line (appendix B, trap 21).
 				p.nextPrefixLine(start, i)

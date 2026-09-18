@@ -21,7 +21,6 @@ type printer struct {
 	full bool // a write would have passed max, so out is incomplete
 
 	layout markdown.Layout
-	spans  []markdown.NodeID           // the dialect spans that the walk has not passed
 	breaks map[markdown.NodeID][2]bool // the lists that prescan finds
 	stack  []frame                     // the open structure nodes, the document first
 
@@ -30,7 +29,6 @@ type printer struct {
 	lineBegin bool          // the leaf that the printer reads starts a line of the input
 	matched   int           // the containers that the input line of the output line matched
 	indent    int           // the input column where columns that are not written yet start, or -1
-	inSpan    int           // the open dialect spans
 	inLabel   int           // the open collapsed and shortcut references, whose text is their label
 	inStrike  int           // the open strikethrough nodes
 	inUnder   int           // the open emphasis nodes that print with '_'
@@ -78,17 +76,16 @@ type printer struct {
 	afters  []blockIndent // the results of indentAfter that a later list can ask for, the last node first
 	inlines []inlineFrame // the state of the open inline nodes, the outermost first
 
-	// The code block that is open outside a dialect span: the fence that it
-	// writes around its lines, the fence markers of the input, whether the
-	// printer is on the input's opening fence line, and whether a line of
-	// code has not ended.
+	// The code block that is open: the fence that it writes around its lines,
+	// the fence markers of the input, whether the printer is on the input's
+	// opening fence line, and whether a line of code has not ended.
 	fence             []byte
 	fences            int
 	opening, lineOpen bool
 
-	// The link reference definition that is open outside a dialect span: the
-	// part that prints, whether the space before its destination is written,
-	// whether its destination is in angle brackets, and its title quotes.
+	// The link reference definition that is open: the part that prints,
+	// whether the space before its destination is written, whether its
+	// destination is in angle brackets, and its title quotes.
 	def       defPart
 	spaced    bool
 	defAngle  bool
@@ -104,8 +101,8 @@ type printer struct {
 	// The blocks that ended last, for the blank lines before the next block.
 	blanks      int           // the input's blank lines after the last leaf block
 	open        bool          // a blank line after the last leaf block would be its content
-	span        bool          // a dialect span ended after the last block started
-	lastLeaf    markdown.Kind // the kind of the last leaf block, or BlankLine after a blank line of a dialect span
+	afterRaw    bool          // the last block printed as written, so the blank lines after it are the input's
+	lastLeaf    markdown.Kind // the kind of the last leaf block, or BlankLine after a blank line that follows a block that prints as written
 	bracket     bool          // the last leaf block is a paragraph that starts with '['
 	quoteGap    bool          // the last block quote ends with a paragraph
 	quoteParent int           // the index of that block quote's parent in stack
@@ -119,7 +116,6 @@ type frame struct {
 	id        markdown.NodeID
 	kind      markdown.Kind
 	lastChild markdown.Kind // the kind of the last block that started in it
-	span      bool          // a dialect span
 	tight     bool          // a list that is not loose, or an item of one
 	children  int           // the blocks that started in it
 	inline    int32         // the index of an inline node's state in inlines, or -1
@@ -155,12 +151,12 @@ func (p *printer) document() {
 	// most of it is about its size, so out starts there and rarely grows.
 	_, size := t.NodeSpan(0)
 	p.out = make([]byte, 0, min(int(size), p.max))
-	p.layout, p.spans = t.Layout(), t.DialectSpans()
+	p.layout = t.Layout()
 	// A block of the document that holds a dialect span prints as the input
 	// holds it: its bytes are its meaning where GitHub and CommonMark read it
 	// differently, and the canonical containers around a span would move the
 	// columns that its lines are read in (design 12).
-	for _, span := range p.spans {
+	for _, span := range t.DialectSpans() {
 		if block, ok := topLevelBlock(t, span); ok && !p.raw[block] {
 			if p.raw == nil {
 				p.raw = make(map[markdown.NodeID]bool)
@@ -204,7 +200,7 @@ func (p *printer) rawBlock(c *markdown.Cursor, id markdown.NodeID) {
 		}
 	}
 	p.lineStart, p.inputLine, p.indent = true, true, -1
-	p.span, p.blanks, p.lastLeaf, p.open, p.quoteGap = true, 0, k, false, false
+	p.afterRaw, p.blanks, p.lastLeaf, p.open, p.quoteGap = true, 0, k, false, false
 }
 
 func (p *printer) node(id markdown.NodeID) {
@@ -242,12 +238,12 @@ func (p *printer) node(id markdown.NodeID) {
 func (p *printer) enter(id markdown.NodeID, k markdown.Kind) {
 	t := p.tree
 	parent := len(p.stack) - 1
-	f := frame{id: id, kind: k, span: p.spanAt(id), inline: -1}
+	f := frame{id: id, kind: k, inline: -1}
 	var prev frame
 	if parent >= 0 {
 		prev = p.stack[parent]
 		if isBlock(k) {
-			p.separate(parent, id, k, f.span)
+			p.separate(parent, id, k, false)
 		}
 	}
 	switch k {
@@ -277,9 +273,6 @@ func (p *printer) enter(id markdown.NodeID, k markdown.Kind) {
 		// content of every item of the list starts.
 		f.minIndent = p.indentAfter(id) + 1
 	}
-	if f.container && p.inSpan > 0 && t.Kind(id+1).Prefix() {
-		f.marker = t.Raw(id + 1)
-	}
 	if isLeafBlock(k) {
 		p.written, p.leafKind = false, k
 		p.prefixes, p.prefixLen = 0, 0
@@ -291,13 +284,10 @@ func (p *printer) enter(id markdown.NodeID, k markdown.Kind) {
 		}
 		p.bracket0 = k == markdown.Paragraph && bytes.HasPrefix(p.firstLine(id), []byte("["))
 	}
-	if f.span {
-		p.inSpan++
-	}
 	if k == markdown.Paragraph || k == markdown.Heading || k == markdown.TableCell {
 		p.textBlock = id
 	}
-	if k == markdown.Table && p.inSpan == 0 && p.tablePipes(id) {
+	if k == markdown.Table && p.tablePipes(id) {
 		p.table = &table{start: len(p.out)}
 	}
 	if k == markdown.TableCell && p.table != nil {
@@ -310,7 +300,7 @@ func (p *printer) enter(id markdown.NodeID, k markdown.Kind) {
 	if k == markdown.CodeBlock {
 		p.fences = 0
 	}
-	if k == markdown.CodeBlock && p.inSpan == 0 {
+	if k == markdown.CodeBlock {
 		p.fence, p.opening = p.codeFence(id)
 		// Indented code has no fence line: its first line is code.
 		p.lineOpen = !p.opening
@@ -332,15 +322,15 @@ func (p *printer) enter(id markdown.NodeID, k markdown.Kind) {
 			in.label = true
 			p.inLabel++
 		}
-		if before, after := t.Around(id); k == markdown.CodeSpan && p.inSpan == 0 && p.inLabel == 0 &&
+		if before, after := t.Around(id); k == markdown.CodeSpan && p.inLabel == 0 &&
 			before != '$' && after != '$' {
 			// A code span next to '$' is GitHub math (appendix B, trap 16).
 			in.code = p.codeSpan(id)
 		}
-		if (k == markdown.Link || k == markdown.Image) && t.LinkForm(id) == markdown.InlineLink && p.inSpan == 0 && p.inLabel == 0 {
+		if (k == markdown.Link || k == markdown.Image) && t.LinkForm(id) == markdown.InlineLink && p.inLabel == 0 {
 			in.tail, in.quotes = tailText, p.titleQuotes(id)
 		}
-		if (k == markdown.Emphasis || k == markdown.Strong || k == markdown.Strikethrough) && p.inSpan == 0 && p.inLabel == 0 {
+		if (k == markdown.Emphasis || k == markdown.Strong || k == markdown.Strikethrough) && p.inLabel == 0 {
 			in.delim = p.delimiter(id, k)
 		}
 		if k == markdown.Strikethrough {
@@ -356,10 +346,10 @@ func (p *printer) enter(id markdown.NodeID, k markdown.Kind) {
 			}
 		}
 	}
-	if k == markdown.LinkReferenceDefinition && p.inSpan == 0 {
+	if k == markdown.LinkReferenceDefinition {
 		p.def, p.spaced, p.defAngle, p.defQuotes = defLabel, false, false, p.titleQuotes(id)
 	}
-	if k == markdown.Heading && p.inSpan == 0 {
+	if k == markdown.Heading {
 		p.head, p.headLevel, p.headDone = headSingle, t.HeadingLevel(id), false
 		if p.multiLine(id) {
 			// A setext heading of more than one line stays setext (appendix B,
@@ -395,9 +385,9 @@ func (p *printer) leaf(id markdown.NodeID, k markdown.Kind, start, end int) {
 			// The first blank line of a container is the rest of its marker
 			// line, or a blank line at its start.
 			top.blankFirst = true
-		case p.inSpan > 0 || p.span:
-			// A blank line in or after a dialect span is kept syntax (design
-			// 12), with the prefixes of the containers that its line matched:
+		case p.afterRaw:
+			// A blank line after a block that prints as written is kept syntax
+			// (design 12), with the prefixes of the containers that its line matched:
 			// the next block can be in fewer containers than it is.
 			start := len(p.out)
 			p.writePrefix(false)
@@ -464,25 +454,23 @@ func (p *printer) leaf(id markdown.NodeID, k markdown.Kind, start, end int) {
 		p.content(id, start)
 	case k == markdown.LineEnding, k == markdown.VerbatimLineEnding:
 		p.endLine()
-	case k == markdown.Indent && top.kind == markdown.TableRow && !p.written && p.inSpan == 0 && p.indentHides(id):
+	case k == markdown.Indent && top.kind == markdown.TableRow && !p.written && p.indentHides(id):
 		// A table that prints as written keeps this indentation: without it
 		// the row's line would start a block, which ends the paragraph above
 		// the table. separate writes no blank line before such a table, so
 		// the indentation cannot start code either.
 	case k == markdown.Indent && (top.kind == markdown.Paragraph || top.kind == markdown.Heading ||
-		top.kind == markdown.ThematicBreak || top.kind == markdown.TableRow) && !p.written && p.inSpan == 0:
+		top.kind == markdown.ThematicBreak || top.kind == markdown.TableRow) && !p.written:
 		// Indentation before a paragraph, a heading, a thematic break or the
 		// first row of a table is not meaning. A table that prints as written
 		// would start indented code with it.
 		p.indent = -1
 	case k == markdown.Indent || k == markdown.CodeIndent:
 		// Indentation is its columns, whatever tabs it holds (design 4.3):
-		// content writes them. A dialect span keeps bytes, but not these: a
-		// tab's columns follow the column it starts at, and the markers around
-		// the span can print in another width.
-	case k == markdown.Whitespace && p.afterBox && p.inSpan == 0:
+		// content writes them.
+	case k == markdown.Whitespace && p.afterBox:
 		p.write(spaces[:1])
-	case k == markdown.TrailingSpace && p.inSpan == 0 && p.inLabel == 0:
+	case k == markdown.TrailingSpace && p.inLabel == 0:
 		// After a backslash that is not an escape, the line ending would
 		// make a hard break (spec 6.7). The content of a heading that prints
 		// as ATX ends on its line, where no break forms, and the heading
@@ -490,7 +478,7 @@ func (p *printer) leaf(id markdown.NodeID, k markdown.Kind, start, end int) {
 		if p.backslash && p.head != headSingle {
 			p.write(spaces[:1])
 		}
-	case k == markdown.HardBreakMarker && p.inSpan == 0 && p.inLabel == 0 && t.Raw(id)[0] != '\\':
+	case k == markdown.HardBreakMarker && p.inLabel == 0 && t.Raw(id)[0] != '\\':
 		// A hard break is a backslash, except after a backslash that is not
 		// an escape, which the backslash would escape (appendix B, trap 10),
 		// and in a paragraph that starts with '[', where the backslash could
@@ -517,7 +505,7 @@ func (p *printer) leaf(id markdown.NodeID, k markdown.Kind, start, end int) {
 		default:
 			p.write([]byte{'\\'})
 		}
-	case len(p.out) == 0 && len(p.stack) == 2 && k == markdown.Text && p.inSpan == 0 &&
+	case len(p.out) == 0 && len(p.stack) == 2 && k == markdown.Text &&
 		(p.head != headSingle || p.headDone) && !p.hardBreakAfter(id) &&
 		string(bytes.TrimRight(t.RestOfLine(id), " \t\r\n")) == "+++":
 		// The first block never looks like front matter (appendix B, trap 7).
@@ -543,11 +531,11 @@ func (p *printer) content(id markdown.NodeID, start int) {
 	if p.replace != nil {
 		b, p.replace = p.replace, nil
 	}
-	if k == markdown.ThematicRun && p.inSpan == 0 {
+	if k == markdown.ThematicRun {
 		b = p.thematicRun()
 	}
 	if p.lineStart {
-		if p.written && p.inSpan == 0 && (p.leafKind == markdown.Paragraph || p.leafKind == markdown.Heading) &&
+		if p.written && (p.leafKind == markdown.Paragraph || p.leafKind == markdown.Heading) &&
 			k != markdown.SetextUnderline {
 			p.continuation(id)
 		}
@@ -572,7 +560,7 @@ func (p *printer) content(id markdown.NodeID, start int) {
 		p.writeSpaces(v)
 		b = b[1:]
 	}
-	if k == markdown.TaskBox && p.inSpan == 0 {
+	if k == markdown.TaskBox {
 		b = []byte("[ ]")
 		if t.Raw(id)[1]|0x20 == 'x' {
 			b = []byte("[x]")
@@ -584,7 +572,7 @@ func (p *printer) content(id markdown.NodeID, start int) {
 }
 
 const (
-	defNone        defPart = iota // no definition prints, or it is in a dialect span
+	defNone        defPart = iota // no definition is open
 	defLabel                      // the label, up to the colon
 	defDestination                // the destination
 	defTitle                      // after the destination, before a title
@@ -615,8 +603,9 @@ func (p *printer) exit() {
 	}
 	quoteBlanks := false
 	next, ok := p.afterBlanks(f.id)
-	if f.container && p.blanks > 0 && ok && p.isSpan(next) {
-		// The blank lines before a dialect span are kept syntax (design 12).
+	if f.container && p.blanks > 0 && ok && p.raw[next] {
+		// The blank lines before a block that prints as written are kept
+		// syntax (design 12).
 		// These are the container's, so they stay in it: after it they would
 		// be blank lines of its parent, which can make a list loose. At the
 		// end of an item they do not (spec 5.3).
@@ -648,9 +637,6 @@ func (p *printer) exit() {
 	}
 	g := *f
 	p.stack = p.stack[:len(p.stack)-1]
-	if g.span {
-		p.inSpan--
-	}
 	if g.inline >= 0 {
 		in := p.inlines[g.inline]
 		if in.label {
@@ -676,7 +662,7 @@ func (p *printer) exit() {
 		p.write(p.fence)
 		p.lineStart = false
 		p.endLine()
-		p.span, p.blanks, p.lastLeaf, p.open, p.bracket = g.span, 0, g.kind, false, false
+		p.afterRaw, p.blanks, p.lastLeaf, p.open, p.bracket = false, 0, g.kind, false, false
 		p.fence = nil
 	case g.kind == markdown.TableCell && p.table != nil:
 		c := &p.table.cells[len(p.table.cells)-1]
@@ -704,10 +690,10 @@ func (p *printer) exit() {
 			p.endLine()
 		}
 		p.open = g.kind == markdown.CodeBlock && p.fences == 1 || g.kind == markdown.HTMLBlock && !t.HTMLBlockClosed(g.id)
-		p.span, p.blanks, p.lastLeaf = g.span, 0, g.kind
+		p.afterRaw, p.blanks, p.lastLeaf = false, 0, g.kind
 		p.bracket = g.kind == markdown.Paragraph && bytes.HasPrefix(bytes.TrimLeft(t.Raw(g.id), " \t"), []byte("["))
 	case g.kind == markdown.BlockQuote:
-		p.open, p.span = false, p.span || g.span
+		p.open = false
 		p.quoteGap, p.quoteParent = p.lastLeaf == markdown.Paragraph && !quoteBlanks, len(p.stack)-1
 	case g.kind == markdown.ListItem:
 		// The list keeps the greatest column that an item of it continues on,
@@ -718,12 +704,10 @@ func (p *printer) exit() {
 			list.lastList = max(list.lastList, g.outContent)
 		}
 	case g.kind == markdown.List:
-		p.span = p.span || g.span
 		parent := &p.stack[len(p.stack)-1]
 		parent.listOrdered, parent.listAlt, parent.listBullet = g.ordered, g.alt, g.bullet
 		parent.lastList = g.lastList
 	case isBlock(g.kind):
-		p.span = p.span || g.span
 	case g.kind == markdown.Document:
 		if !p.lineStart {
 			p.endLine()
@@ -732,7 +716,7 @@ func (p *printer) exit() {
 }
 
 const (
-	headNone   headForm = iota // no heading is open, or it is in a dialect span
+	headNone   headForm = iota // no heading is open
 	headSingle                 // an ATX heading
 	headMulti                  // a setext heading of more than one line
 )
