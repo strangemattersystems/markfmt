@@ -22,8 +22,6 @@ type printer struct {
 
 	layout markdown.Layout
 	spans  []markdown.NodeID           // the dialect spans that the walk has not passed
-	lazy   map[markdown.NodeID]bool    // the list items that lazyItems finds
-	kept   map[markdown.NodeID]int     // the columns that the kept markers of a list need
 	breaks map[markdown.NodeID][2]bool // the lists that prescan finds
 	stack  []frame                     // the open structure nodes, the document first
 
@@ -171,7 +169,6 @@ func (p *printer) document() {
 		}
 	}
 	var depth int
-	p.lazy, p.kept = p.lazyItems()
 	p.breaks, depth = p.prescan()
 	p.stack = make([]frame, 0, depth)
 	p.lineStart, p.inputLine, p.indent = true, true, -1
@@ -278,7 +275,7 @@ func (p *printer) enter(id markdown.NodeID, k markdown.Kind) {
 		// The block after the list must not continue its last item, and an
 		// item that keeps the columns of its input marker sets where the
 		// content of every item of the list starts.
-		f.minIndent = max(p.indentAfter(id)+1, p.kept[id])
+		f.minIndent = p.indentAfter(id) + 1
 	}
 	if f.container && p.inSpan > 0 && t.Kind(id+1).Prefix() {
 		f.marker = t.Raw(id + 1)

@@ -50,11 +50,6 @@ func (p *printer) listMarker(f *frame, id markdown.NodeID, start int) {
 		f.marker = append(strconv.AppendInt(nil, int64(min(n, 999999999)), 10), delim)
 	}
 	minIndent := list.minIndent
-	if p.lazy[f.id] {
-		// A lazy line of a dialect span keeps its indentation, so the item
-		// continues on its input columns at least.
-		minIndent = max(minIndent, f.indent)
-	}
 	padding := max(minIndent-len(f.marker), 1)
 	// The rest of a blank marker line is a BlankLine leaf.
 	end, _ := p.tree.Next(f.id)
@@ -228,68 +223,4 @@ func (p *printer) sourceMarker(f *frame, id markdown.NodeID, start, minIndent in
 	m := append(append(bytes.Clone(spaces[:lead-start]), chars...), spaces[:pad]...)
 	m[lead-start+len(chars)-1] = sign
 	return m
-}
-
-// lazyItems returns the list items that are the first container that a line
-// of a dialect span does not match, and for each of their lists the greatest
-// columns that such an item continues on: it keeps the columns of its input
-// marker, so the other items of the list must not start their content before
-// them.
-func (p *printer) lazyItems() (map[markdown.NodeID]bool, map[markdown.NodeID]int) {
-	t := p.tree
-	if len(p.spans) == 0 {
-		return nil, nil
-	}
-	items, kept := map[markdown.NodeID]bool{}, map[markdown.NodeID]int{}
-	layout, spans := t.Layout(), p.spans
-	var lists, open, inSpan []markdown.NodeID
-	var itemLists []markdown.NodeID // the list of each open item, 0 for a node that is not one
-	lineStart := true
-	c := t.Walk()
-	for e, ok := c.Next(); ok; e, ok = c.Next() {
-		k := t.Kind(e.ID)
-		switch {
-		case e.Exit:
-			if len(lists) > 0 && lists[len(lists)-1] == e.ID {
-				lists = lists[:len(lists)-1]
-			}
-			if len(open) > 0 && open[len(open)-1] == e.ID {
-				open, itemLists = open[:len(open)-1], itemLists[:len(itemLists)-1]
-			}
-			if len(inSpan) > 0 && inSpan[len(inSpan)-1] == e.ID {
-				inSpan = inSpan[:len(inSpan)-1]
-			}
-			continue
-		case k.Leaf():
-			if lineStart && len(inSpan) > 0 {
-				if matched, _ := layout.Matched(e.ID); matched < len(open) && t.Kind(open[matched]) == markdown.ListItem {
-					item := open[matched]
-					items[item] = true
-					list := itemLists[matched]
-					kept[list] = max(kept[list], layout.ItemIndentOf(item))
-				}
-			}
-			layout.Visit(e.ID)
-			raw := t.Raw(e.ID)
-			lineStart = raw[len(raw)-1] == '\n' || raw[len(raw)-1] == '\r'
-			continue
-		case k == markdown.List:
-			lists = append(lists, e.ID)
-		case k == markdown.BlockQuote || k == markdown.ListItem || k == markdown.FootnoteDefinition:
-			// Only a list item reads its list, and every list item is in one.
-			var list markdown.NodeID
-			if k == markdown.ListItem {
-				list = lists[len(lists)-1]
-			}
-			open, itemLists = append(open, e.ID), append(itemLists, list)
-		}
-		layout.Visit(e.ID)
-		for len(spans) > 0 && spans[0] < e.ID {
-			spans = spans[1:]
-		}
-		if len(spans) > 0 && spans[0] == e.ID {
-			inSpan = append(inSpan, e.ID)
-		}
-	}
-	return items, kept
 }

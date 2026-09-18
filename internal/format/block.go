@@ -157,9 +157,8 @@ func (p *printer) firstLines(id markdown.NodeID) (line, withBreak []byte) {
 }
 
 // indentAfter returns the columns of indentation of the first line of the
-// block after node id, when that block is an HTML block, a dialect span, or a
-// list whose first item keeps the columns of its input marker, all of which
-// keep their indentation. Otherwise it returns 0. Nested lists that end
+// block after node id, when that block is an HTML block or a block that
+// prints as written, both of which keep their indentation. Otherwise it returns 0. Nested lists that end
 // together share the block after them, so a result stays in p.afters while a
 // later list can ask for it.
 func (p *printer) indentAfter(id markdown.NodeID) int {
@@ -188,18 +187,8 @@ func (p *printer) indentAt(next markdown.NodeID, ok bool) int {
 	for ok && (t.Kind(next) == markdown.BlankLine || isPrefix(t.Kind(next))) {
 		next, ok = t.Next(next)
 	}
-	// A list item whose dialect span has a lazy line keeps the columns of its
-	// input marker, so the list before it must not take its line.
-	lazy := ok && t.Kind(next) == markdown.List && p.lazy[next+1]
-	if !ok || t.Kind(next) != markdown.HTMLBlock && !lazy && !p.isSpan(next) {
+	if !ok || t.Kind(next) != markdown.HTMLBlock && !p.raw[next] {
 		return 0
-	}
-	if lazy {
-		// The list can print its first marker with less indentation than
-		// the input has, so a second format would read less (design 12).
-		// Its kept columns stay, and a marker line holds at least a marker
-		// and a space after its indentation.
-		return p.kept[next] - 2
 	}
 	leaf := next + 1
 	cols := t.SplitTab(leaf)
