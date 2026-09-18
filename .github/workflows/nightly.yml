@@ -38,12 +38,13 @@ jobs:
           key: fuzz-${{ runner.os }}-${{ github.run_id }}
           restore-keys: fuzz-${{ runner.os }}-
       - run: task long
-      - name: Fuzz the parser and the comparison
+      - name: Fuzz the parser, the comparison and the formatter
         run: |
           task fuzz FUZZ=FuzzParse -- -fuzztime=10m
           task fuzz FUZZ=FuzzEqual -- -fuzztime=10m
-      # FuzzFormat has an open failure, so its findings are a report until the
-      # failure is fixed. Make it a gate in the commit that fixes it.
+          task fuzz FUZZ=FuzzSource -- -fuzztime=10m
+      # FuzzFormat fails on a block that the printer cannot write and Source
+      # keeps as written, and some are open, so its findings are a report.
       - name: Fuzz the formatter
         id: fuzz-format
         continue-on-error: true

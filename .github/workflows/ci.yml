@@ -40,9 +40,12 @@ jobs:
       - run: task ${{ matrix.task }}
       - if: matrix.os == 'ubuntu-latest'
         run: task long
-      # FuzzFormat is left to the nightly workflow: it has an open failure.
+      # FuzzSource is what users run, which keeps the bytes of a block that the
+      # printer cannot write. FuzzFormat is left to the nightly workflow: it
+      # fails on such a block, and some stay open.
       - if: matrix.os == 'ubuntu-latest'
-        name: Fuzz the parser and the comparison for a minute each
+        name: Fuzz the parser, the comparison and the formatter for a minute each
         run: |
           task fuzz FUZZ=FuzzParse -- -fuzztime=60s
           task fuzz FUZZ=FuzzEqual -- -fuzztime=60s
+          task fuzz FUZZ=FuzzSource -- -fuzztime=60s

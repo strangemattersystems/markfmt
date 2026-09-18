@@ -219,6 +219,35 @@ func formatChild(t *testing.T, spec string) {
 	fmt.Printf("markfmt-format-long %d %d %d %q\n", d, len(src), len(out), msg)
 }
 
+// FuzzSource checks what users run: format.Source keeps the bytes of a block
+// that it cannot format, so it never fails below the input limit, never
+// changes the test HTML or the kept syntax, and gives the same output again.
+func FuzzSource(f *testing.F) {
+	for _, src := range markdown.CorpusInputs(f) {
+		f.Add(src)
+	}
+	f.Add([]byte("* 0\r--\n  |-"))
+
+	f.Fuzz(func(t *testing.T, src []byte) {
+		if len(src) > format.MaxInput {
+			return
+		}
+		out, err := format.Source(src)
+		if err != nil {
+			t.Fatalf("Source(%q) error: %v", src, err)
+		}
+		if in, got := markdown.RenderTestHTML(markdown.Parse(src)), markdown.RenderTestHTML(markdown.Parse(out)); in != got {
+			t.Fatalf("Source(%q) = %q, whose test HTML differs:\n %q\n %q", src, out, in, got)
+		}
+		if in, got := markdown.Kept(markdown.Parse(src)), markdown.Kept(markdown.Parse(out)); !slices.Equal(in, got) {
+			t.Fatalf("Source(%q) = %q, whose kept syntax differs:\n %q\n %q", src, out, in, got)
+		}
+		if again, err := format.Source(out); err != nil || !bytes.Equal(again, out) {
+			t.Fatalf("Source is not idempotent\ninput: %q\n once: %q\ntwice: %q, %v", src, out, again, err)
+		}
+	})
+}
+
 // FuzzFormat checks the formatter against the test HTML, so that Equal is not
 // its own oracle (design 10.5).
 func FuzzFormat(f *testing.F) {
