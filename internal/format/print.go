@@ -580,12 +580,31 @@ func (p *printer) exit() {
 	}
 	quoteBlanks := false
 	next, ok := p.afterBlanks(f.id)
-	if f.kind == markdown.BlockQuote && p.blanks > 0 && ok && p.isSpan(next) {
+	if f.container && p.blanks > 0 && ok && p.isSpan(next) {
 		// The blank lines before a dialect span are kept syntax (design 12).
-		// These are the quote's, so they stay in it: after the quote they
-		// would be blank lines of its parent, which can make a list loose.
+		// These are the container's, so they stay in it: after it they would
+		// be blank lines of its parent, which can make a list loose. At the
+		// end of an item they do not (spec 5.3).
+		// A blank line keeps the columns that its container continues on when
+		// a container holds that one: without them the line would belong to
+		// the block above it, and a list whose item holds a blank line
+		// between two blocks is loose (spec 5.3). A quote writes its marker,
+		// so its lines need no columns.
+		columns := false
+		if f.kind != markdown.BlockQuote {
+			for i := len(p.stack) - 2; i >= 0; i-- {
+				if c := &p.stack[i]; c.container {
+					end, _ := t.Next(c.id)
+					columns = next < end
+					break
+				}
+			}
+		}
 		for range p.blanks {
 			p.writePrefix(true)
+			if columns {
+				p.writeSpaces(f.outContent - p.column())
+			}
 			p.write(lineFeed)
 		}
 		// The blank lines end the paragraph of every quote that they are in,
