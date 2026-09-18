@@ -175,7 +175,14 @@ func (p *printer) fitMarker(f *frame, limit int) {
 	}
 	lead := len(f.marker) - len(bytes.TrimLeft(f.marker, " "))
 	sign := p.column() + len(bytes.TrimRight(f.marker, " ")) - 1
-	if over := min(sign-limit+1, lead); over > 0 {
+	over := min(sign-limit+1, lead)
+	if !f.keepBlank {
+		// Padding of 5 columns or more is 1 column and indented code (spec
+		// 5.2), so the marker moves no further than 4 columns of padding
+		// allow.
+		over = min(over, 4-(len(f.marker)-len(bytes.TrimRight(f.marker, " "))))
+	}
+	if over > 0 {
 		f.marker = f.marker[over:]
 		if !f.keepBlank {
 			// The padding grows by what the indentation loses, so the item still

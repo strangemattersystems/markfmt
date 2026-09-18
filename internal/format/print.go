@@ -677,8 +677,11 @@ func (p *printer) exit() {
 	case g.kind == markdown.ListItem:
 		// The list keeps the greatest column that an item of it continues on,
 		// for the block that follows the list.
-		list := &p.stack[len(p.stack)-1]
-		list.lastList = max(list.lastList, g.outContent)
+		// An item with no block ends at a blank line, so it cannot hold a
+		// marker below it.
+		if list := &p.stack[len(p.stack)-1]; g.children > 0 {
+			list.lastList = max(list.lastList, g.outContent)
+		}
 	case g.kind == markdown.List:
 		p.span = p.span || g.span
 		parent := &p.stack[len(p.stack)-1]
