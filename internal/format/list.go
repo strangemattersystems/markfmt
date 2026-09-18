@@ -65,7 +65,8 @@ func (p *printer) listMarker(f *frame, id markdown.NodeID, start int) {
 		// (spec 5.2): the item keeps its indentation, marker and padding. Its
 		// marker line stays blank, so that a second format reads the same
 		// item and keeps the same marker (design 12).
-		f.marker, f.keepBlank = p.sourceMarker(f, id, start, minIndent, f.marker[len(f.marker)-1]), blank
+		f.keepBlank = blank
+		f.marker = p.sourceMarker(f, id, start, minIndent, f.marker[len(f.marker)-1])
 		p.fitMarker(f, p.stack[len(p.stack)-3].lastList)
 	} else {
 		f.marker = append(f.marker, spaces[:padding]...)
@@ -175,10 +176,14 @@ func (p *printer) fitMarker(f *frame, limit int) {
 	lead := len(f.marker) - len(bytes.TrimLeft(f.marker, " "))
 	sign := p.column() + len(bytes.TrimRight(f.marker, " ")) - 1
 	if over := min(sign-limit+1, lead); over > 0 {
-		// The padding grows by what the indentation loses, so the item still
-		// continues on the columns of its input, as every item of its list
-		// does (design 12).
-		f.marker = append(f.marker[over:], spaces[:over]...)
+		f.marker = f.marker[over:]
+		if !f.keepBlank {
+			// The padding grows by what the indentation loses, so the item still
+			// continues on the columns of its input, as every item of its list
+			// does (design 12). An item whose marker line is blank continues one
+			// column after its marker instead (spec 5.2).
+			f.marker = append(f.marker, spaces[:over]...)
+		}
 	}
 }
 
@@ -206,7 +211,14 @@ func (p *printer) sourceMarker(f *frame, id markdown.NodeID, start, minIndent in
 	lead = min(lead, start+minIndent-1)
 	chars := bytes.TrimRight(raw[i:], " \t")
 	// chars is part of the input, so the sign goes into the copy.
-	m := append(append(bytes.Clone(spaces[:lead-start]), chars...), spaces[:max(f.indent-(lead-start)-len(chars), 1)]...)
+	pad := max(f.indent-(lead-start)-len(chars), 1)
+	if f.keepBlank {
+		// An item whose marker line is blank continues one column after its
+		// marker, whatever its padding (spec 5.2), so padding to the columns of
+		// the input would move its content away from its marker.
+		pad = 1
+	}
+	m := append(append(bytes.Clone(spaces[:lead-start]), chars...), spaces[:pad]...)
 	m[lead-start+len(chars)-1] = sign
 	return m
 }
