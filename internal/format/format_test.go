@@ -25,6 +25,15 @@ func TestCheck(t *testing.T) {
 		}
 	})
 
+	t.Run("rejects an output that drops an escape", func(t *testing.T) {
+		t.Parallel()
+
+		// The trees are equal, but an escape is kept syntax (design 12).
+		if err := check(markdown.Parse([]byte("a\\*b\n")), []byte("a*b\n")); err == nil {
+			t.Fatal("check gives no error for an output without its escape")
+		}
+	})
+
 	t.Run("rejects an output that changes the meaning", func(t *testing.T) {
 		t.Parallel()
 

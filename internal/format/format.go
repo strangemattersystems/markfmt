@@ -47,10 +47,19 @@ func sourceTree(tree *markdown.Tree, limit int) ([]byte, error) {
 }
 
 // check reports whether out, the printed form of tree, would change what the
-// input means (design 10).
+// input means (design 10), or its kept syntax (design 12).
 func check(tree *markdown.Tree, out []byte) error {
-	if err := markdown.Equal(tree, markdown.Parse(out)); err != nil {
+	printed := markdown.Parse(out)
+	if err := markdown.Equal(tree, printed); err != nil {
 		return fmt.Errorf("the output would change the meaning of the input: %w", err)
+	}
+	// Equal reads the value of a construct, where GitHub can read the bytes
+	// that the kept syntax holds (design 12).
+	in, got := markdown.Kept(tree), markdown.Kept(printed)
+	for i := range max(len(in), len(got)) {
+		if i >= len(in) || i >= len(got) || in[i] != got[i] {
+			return fmt.Errorf("the output would change the kept syntax of the input at event %d", i)
+		}
 	}
 	return nil
 }

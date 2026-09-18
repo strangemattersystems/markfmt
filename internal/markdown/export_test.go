@@ -32,11 +32,6 @@ func PathologicalInputs() map[string]func(n int) []byte {
 	return inputs
 }
 
-// Kept returns the kept syntax of tree (design 12).
-func Kept(tree *Tree) []string {
-	return kept(tree)
-}
-
 // LeafNode reports whether node id of t is a leaf.
 func LeafNode(t *Tree, id NodeID) bool {
 	return t.nodes[id].kind.class() != classStructure
