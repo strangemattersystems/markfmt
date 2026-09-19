@@ -14,8 +14,18 @@ concurrency:
 
 jobs:
   ci:
-    name: ci
-    runs-on: ubuntu-latest
+    name: ci (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            task: ci
+          - os: macos-latest
+            task: test
+          - os: windows-latest
+            task: test
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
@@ -27,4 +37,4 @@ jobs:
         with:
           version: 3.x
           repo-token: ${{ secrets.GITHUB_TOKEN }}
-      - run: task ci
+      - run: task ${{ matrix.task }}
