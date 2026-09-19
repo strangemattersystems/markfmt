@@ -39,7 +39,9 @@ section numbers are cited below as "design 5.4".
 
 ## Current state
 
-Last updated: 2026-09-17. Everything is pushed; v0.0.1 is the first release.
+Last updated: 2026-09-19. v0.0.1 is the first release. `main` is pushed and
+holds the CLI changes after v0.0.1. `feat/phase0-gates` is not merged or
+pushed.
 
 | Commit | Content |
 | --- | --- |
@@ -58,6 +60,8 @@ Last updated: 2026-09-17. Everything is pushed; v0.0.1 is the first release.
 | `dfc151f` onwards | Stage 6: the canonical style survey, `Source` on the new parser, `FuzzFormat`, dialect predicates and spans in `Equal`, a printer for every node kind, display width from Unicode `EastAsianWidth.txt`, aligned tables, the GitHub printer fixtures and their API check, output bounds, fixes for the `FuzzFormat` findings, and the kept marker rule |
 | `1d28ee8` onwards | Stage 8: CLI directory walking, the goreleaser release and the Homebrew cask, v0.0.1 |
 | The commit after `5d4e86a` | Stage 7: goldmark, `differential_test.go` and `go.sum` removed; the root `go.mod` has no requirements |
+| `4e7fbc0`, `b10d309` (`main`, after v0.0.1) | CLI: `--exclude` replaces the built-in directory skips, double-dash flags, gofmt-style paths, a read limit per input, concurrency from `GOMAXPROCS` |
+| `8322491` onwards (`feat/phase0-gates`) | Parse and format snapshots, pathological inputs from the reviews, benchmarks and `task bench-compare`, the printer split by file, the runtime `Kept` check, pass-through of a block that fails its check, a block with a dialect span printed as written, `FuzzSource` in CI, the exported limits and errors |
 
 Layout:
 
@@ -66,7 +70,8 @@ Layout:
   stdin and writes stdout. It writes files atomically.
 - `.goreleaser.yaml`, `Dockerfile.goreleaser`, `.github/workflows/release.yml`:
   the release, run on a pushed `v` tag.
-- `markfmt.go`: the public API, `Format(w io.Writer, r io.Reader) error`.
+- `markfmt.go`: the public API: `Format(w io.Writer, r io.Reader) error`,
+  `MaxInput`, `MaxOutput`, `ErrTooLarge` and `*InternalError`.
 - `internal/markdown`: the new parser and its tree (stage 1 onwards).
 - `internal/markdown/testdata/<corpus>`: the conformance corpora `commonmark`,
   `gfm`, `cmark-gfm-extensions`, `cmark-gfm-regression` and
@@ -95,13 +100,16 @@ Layout:
 - `internal/markdown/testdata/entities/entities.json`: the source of the
   generated entity table.
 - `internal/format`: the formatter on the new parser. `Source` parses the
-  input, prints it in the canonical style (`print.go`), parses the output and
-  calls `Equal`.
-- `internal/format/testdata/cases`: 189 `NAME.in.md` and `NAME.out.md` pairs.
+  input, prints it in the canonical style (`print.go` and the files it is
+  split into), parses the output, and calls `Equal` and `KeptMismatch`. A
+  top-level block that fails the check prints as written (design 10).
+  `Strict` returns the error instead, for the printer tests.
+- `internal/format/testdata/cases`: 211 `NAME.in.md` and `NAME.out.md` pairs.
   Each GitHub printer fixture has a pair named `github-` and its section.
 - `internal/format/testdata/spec`: CommonMark 0.31.2 examples (goldmark's
   `spec.json`) and goldmark's extra and GFM case files, as idempotence data.
-- `internal/markdown/format_test.go`: `FuzzFormat`, an external test of
+- `internal/markdown/format_test.go`: `FuzzSource`, which CI runs, fuzzes
+  `format.Source` as users run it. `FuzzFormat`, an external test of
   `internal/format` against the test HTML (design 10.5). Its seeds are every
   corpus, the pairs, `testdata/cases`, and in `testdata/fuzz/FuzzFormat` the
   inputs that the fuzzer found, each fixed. `TestFormatSource` bounds the
@@ -109,7 +117,11 @@ Layout:
   time of `Source` at n and 10n bytes for the pathological inputs and the
   inputs that deep nesting makes slow in the printer, and its long subtest
   runs them at the input limit within the time and memory budget.
-- `tools/go.mod`: golangci-lint v2.13.2, kept out of the root `go.mod`, which
+- `internal/markdown/testdata/snapshot`: the tree and the output of every
+  corpus input. `task snapshot` updates them.
+- `internal/markdown/testdata/bench`: the frozen inputs of the benchmarks.
+  `task bench` and `task bench-compare BASE=main` run them.
+- `tools/go.mod`: golangci-lint v2.13.2 and benchstat, kept out of the root `go.mod`, which
   has no requirements (product rule 8).
 - `docs/design/parser.md`: the parser design.
 - `.scratch/design-research/` (local only, not tracked): the research reports
@@ -430,8 +442,8 @@ files can stay as data, with their MIT notice.
 
 ### Stage 8: product
 
-- [x] CLI directory walking that skips `testdata`, hidden directories and
-  vendored code. Concurrent work is limited by input bytes.
+- [x] CLI directory walking that skips hidden files and directories and the
+  `--exclude` patterns. Concurrent work is limited by input bytes.
 - [x] Release setup: goreleaser, version stamping, `release.yml`, Homebrew
   tap. Follow hamnir's conventions. v0.0.1 released on 2026-09-17: archives,
   signed checksums, SBOMs, attestations, the GHCR image and the cask all
