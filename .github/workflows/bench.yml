@@ -2,6 +2,11 @@ name: Bench
 
 on:
   pull_request:
+    paths:
+      - "**.go"
+      - "go.mod"
+      - "internal/**/testdata/**"
+      - "Taskfile.yml"
 
 permissions:
   contents: read

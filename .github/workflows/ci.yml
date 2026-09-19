@@ -3,7 +3,17 @@ name: CI
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - "docs/**"
+      - "website/**"
+      - "README.md"
+      - "CLAUDE.md"
   pull_request:
+    paths-ignore:
+      - "docs/**"
+      - "website/**"
+      - "README.md"
+      - "CLAUDE.md"
 
 permissions:
   contents: read
@@ -21,10 +31,13 @@ jobs:
         include:
           - os: ubuntu-latest
             task: ci
+          # The parser and printer do not depend on the OS, so the other two
+          # run without the race detector and the timing subtests, for the
+          # CLI's file and path handling.
           - os: macos-latest
-            task: test
+            task: test-short
           - os: windows-latest
-            task: test
+            task: test-short
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -38,14 +51,8 @@ jobs:
           version: 3.x
           repo-token: ${{ secrets.GITHUB_TOKEN }}
       - run: task ${{ matrix.task }}
+      # FuzzSource parses, prints and compares, so it covers FuzzParse and
+      # FuzzEqual as well. The nightly workflow runs each target and task long.
       - if: matrix.os == 'ubuntu-latest'
-        run: task long
-      # FuzzSource is what users run, which keeps the bytes of a block that the
-      # printer cannot write. FuzzFormat is left to the nightly workflow: it
-      # fails on such a block, and some stay open.
-      - if: matrix.os == 'ubuntu-latest'
-        name: Fuzz the parser, the comparison and the formatter for a minute each
-        run: |
-          task fuzz FUZZ=FuzzParse -- -fuzztime=60s
-          task fuzz FUZZ=FuzzEqual -- -fuzztime=60s
-          task fuzz FUZZ=FuzzSource -- -fuzztime=60s
+        name: Fuzz what users run for a minute
+        run: task fuzz FUZZ=FuzzSource -- -fuzztime=60s
