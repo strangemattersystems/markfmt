@@ -76,8 +76,8 @@ Decision:
   `<search>` after a paragraph line, the paragraph and the HTML block; for
   flanking next to a symbol, the smallest block with inline content
   (paragraph, heading or table cell).
-- `Equal` compares dialect spans (section 10.4), and the printer keeps their
-  bytes (section 12).
+- `Equal` compares dialect spans (section 10.4), and the printer prints each
+  top-level block that holds one as written (section 12).
 
 Known divergences at draft 3:
 
@@ -1232,9 +1232,11 @@ require of it. Appendix B collects printer traps with byte bounds.
   list (appendix B, trap 11), and for each
   dialect span its non-prefix bytes, the number of matched containers on each
   of its lines (so lazy lines stay lazy), and the blank lines before and after
-  it. At stage 6, a `Kept(t)` event stream sits next to the projection, and the
-  fuzz gate asserts it is equal for input and output. Anything outside the set
-  is canonical: code block style, heading style, emphasis character.
+  it. The printer keeps a span's syntax by printing its top-level block as
+  written. A `Kept(t)` event stream sits next to the projection, and the
+  runtime check compares it for input and output (section 10). Anything
+  outside the set is canonical: code block style, heading style, emphasis
+  character.
 - **Kept markers.** A list item that keeps its input marker keeps the
   indentation, number and padding that set its columns. Its bullet or
   delimiter is its list's: the sign decides where a list ends (spec 5.3), and
@@ -1679,8 +1681,8 @@ design, not parser gates.
    escape (section 12). The rule depends on content, not on whether the source
    line was lazy, so it is idempotent (CM 238).
 2. A lazy line stays lazy when its full canonical prefix is longer than its
-   printed content (after trap 1). Inside a dialect span, lazy lines always
-   stay lazy (section 10.4).
+   printed content (after trap 1). A block that holds a dialect span prints
+   as written, so its lazy lines stay lazy (section 10.4).
 3. Adjacent sibling lists of one type alternate the marker by position (`-`,
    `*`; `.`, `)`). No `<!-- -->` separator: it adds a node. An item that keeps
    its input marker writes its list's marker too (section 12).
@@ -1728,8 +1730,8 @@ design, not parser gates.
     indentation in spaces, at most 2.86 bytes of output per input byte. An
     input of such lines near the input limit passes the output limit, and
     `Format` returns an error (section 7.2).
-21. A printed line starts at most 99 blocks, unless a dialect span keeps the
-    line. So a footnote definition stays a definition (section 9.2), and no
+21. A printed line starts at most 99 blocks, unless a block that prints as
+    written holds the line. So a footnote definition stays a definition (section 9.2), and no
     printed line of list items becomes a `dialect.md` span. A container whose
     first child would be block 100 on its line puts that child on the next
     line.
