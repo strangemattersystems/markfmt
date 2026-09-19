@@ -2,6 +2,7 @@ package format
 
 import (
 	"bytes"
+	"slices"
 
 	"github.com/strangemattersystems/markfmt/internal/markdown"
 )
@@ -215,6 +216,10 @@ func (p *printer) prefixLazyLine() {
 	if p.lazyPad {
 		prefix = append(prefix, spaces[:4]...)
 	}
-	p.out = append(p.out[:p.lazyStart], append(prefix, p.out[p.lazyStart:]...)...)
+	if len(p.out)+len(prefix) > p.max {
+		p.full = true
+		return
+	}
+	p.out = slices.Insert(p.out, p.lazyStart, prefix...)
 	p.matched = p.prefixes
 }
