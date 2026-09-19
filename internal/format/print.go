@@ -85,10 +85,12 @@ type printer struct {
 
 	// The link reference definition that is open: the part that prints,
 	// whether the space before its destination is written, whether its
-	// destination is in angle brackets, and its title quotes.
+	// destination is in angle brackets and whether they print, and its title
+	// quotes.
 	def       defPart
 	spaced    bool
 	defAngle  bool
+	defBare   bool
 	defQuotes [2]byte
 
 	// The heading that is open: how it prints, its level, where its content

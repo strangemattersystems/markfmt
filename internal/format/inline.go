@@ -22,6 +22,7 @@ type inlineFrame struct {
 	brackets int
 	label    bool
 	angle    bool
+	bare     bool // the destination in angle brackets prints without them
 	gap      bool // whitespace follows the opening parenthesis of the tail
 	under    bool // emphasis that prints with '_'
 	quotes   [2]byte
@@ -116,7 +117,12 @@ func (p *printer) definitionLeaf(id markdown.NodeID, k markdown.Kind, start int)
 			p.spaced = true
 		}
 		p.indent = -1
-		p.content(id, start)
+		if k == markdown.AngleBracket && !p.defAngle {
+			p.defBare = p.bareDestination(id)
+		}
+		if k != markdown.AngleBracket || !p.defBare {
+			p.content(id, start)
+		}
 		switch {
 		case k == markdown.AngleBracket && !p.defAngle:
 			p.defAngle = true
@@ -188,7 +194,12 @@ func (p *printer) delimiter(id markdown.NodeID, k markdown.Kind) []byte {
 	switch k {
 	case markdown.Emphasis:
 		// After a '<' in text, '_' could start an attribute name of a tag.
-		if bytes.ContainsAny(content, "*_") || !flanksLikeSpace(before) || !flanksLikeSpace(after) || p.inText('_') || p.inText('<') {
+		if opener := p.wrapOpener(id); opener != nil && opener[0] == '*' && !p.inText('_') && !p.inText('<') {
+			// The strong emphasis around the node alone prints '*', which
+			// '_' can open and close next to: "**_a_**".
+			return []byte{'_'}
+		}
+		if bytes.ContainsAny(content, "*_") && !p.onlyChild(id) || !flanksLikeSpace(before) || !flanksLikeSpace(after) || p.inText('_') || p.inText('<') {
 			return nil
 		}
 		if p.inUnder > 0 && (!spaceLike(before) || !spaceLike(after)) {
@@ -199,9 +210,14 @@ func (p *printer) delimiter(id markdown.NodeID, k markdown.Kind) []byte {
 		}
 		return []byte{'_'}
 	case markdown.Strong:
+		if opener := p.wrapOpener(id); opener != nil && opener[0] == '_' && !p.inText('*') {
+			// The emphasis around the node alone prints '_', which "**" can
+			// open and close next to: "_**a**_".
+			return []byte("**")
+		}
 		// Next to '*' or '_', which can be the unused part of a delimiter
 		// run, "**" could pair differently.
-		if bytes.ContainsAny(content, "*_") || before == '*' || before == '_' || after == '*' || after == '_' || p.inText('*') {
+		if bytes.ContainsAny(content, "*_") && !p.onlyChild(id) || before == '*' || before == '_' || after == '*' || after == '_' || p.inText('*') {
 			return nil
 		}
 		return []byte("**")
@@ -301,6 +317,83 @@ func (p *printer) inText(c byte) bool {
 		}
 	}
 	return p.delimText[strings.IndexByte(delimBytes, c)]
+}
+
+const asciiPunct = "!\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~"
+
+// bareDestination reports whether the destination in angle brackets that
+// leaf id opens reads the same without them: it is not empty, does not start
+// with '<', and holds no space or control character and only balanced
+// parentheses (spec 6.3).
+func (p *printer) bareDestination(id markdown.NodeID) bool {
+	t := p.tree
+	_, start := t.NodeSpan(id)
+	end := start
+	for i := id + 1; t.Kind(i) != markdown.AngleBracket; i++ {
+		_, end = t.NodeSpan(i)
+	}
+	dest := t.Raw(0)[start:end]
+	if len(dest) == 0 || dest[0] == '<' {
+		return false
+	}
+	depth := 0
+	for i := 0; i < len(dest); i++ {
+		switch c := dest[i]; {
+		case c <= ' ' || c == 0x7f:
+			return false
+		case c == '\\' && i+1 < len(dest) && strings.IndexByte(asciiPunct, dest[i+1]) >= 0:
+			i++
+		case c == '(':
+			depth++
+		case c == ')':
+			if depth == 0 {
+				return false
+			}
+			depth--
+		}
+	}
+	return depth == 0
+}
+
+// onlyChild reports whether the content of emphasis or strong emphasis id is
+// one node of the other kind, whose own content holds no '*' or '_', as in
+// "***a***". The delimiters of the two nodes are then the only runs there.
+func (p *printer) onlyChild(id markdown.NodeID) bool {
+	t := p.tree
+	var inner markdown.Kind
+	switch t.Kind(id) {
+	case markdown.Emphasis:
+		inner = markdown.Strong
+	case markdown.Strong:
+		inner = markdown.Emphasis
+	default:
+		return false
+	}
+	child := id + 2
+	if t.Kind(id+1) != markdown.Delimiter || t.Kind(child) != inner {
+		return false
+	}
+	// closer is the parent's closing delimiter, and the node before it the
+	// child's.
+	closer, ok := t.Next(child)
+	end, _ := t.Next(id)
+	if !ok || t.Kind(closer) != markdown.Delimiter || closer+1 != end || t.Kind(closer-1) != markdown.Delimiter {
+		return false
+	}
+	raw := t.Raw(child)
+	return !bytes.ContainsAny(raw[len(t.Raw(child+1)):len(raw)-len(t.Raw(closer-1))], "*_")
+}
+
+// wrapOpener returns the opener that the parent of emphasis or strong
+// emphasis id prints, when id is all of that parent's content, or nil.
+func (p *printer) wrapOpener(id markdown.NodeID) []byte {
+	if id < 2 || !p.onlyChild(id-2) {
+		return nil
+	}
+	if d := p.inlines[len(p.inlines)-2].delim; d != nil {
+		return d
+	}
+	return p.tree.Raw(id - 1)
 }
 
 // spaceLike reports whether c, the byte next to an emphasis delimiter, is
@@ -431,7 +524,12 @@ func (p *printer) tailLeaf(in *inlineFrame, id markdown.NodeID, k markdown.Kind,
 			in.tail = tailEnd
 		default:
 			p.indent = -1
-			p.content(id, start)
+			if k == markdown.AngleBracket && !in.angle {
+				in.bare = p.bareDestination(id)
+			}
+			if k != markdown.AngleBracket || !in.bare {
+				p.content(id, start)
+			}
 			if k == markdown.AngleBracket && !in.angle {
 				in.angle = true
 			} else if k == markdown.Destination && !in.angle || k == markdown.AngleBracket {
