@@ -40,7 +40,7 @@ func BenchmarkCheckDir(b *testing.B) {
 func checkDir(b *testing.B, dir string) {
 	b.Helper()
 
-	budget := newBudget(markfmt.MaxInput)
+	budget := newBudget(markfmt.DefaultMaxInput)
 	procs := runtime.GOMAXPROCS(0)
 	var wg sync.WaitGroup
 	for _, in := range inputs([]string{dir}, nil) {

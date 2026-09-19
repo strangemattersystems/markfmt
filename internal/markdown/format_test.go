@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/strangemattersystems/markfmt"
 	"github.com/strangemattersystems/markfmt/internal/format"
 	"github.com/strangemattersystems/markfmt/internal/markdown"
 )
@@ -66,7 +67,7 @@ func TestFormatSource(t *testing.T) {
 				// time.
 				n := 1000
 				large := timeSource(inputs[name](10 * n))
-				for large < 50*time.Millisecond && 10*n < format.MaxInput {
+				for large < 50*time.Millisecond && 10*n < markfmt.DefaultMaxInput {
 					n *= 2
 					large = timeSource(inputs[name](10 * n))
 				}
@@ -96,8 +97,8 @@ func TestFormatSource(t *testing.T) {
 				continue
 			}
 			t.Run(name, func(t *testing.T) {
-				small := runFormatChild(t, name, format.MaxInput/10)
-				large := runFormatChild(t, name, format.MaxInput)
+				small := runFormatChild(t, name, markfmt.DefaultMaxInput/10)
+				large := runFormatChild(t, name, markfmt.DefaultMaxInput)
 				t.Logf("%d bytes: %v; %d bytes: %v, %d bytes of output, %d bytes of memory, error %q",
 					small.bytes, small.time, large.bytes, large.time, large.output, large.maxrss-empty.maxrss, large.err)
 				if ratio := float64(large.time) / float64(max(small.time, 1)); ratio > 30 {
@@ -227,7 +228,7 @@ func FuzzSource(f *testing.F) {
 	f.Add([]byte("* 0\r--\n  |-"))
 
 	f.Fuzz(func(t *testing.T, src []byte) {
-		if len(src) > format.MaxInput {
+		if len(src) > markfmt.DefaultMaxInput {
 			return
 		}
 		out, err := format.Source(src)

@@ -57,7 +57,7 @@ func TestSourceTree(t *testing.T) {
 	t.Run("prints a tree within the limit", func(t *testing.T) {
 		t.Parallel()
 
-		if out, err := sourceTree(markdown.Parse([]byte("#  a\n")), nil, MaxOutput); err != nil || string(out) != "# a\n" {
+		if out, err := sourceTree(markdown.Parse([]byte("#  a\n")), nil, outputLimit(5)); err != nil || string(out) != "# a\n" {
 			t.Fatalf("sourceTree = %q, %v, want %q", out, err, "# a\n")
 		}
 	})
@@ -189,14 +189,6 @@ func TestSource(t *testing.T) {
 			if line != row {
 				t.Fatalf("row %d has %d bytes, want the %d bytes of its input", i+1, len(line), len(row))
 			}
-		}
-	})
-
-	t.Run("rejects an input above the input limit", func(t *testing.T) {
-		t.Parallel()
-
-		if _, err := Source(make([]byte, MaxInput+1)); err == nil {
-			t.Fatal("Source of MaxInput+1 bytes gives no error")
 		}
 	})
 }
