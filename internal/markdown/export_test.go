@@ -32,6 +32,11 @@ func PathologicalInputs() map[string]func(n int) []byte {
 	return inputs
 }
 
+// NodeFlags returns the flags of node id of t.
+func NodeFlags(t *Tree, id NodeID) uint8 {
+	return t.nodes[id].flags
+}
+
 // LeafNode reports whether node id of t is a leaf.
 func LeafNode(t *Tree, id NodeID) bool {
 	return t.nodes[id].kind.class() != classStructure

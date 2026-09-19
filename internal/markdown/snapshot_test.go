@@ -13,7 +13,8 @@ import (
 )
 
 // parseSnapshot records the tree of every input of markdown.SnapshotInputs
-// as kinds and byte ranges, so that a change of structure shows in review. It
+// as kinds, flags and byte ranges, so that a change of structure shows in
+// review. It
 // holds no node layout, so a change of representation leaves it as it is.
 const parseSnapshot = "testdata/snapshot/parse.txt"
 
@@ -72,20 +73,25 @@ func TestParseSnapshot(t *testing.T) {
 }
 
 // dumpTree returns the nodes of tree on one line: the kind of each node, with
-// the byte range of each leaf, and parentheses around the children of an
-// interior node.
+// its flags after a slash when it has any, the byte range of each leaf, and
+// parentheses around the children of an interior node.
 func dumpTree(tree *markdown.Tree) string {
 	var b strings.Builder
 	c := tree.Walk()
 	for e, ok := c.Next(); ok; e, ok = c.Next() {
-		switch {
-		case e.Exit:
+		if e.Exit {
 			b.WriteString(")")
-		case markdown.LeafNode(tree, e.ID):
+			continue
+		}
+		fmt.Fprintf(&b, " %v", tree.Kind(e.ID))
+		if flags := markdown.NodeFlags(tree, e.ID); flags != 0 {
+			fmt.Fprintf(&b, "/%#x", flags)
+		}
+		if markdown.LeafNode(tree, e.ID) {
 			start, end := markdown.NodeRange(tree, e.ID)
-			fmt.Fprintf(&b, " %v[%d:%d]", tree.Kind(e.ID), start, end)
-		default:
-			fmt.Fprintf(&b, " %v(", tree.Kind(e.ID))
+			fmt.Fprintf(&b, "[%d:%d]", start, end)
+		} else {
+			b.WriteString("(")
 		}
 	}
 	return strings.TrimSpace(b.String())
