@@ -28,7 +28,6 @@ func newLines(src []byte) lines {
 	return it
 }
 
-// findLF sets lf to the next line feed at or after pos, or to size.
 func (it *lines) findLF() {
 	it.lf = it.size
 	if j := bytes.IndexByte(it.src[it.pos:it.size], '\n'); j >= 0 {

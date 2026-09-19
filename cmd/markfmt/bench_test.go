@@ -37,7 +37,6 @@ func BenchmarkCheckDir(b *testing.B) {
 	}
 }
 
-// checkDir runs the walk and the concurrent check of main over dir.
 func checkDir(b *testing.B, dir string) {
 	b.Helper()
 
@@ -64,8 +63,6 @@ func checkDir(b *testing.B, dir string) {
 	wg.Wait()
 }
 
-// document returns the nth generated document: the same bytes on every run, and
-// a different heading and list per n.
 func document(n int) []byte {
 	s := strconv.Itoa(n)
 	return []byte("# Document " + s + `

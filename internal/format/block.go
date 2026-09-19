@@ -123,8 +123,8 @@ func (p *printer) firstLine(id markdown.NodeID) []byte {
 		return pipe
 	}
 	if t.Kind(id) == markdown.CodeBlock {
-		// Code prints as a fence, whatever the form of
-		// its input, and the decisions above read the line that prints.
+		// Code prints as a fence, whatever the form of its input, and the
+		// decisions above read the line that prints.
 		fence, _ := p.codeFence(id)
 		return fence
 	}
@@ -211,8 +211,6 @@ func (p *printer) indentHides(id markdown.NodeID) bool {
 	return markdown.InterruptsParagraph(line, false) || markdown.StartsBlock(line)
 }
 
-// hardBreakAfter reports whether a hard break follows leaf id, so that the
-// printer ends its line with a backslash or two spaces.
 func (p *printer) hardBreakAfter(id markdown.NodeID) bool {
 	next, ok := p.tree.Next(id)
 	return ok && p.tree.Kind(next) == markdown.HardBreak

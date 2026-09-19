@@ -64,7 +64,6 @@ func Source(src []byte) ([]byte, error) {
 	return bytes.Clone(src), nil
 }
 
-// maxRetries bounds the prints of [Source] for one input.
 const maxRetries = 4
 
 // Strict returns src in the canonical style, or an error where [Source] would

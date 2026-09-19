@@ -52,8 +52,8 @@ type comparer struct {
 	a, b           *Tree
 	labelA, labelB []byte // normalized labels, bounded by the label cap
 
-	// The readers of the values that a comparison reads. They are fields, so
-	// that comparing a content run or a key allocates nothing.
+	// The readers are fields, so that a comparison of a content run or a key
+	// allocates nothing.
 	runA, runB   runReader
 	infoA, infoB valueReader
 	textA, textB verbatimReader
@@ -89,9 +89,9 @@ func (c *comparer) compare(ea event, okA bool, eb event, okB bool) error {
 	return &MismatchError{At: at, msg: fmt.Sprintf("markdown: %s: %s against %s", what, describe(c.a, ea, okA), describe(c.b, eb, okB))}
 }
 
-// A MismatchError is a difference that [Equal] or [KeptMismatch] finds between two
-// trees. At is the node of the first tree where they part, or 0 where the
-// first tree has no node there.
+// A MismatchError is a difference that [Equal] or [KeptMismatch] finds
+// between two trees. At is the node of the first tree where they part, or 0
+// where the first tree has no node there.
 type MismatchError struct {
 	At  NodeID
 	msg string
@@ -99,8 +99,6 @@ type MismatchError struct {
 
 func (m *MismatchError) Error() string { return m.msg }
 
-// equalRuns reports whether the content runs of events ea and eb read the
-// same bytes.
 func (c *comparer) equalRuns(ea, eb event) bool {
 	c.runA = runReader{t: c.a, i: uint32(ea.id), end: uint32(ea.end)}
 	c.runB = runReader{t: c.b, i: uint32(eb.id), end: uint32(eb.end)}

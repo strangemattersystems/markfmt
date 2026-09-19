@@ -20,8 +20,8 @@ func Kept(tree *Tree) []string {
 	return texts
 }
 
-// KeptMismatch returns a [MismatchError] at the first event of kept syntax where
-// a and b differ, or nil.
+// KeptMismatch returns a [MismatchError] at the first event of kept syntax
+// where a and b differ, or nil.
 func KeptMismatch(a, b *Tree) error {
 	ea, eb := keptEvents(a), keptEvents(b)
 	for i := range max(len(ea), len(eb)) {
@@ -37,7 +37,6 @@ func KeptMismatch(a, b *Tree) error {
 	return nil
 }
 
-// keptEvent is an event of kept syntax, and the node that it comes from.
 type keptEvent struct {
 	at   NodeID
 	text string

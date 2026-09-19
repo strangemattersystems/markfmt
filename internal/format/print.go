@@ -123,7 +123,7 @@ type frame struct {
 	// A list numbers its items from start, and uses its second marker with
 	// alt. Its second item decides lazy numbering.
 	ordered, alt, lazy bool
-	bullet             byte // the bullet of a bullet list
+	bullet             byte
 	start              int
 	minIndent          int // the columns that the list's items must continue on at least
 	indent             int // the columns that a list item of the input continues on
@@ -605,10 +605,10 @@ func (p *printer) exit() {
 	next, ok := p.afterBlanks(f.id)
 	if f.container && p.blanks > 0 && ok && p.raw[next] {
 		// The blank lines before a block that prints as written are kept
-		// syntax (design 12).
-		// These are the container's, so they stay in it: after it they would
-		// be blank lines of its parent, which can make a list loose. At the
-		// end of an item they do not (spec 5.3).
+		// syntax (design 12). They are the container's, so they stay in it:
+		// after it they would be blank lines of its parent, which can make a
+		// list loose. At the end of an item they do not (spec 5.3).
+		//
 		// A blank line keeps the columns that its container continues on when
 		// a container holds that one: without them the line would belong to
 		// the block above it, and a list whose item holds a blank line
@@ -697,9 +697,8 @@ func (p *printer) exit() {
 		p.quoteGap, p.quoteParent = p.lastLeaf == markdown.Paragraph && !quoteBlanks, len(p.stack)-1
 	case g.kind == markdown.ListItem:
 		// The list keeps the greatest column that an item of it continues on,
-		// for the block that follows the list.
-		// An item with no block ends at a blank line, so it cannot hold a
-		// marker below it.
+		// for the block that follows the list. An item with no block ends at a
+		// blank line, so it cannot hold a marker below it.
 		if list := &p.stack[len(p.stack)-1]; g.children > 0 {
 			list.lastList = max(list.lastList, g.outContent)
 		}

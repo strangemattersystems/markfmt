@@ -150,7 +150,7 @@ func (p *printer) definitionLeaf(id markdown.NodeID, k markdown.Kind, start int)
 // strong emphasis or strikethrough: '_', "**" or "~~" (roadmap Decisions),
 // or nil to keep the input's. A node keeps its input delimiters wherever the
 // canonical delimiters could pair differently (spec 6.2), or could change a
-// construct that starts next to them. Each check below gives its reason.
+// construct that starts next to them.
 func (p *printer) delimiter(id markdown.NodeID, k markdown.Kind) []byte {
 	t := p.tree
 	raw, open := t.Raw(id), t.Raw(id+1)
@@ -279,11 +279,11 @@ func (p *printer) wordFacts() {
 	}
 }
 
-// delimBytes are the bytes that [printer.inText] answers for.
+// delimBytes are the bytes that inText answers for.
 const delimBytes = "*_~<\"'()"
 
 // inText reports whether the last paragraph, heading or table cell that
-// started has a text leaf with c, one of [delimBytes]. A canonical delimiter
+// started has a text leaf with c, one of delimBytes. A canonical delimiter
 // could pair with a run of c that is text, where the input's delimiter does
 // not, '_' next to a '<' could start an attribute name of a tag, and a quote
 // could close the title that a canonical quote opens.

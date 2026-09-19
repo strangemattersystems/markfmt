@@ -346,8 +346,8 @@ func readSpec(t testing.TB) []specExample {
 // A case is a "N: description" header, an optional OPTIONS line, then the
 // Markdown and the HTML, each opened by a separator line.
 //
-// The OPTIONS are not applied. An input with its escape sequences or
-// surrounding space left in is still valid Markdown.
+// The OPTIONS are not applied. An input that keeps its escape sequences or
+// surrounding space is valid Markdown.
 func readGoldmarkCases(file, data string) []specExample {
 	const separator = "//- - - - - - - - -//"
 	const end = "//= = = = = = = = = = = = = = = = = = = = = = = =//"

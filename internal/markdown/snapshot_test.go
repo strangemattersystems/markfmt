@@ -12,14 +12,14 @@ import (
 	"github.com/strangemattersystems/markfmt/internal/markdown"
 )
 
-// parseSnapshot records the tree of every input of markdown.SnapshotInputs
-// as kinds, flags and byte ranges, so that a change of structure shows in
-// review. It
-// holds no node layout, so a change of representation leaves it as it is.
+// parseSnapshot records the tree of every input of
+// [markdown.SnapshotInputs] as kinds, flags and byte ranges, so that a change
+// of structure shows in review. It holds no node layout, so a change of
+// representation leaves it as it is.
 const parseSnapshot = "testdata/snapshot/parse.txt"
 
-// formatSnapshot records the output of format.Source for every input of
-// markdown.SnapshotInputs, so that a change of output shows in review.
+// formatSnapshot records the output of [format.Source] for every input of
+// [markdown.SnapshotInputs], so that a change of output shows in review.
 const formatSnapshot = "testdata/snapshot/format.txt"
 
 func TestFormatSnapshot(t *testing.T) {

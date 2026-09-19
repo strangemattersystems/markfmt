@@ -40,8 +40,8 @@ func (p *printer) tableIndentHides(id markdown.NodeID) bool {
 // table is a table that prints: the lines that the printer wrote for it, which
 // it aligns when the table ends.
 type table struct {
-	start  int                  // the offset in out where the table starts
-	aligns []markdown.Alignment // the alignment of each column
+	start  int // the offset in out where the table starts
+	aligns []markdown.Alignment
 	lines  []tableLine
 	cells  []tableCell
 }

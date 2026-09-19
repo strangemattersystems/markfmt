@@ -9,7 +9,6 @@ import (
 	"github.com/strangemattersystems/markfmt/internal/markdown"
 )
 
-// benchInput is a named benchmark input of one or more documents.
 type benchInput struct {
 	name string
 	docs [][]byte
@@ -27,8 +26,8 @@ func (in benchInput) size() int {
 // document, that document formatted, which is what a check of a formatted
 // project reads, every printer case, and the frozen small document.
 //
-// The cases stay separate documents. Joined into one, they are an input that
-// [Source] rejects today, which is a formatter bug and not a benchmark.
+// The cases stay separate documents. Joined into one, they hold a block that
+// fails the check, so the benchmark would measure the retries of [Source].
 func benchInputs(b *testing.B) []benchInput {
 	b.Helper()
 

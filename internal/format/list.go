@@ -98,7 +98,7 @@ func (p *printer) prescan() (map[markdown.NodeID][2]bool, int) {
 	t := p.tree
 	breaks := map[markdown.NodeID][2]bool{}
 	open, depth := 0, 0
-	var lists []markdown.NodeID    // the open lists
+	var lists []markdown.NodeID
 	var items [][2]markdown.NodeID // the open items before their first line, with their lists
 	c := t.Walk()
 	for e, ok := c.Next(); ok; e, ok = c.Next() {
@@ -175,10 +175,10 @@ func (p *printer) fitMarker(f *frame, limit int) {
 	if over > 0 {
 		f.marker = f.marker[over:]
 		if !f.keepBlank {
-			// The padding grows by what the indentation loses, so the item still
+			// The padding grows by what the indentation loses, so the item
 			// continues on the columns of its input, as every item of its list
-			// does (design 12). An item whose marker line is blank continues one
-			// column after its marker instead (spec 5.2).
+			// does (design 12). An item whose marker line is blank continues
+			// one column after its marker instead (spec 5.2).
 			f.marker = append(f.marker, spaces[:over]...)
 		}
 	}

@@ -204,7 +204,7 @@ func paths(t *testing.T, ins []input, root string) []string {
 	return out
 }
 
-// mainEnv is the environment variable that makes the test binary run [main] in
+// mainEnv is the environment variable that makes the test binary run main in
 // place of the tests.
 const mainEnv = "MARKFMT_MAIN"
 
@@ -213,7 +213,7 @@ const (
 	unformatted = "#  Title\n\n\n*  item\n"
 )
 
-// TestMain runs [main] in the child process that [runMarkfmt] starts, and the
+// TestMain runs main in the child process that runMarkfmt starts, and the
 // tests in every other process.
 func TestMain(m *testing.M) {
 	if os.Getenv(mainEnv) == "1" {
@@ -224,7 +224,6 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-// TestMarkfmt covers the command end to end.
 func TestMarkfmt(t *testing.T) {
 	t.Parallel()
 
@@ -406,14 +405,13 @@ func TestMarkfmt(t *testing.T) {
 	})
 }
 
-// output is what a run of the command wrote and the status it exited with.
 type output struct {
 	stdout, stderr string
 	status         int
 }
 
-// runMarkfmt runs [main] in a child process with args, dir as its working
-// directory and stdin on its standard input. [main] ends the process with
+// runMarkfmt runs main in a child process with args, dir as its working
+// directory and stdin on its standard input. main ends the process with
 // [os.Exit], so a child process is what gives a status to observe.
 func runMarkfmt(t *testing.T, dir, stdin string, args ...string) output {
 	t.Helper()

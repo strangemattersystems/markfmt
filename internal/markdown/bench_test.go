@@ -9,8 +9,8 @@ import (
 	"github.com/strangemattersystems/markfmt/internal/markdown"
 )
 
-// BenchmarkEqual compares the tree of the frozen design document with a second
-// tree of the same input, both parsed once.
+// BenchmarkEqual compares the tree of the frozen design document with a
+// second tree of the same input, both parsed once.
 func BenchmarkEqual(b *testing.B) {
 	src, err := os.ReadFile("testdata/bench/design.md")
 	if err != nil {
