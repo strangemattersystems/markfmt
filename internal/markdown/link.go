@@ -195,6 +195,28 @@ func (s *inlineParser) reference(b bracket) (LinkForm, bool) {
 	return form, b.seq == s.seq && s.defined(b.text(), closer)
 }
 
+// labelBytes returns the bytes of piece j that count toward the size of a
+// label: none for indentation and prefix leaves, which are not content, one
+// byte for a line ending, and one byte less for a cell pipe escape, whose
+// pair writes one byte (design 6.7). Only the byte count and the character
+// count of the result are used, not its bytes.
+func (s *inlineParser) labelBytes(j int) []byte {
+	b := s.src[s.startOf(j):s.pieces[j].end]
+	switch k := s.pieces[j].kind; k {
+	case Indent:
+		return nil
+	case LineEnding, VerbatimLineEnding:
+		return lineFeed[:1:1]
+	case CellPipeEscape:
+		return b[:len(b)-1]
+	default:
+		if _, prefix := k.owner(); prefix {
+			return nil
+		}
+		return b
+	}
+}
+
 // defined reports whether the label bytes of the pieces from index from to
 // index to, normalized, are a defined label. The label cap is checked before
 // the label is read: at most 999 bytes, or at most 3,996 bytes and 999
@@ -202,15 +224,7 @@ func (s *inlineParser) reference(b bracket) (LinkForm, bool) {
 func (s *inlineParser) defined(from, to int) bool {
 	size := 0
 	for j := from; j < to; j++ {
-		switch k := s.pieces[j].kind; k {
-		case Indent:
-		case LineEnding, VerbatimLineEnding:
-			size++
-		default:
-			if _, prefix := k.owner(); !prefix {
-				size += int(s.pieces[j].end - s.startOf(j))
-			}
-		}
+		size += len(s.labelBytes(j))
 	}
 	if size > 3996 {
 		return false
@@ -218,7 +232,7 @@ func (s *inlineParser) defined(from, to int) bool {
 	if size > 999 {
 		chars := 0
 		for j := from; j < to; j++ {
-			for _, c := range s.src[s.startOf(j):s.pieces[j].end] {
+			for _, c := range s.labelBytes(j) {
 				if c&0xC0 != 0x80 {
 					chars++
 				}
@@ -264,6 +278,12 @@ func (t *Tree) AppendLinkLabel(dst []byte, id NodeID) []byte {
 	for i := uint32(id) + 1; i < t.nodes[id].link; i++ {
 		switch m := t.nodes[i]; {
 		case m.kind.class() == classStructure:
+			// A structure before the label holds none of its bytes. Reading it
+			// again for each nested reference costs O(n^2).
+			if brackets < first {
+				i = m.link - 1
+				continue
+			}
 			nested = max(nested, m.link)
 		case m.kind == Bracket && i >= nested:
 			if brackets++; brackets > first {

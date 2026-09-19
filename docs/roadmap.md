@@ -39,7 +39,9 @@ section numbers are cited below as "design 5.4".
 
 ## Current state
 
-Last updated: 2026-09-17. Everything is pushed; v0.0.1 is the first release.
+Last updated: 2026-09-19. v0.0.1 is the first release. `main` is pushed and
+holds the CLI changes after v0.0.1. `feat/phase0-gates` is not merged or
+pushed.
 
 | Commit | Content |
 | --- | --- |
@@ -58,6 +60,8 @@ Last updated: 2026-09-17. Everything is pushed; v0.0.1 is the first release.
 | `dfc151f` onwards | Stage 6: the canonical style survey, `Source` on the new parser, `FuzzFormat`, dialect predicates and spans in `Equal`, a printer for every node kind, display width from Unicode `EastAsianWidth.txt`, aligned tables, the GitHub printer fixtures and their API check, output bounds, fixes for the `FuzzFormat` findings, and the kept marker rule |
 | `1d28ee8` onwards | Stage 8: CLI directory walking, the goreleaser release and the Homebrew cask, v0.0.1 |
 | The commit after `5d4e86a` | Stage 7: goldmark, `differential_test.go` and `go.sum` removed; the root `go.mod` has no requirements |
+| `4e7fbc0`, `b10d309` (`main`, after v0.0.1) | CLI: `--exclude` replaces the built-in directory skips, double-dash flags, gofmt-style paths, a read limit per input, concurrency from `GOMAXPROCS` |
+| `8322491` onwards (`feat/phase0-gates`) | Parse and format snapshots, pathological inputs from the reviews, benchmarks and `task bench-compare`, the printer split by file, the runtime `Kept` check, pass-through of a block that fails its check, a block with a dialect span printed as written, `FuzzSource`, the exported limits and errors |
 
 Layout:
 
@@ -66,7 +70,8 @@ Layout:
   stdin and writes stdout. It writes files atomically.
 - `.goreleaser.yaml`, `Dockerfile.goreleaser`, `.github/workflows/release.yml`:
   the release, run on a pushed `v` tag.
-- `markfmt.go`: the public API, `Format(w io.Writer, r io.Reader) error`.
+- `markfmt.go`: the public API: `Format(w io.Writer, r io.Reader) error`,
+  `MaxInput`, `MaxOutput`, `ErrTooLarge` and `*InternalError`.
 - `internal/markdown`: the new parser and its tree (stage 1 onwards).
 - `internal/markdown/testdata/<corpus>`: the conformance corpora `commonmark`,
   `gfm`, `cmark-gfm-extensions`, `cmark-gfm-regression` and
@@ -95,13 +100,16 @@ Layout:
 - `internal/markdown/testdata/entities/entities.json`: the source of the
   generated entity table.
 - `internal/format`: the formatter on the new parser. `Source` parses the
-  input, prints it in the canonical style (`print.go`), parses the output and
-  calls `Equal`.
-- `internal/format/testdata/cases`: 189 `NAME.in.md` and `NAME.out.md` pairs.
+  input, prints it in the canonical style (`print.go` and the files it is
+  split into), parses the output, and calls `Equal` and `KeptMismatch`. A
+  top-level block that fails the check prints as written (design 10).
+  `Strict` returns the error instead, for the printer tests.
+- `internal/format/testdata/cases`: 211 `NAME.in.md` and `NAME.out.md` pairs.
   Each GitHub printer fixture has a pair named `github-` and its section.
 - `internal/format/testdata/spec`: CommonMark 0.31.2 examples (goldmark's
   `spec.json`) and goldmark's extra and GFM case files, as idempotence data.
-- `internal/markdown/format_test.go`: `FuzzFormat`, an external test of
+- `internal/markdown/format_test.go`: `FuzzSource` fuzzes
+  `format.Source` as users run it. `FuzzFormat`, an external test of
   `internal/format` against the test HTML (design 10.5). Its seeds are every
   corpus, the pairs, `testdata/cases`, and in `testdata/fuzz/FuzzFormat` the
   inputs that the fuzzer found, each fixed. `TestFormatSource` bounds the
@@ -109,7 +117,11 @@ Layout:
   time of `Source` at n and 10n bytes for the pathological inputs and the
   inputs that deep nesting makes slow in the printer, and its long subtest
   runs them at the input limit within the time and memory budget.
-- `tools/go.mod`: golangci-lint v2.13.2, kept out of the root `go.mod`, which
+- `internal/markdown/testdata/snapshot`: the tree and the output of every
+  corpus input. `task snapshot` updates them.
+- `internal/markdown/testdata/bench`: the frozen inputs of the benchmarks.
+  `task bench` and `task bench-compare BASE=main` run them.
+- `tools/go.mod`: golangci-lint v2.13.2 and benchstat, kept out of the root `go.mod`, which
   has no requirements (product rule 8).
 - `docs/design/parser.md`: the parser design.
 - `.scratch/design-research/` (local only, not tracked): the research reports
@@ -132,9 +144,9 @@ Layout:
 | Remove goldmark completely | It is a temporary test oracle only. See stage 7 for the exit criteria. |
 | Test-only HTML renderer | The specs give expected results only as HTML. The renderer lives in `_test.go` files, never in the binary or the API. |
 | Grammar scope: CommonMark, GFM, front matter, and GitHub footnotes | Most users expect what GitHub renders. GitHub math and alerts are HTML filters, not grammar: the runtime check compares every input they read, so no math or alert kinds exist. Design 9. |
-| Dialect rows and predicates | Where GitHub and CommonMark 0.31.2 disagree, a `dialect.md` row records it. At stage 6 a predicate finds each span, `Equal` compares spans both ways with their bytes, and the printer keeps them. Design 2.1, 10.4. |
+| Dialect rows and predicates | Where GitHub and CommonMark 0.31.2 disagree, a `dialect.md` row records it. At stage 6 a predicate finds each span, `Equal` compares spans both ways with their bytes, and the printer prints each top-level block that holds one as written. Design 2.1, 10.4. |
 | Input limit 8 MiB, output limit 16 MiB | Constants, not options, chosen from a 4 GiB worst-case memory budget. Design 7.2. |
-| `Format` recovers panics | A parser or printer bug returns an error and writes nothing, so one bad file does not stop the CLI. Design 1. |
+| `Format` recovers panics | A parser or printer bug returns an `*InternalError` and writes nothing, so one bad file does not stop the CLI. The error holds the stack, and `Error()` leaves it out; the CLI prints it. Design 1. |
 | One grammar in production and tests | No test-only grammar switch. Core examples that markfmt's GFM or front matter rules change are listed in `grammar-differs.txt`, each with a case of markfmt's expected result. Design 11.2. |
 | Streaming not planned | The documents that would need it are one top-level block, so per-block streaming would not help. Design 7.4. |
 | Design document at `docs/design/parser.md` | It is reviewed and versioned with the code. |
@@ -146,6 +158,8 @@ Layout:
 | Code spans, definition titles and label lengths follow the spec where cmark does not | cmark 0.31.1 and cmark-gfm leave the second code span of `a `` b `c` d `e`` as text, a bug in their search record. They also keep a failed definition title as the title of the link, and cap a link label at 1000 bytes, not 999 characters. The spec text and commonmark.js agree on all three. The user asked to prefer the spec and the result users expect, 2026-09-13. `dialect.md` has the rows. |
 | Canonical style by consensus | The style follows modern best practice across the major formatters and style guides, not personal preference. The survey of 2026-09-13 read the source and docs of Prettier 3.9.6, dprint-plugin-markdown 0.24.0 (`deno fmt` pins 0.20.0), mdformat 1.0.0 with mdformat-gfm 1.0.0, markdownlint 0.41.1, and the Google Markdown style guide at `895579e`. A source that keeps the input form, or accepts any consistent form, has no vote. The rows below give the votes. Design appendix B lists the exceptions that keep meaning. |
 | A directory path gives its `.md` and `.markdown` files, in lexical order, outside hidden files and directories and the `--exclude` patterns. A file path is formatted whatever its extension. | `.md` and `.markdown` are the extensions that GitHub and most tools read as Markdown. gofmt also skips names that start with a dot, and hidden directories hold tool state. Skips by name such as `testdata` or `node_modules` guess at a project's layout, so `--exclude` names them. A pattern matches a name or the printed path with `filepath.Match`. A path named on the command line is walked even when a skip would match it. |
+| A block whose canonical form fails the check keeps the bytes of the input | The owner's principle, 2026-09-18: format what can be formatted, and pass through what cannot, without breaking the document. The check names a node, the block of the document that holds it prints as the input holds it, and the check runs again, at most 4 times; the whole input stays as it is after that. `format.Strict` keeps the error for the printer tests, so a block that keeps its bytes still fails `FuzzFormat`. Design 10. |
+| The runtime check compares `Kept` as well as `Equal` | `Equal` reads values, where GitHub can read the bytes of an escape, an entity, a label or an invalid byte. The owner chose runtime checks that are cheap: 7.7% on unformatted input, and none on formatted input, which skips the check. |
 | The CLI formats files at once while their input bytes stay within the input limit, and each file counts at least the limit divided by `GOMAXPROCS` | Peak memory follows the input bytes being formatted (design 7.2), so the budget of one largest input holds for a run. The CLI reads at most one byte past the limit, and counts the bytes it read. The floor bounds the files at once to `GOMAXPROCS`, which follows a container's CPU limit. A check of `~/Development` (1,383 unformatted files) took 1.0 s and 28 MB, 2026-09-17. |
 | Bullet `-`, and `*` for the next adjacent sibling list | Prettier (`print/list.js`), dprint (`generate.rs`), mdformat (`renderer/_util.py`). Google uses `*`. markdownlint: consistent. |
 | Ordered delimiter `.`, and `)` for the next adjacent sibling list | Prettier, dprint, mdformat. Google and markdownlint have no rule. |
@@ -164,7 +178,7 @@ Layout:
 | A table stays directly below a paragraph that it split off when the paragraph starts with `[` | After a blank line, the paragraph would start with a link reference definition (design 5.4). Other paragraphs get a blank line before the table. |
 | Task boxes `[ ]` and `[x]`, with one space after them | GitHub reads `x` and `X` as checked, and its docs write `[x]`. |
 | A list item's content starts on its marker line, unless the content starts with columns that padding would take | Padding takes up to 4 columns, so such content keeps a blank first line (spec 5.2). A block quote writes its content on its marker line. |
-| A list's padding grows past the indentation of an HTML block or code block after the list, and past a list whose first item keeps the columns of its input marker | Otherwise the block would continue the last item. An item whose dialect span has a lazy line keeps its input columns (design 10.4). When more than 4 columns of padding would be needed, the list keeps its input layout. |
+| A list's padding grows past the indentation of an HTML block or code block after the list, and past a list whose first item keeps the columns of its input marker | Otherwise the block would continue the last item. When more than 4 columns of padding would be needed, the list keeps its input layout. |
 | Strikethrough `~~` | GitHub reads `~` and `~~` the same, and its docs write `~~`. No `~` goes next to a `~~` delimiter (design appendix B, trap 13). |
 | Emphasis and strikethrough keep their input delimiters where the canonical delimiter could pair differently, or could change a construct next to them | `_` flanks differently from `*` inside words and next to symbols (spec 6.2, trap 19). A node whose content has a character of its delimiters keeps them, so that a second format decides the same. An underscore in the last two segments of a domain keeps an extended autolink from forming (design 6.2), so a node in such a word keeps its delimiters. |
 | A code span has the shortest fence that its value does not hold, and one space of padding where the input has it or the value needs it | Prettier chooses the shortest run that the content does not hold (`print/mdast.js`). A code span over lines or with a cell pipe escape keeps its bytes. Padding stays because its space can keep the text around the code span from forming an inline link destination or a definition, which hold no space (appendix B, trap 22). Changed 2026-09-16. |
@@ -365,7 +379,37 @@ fixture yet.
   the output limit.
 - [x] Dialect predicates and spans in `Equal` (design 10.4).
 - [ ] `FuzzFormat`: no check mismatch on any input, and equal test HTML for
-  input and output (design 10.5).
+  input and output (design 10.5). Nine findings of 2026-09-17 are fixed, each
+  with a case and a seed: the kept blank lines of a quote, a kept marker at
+  the column where its list continues, a definition below a definition, the
+  padding of a lazy line, the first line of code that prints as a fence, a
+  link tail line ending, the indentation of a span line with a tab, the sign
+  of a kept marker, and a table below the paragraph that it split.
+
+  Five more findings of 2026-09-18 are fixed with the column model: the
+  printer now knows the column it writes at and the column each container
+  continues on, so a kept marker moves left to clear the list above it and
+  pads itself back to its own columns. The others are a marker below a list
+  that a block separates, a block's first line in both hard break forms, the
+  bullet risk of a table that prints with pipes, and the indentation of a
+  label line.
+
+  Twenty-five minutes of fuzzing then gives `"* 0\r--\n  |-"`: an item holds
+  a paragraph and a table whose header row is `--`. The header prints as
+  `| --  |`, which reads as the delimiter row of the paragraph above it, so
+  the paragraph becomes the header. Every layout fails: a blank line between
+  them makes the list loose, printing the table as written gives `--`, which
+  reads as a delimiter row as well, and a delimiter cell takes only spaces,
+  dashes and colons, so no padding breaks the shape. `Source` returns an
+  error, so no output is wrong.
+
+  The owner chose on 2026-09-18 to pass such a block through: `Source`
+  keeps the bytes of the block that the check names, and `Strict` still
+  fails, so the finding stays open for the printer.
+
+  On 4,000 real files (39 MB of module caches) the branch gives the output of
+  main, byte for byte, with no error, and formatting them again changes
+  nothing (2026-09-17).
 - [x] Move `internal/format` to the new parser and delete the goldmark-based
   code. Keep `testdata/cases` and make every case pass.
 
@@ -398,8 +442,8 @@ files can stay as data, with their MIT notice.
 
 ### Stage 8: product
 
-- [x] CLI directory walking that skips `testdata`, hidden directories and
-  vendored code. Concurrent work is limited by input bytes.
+- [x] CLI directory walking that skips hidden files and directories and the
+  `--exclude` patterns. Concurrent work is limited by input bytes.
 - [x] Release setup: goreleaser, version stamping, `release.yml`, Homebrew
   tap. Follow hamnir's conventions. v0.0.1 released on 2026-09-17: archives,
   signed checksums, SBOMs, attestations, the GHCR image and the cask all

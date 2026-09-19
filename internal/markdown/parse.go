@@ -25,6 +25,7 @@ func parse(src []byte, trace func(l line, matched, end int, continuation bool)) 
 	}
 	t := parseBlocks(src, &defs, false, trace)
 	defs.finish()
+	t.spans = t.findDialectSpans()
 	return t
 }
 
@@ -32,7 +33,13 @@ func parse(src []byte, trace func(l line, matched, end int, continuation bool)) 
 // and drops its nodes whenever only the document is open at a line boundary,
 // so it holds one top-level block at a time.
 func parseBlocks(src []byte, defs *definitions, pass1 bool, trace func(line, int, int, bool)) *Tree {
-	p := blockParser{b: newBuilder(src), src: src, defs: defs, pass1: pass1, trace: trace}
+	// Pass 1 drops its nodes at each top-level boundary, so it stays small.
+	// Pass 2 keeps them: the corpora hold about 0.12 nodes per input byte.
+	nodes := 0
+	if !pass1 {
+		nodes = len(src)/6 + 16
+	}
+	p := blockParser{b: newBuilder(src, nodes), src: src, defs: defs, pass1: pass1, trace: trace}
 	p.inline = inlineParser{b: p.b, src: src, defs: defs}
 	p.b.open(Document)
 	p.containers = append(p.containers, container{kind: Document})

@@ -14,6 +14,11 @@ import (
 func Equal(a, b *Tree) error {
 	c := comparer{a: a, b: b}
 	pa, pb := newProjection(a), newProjection(b)
+	// spanEnd is one past the last node of the dialect span of a that Equal
+	// read last. A span inside it needs no read of its own: the read of the
+	// span that holds it covered its bytes and its lines, and the events
+	// compare the value of each run on both sides of its bounds.
+	spanEnd := uint32(0)
 	for {
 		ea, okA := pa.next()
 		eb, okB := pb.next()
@@ -34,8 +39,11 @@ func Equal(a, b *Tree) error {
 		if err := c.compare(ea, okA, eb, okB); err != nil {
 			return err
 		}
-		if ea.op == enterEvent && ea.rows != 0 && !equalSpans(&pa, ea.id, &pb, eb.id) {
-			return fmt.Errorf("markdown: different dialect spans: %s against %s", describe(a, ea, okA), describe(b, eb, okB))
+		if ea.op == enterEvent && ea.rows != 0 && uint32(ea.id) >= spanEnd {
+			if !equalSpans(&pa, ea.id, &pb, eb.id) {
+				return &MismatchError{At: ea.id, msg: fmt.Sprintf("markdown: different dialect spans: %s against %s", describe(a, ea, okA), describe(b, eb, okB))}
+			}
+			spanEnd = a.nodes[ea.id].link
 		}
 	}
 }
@@ -43,6 +51,13 @@ func Equal(a, b *Tree) error {
 type comparer struct {
 	a, b           *Tree
 	labelA, labelB []byte // normalized labels, bounded by the label cap
+
+	// The readers are fields, so that a comparison of a content run or a key
+	// allocates nothing.
+	runA, runB   runReader
+	infoA, infoB valueReader
+	textA, textB verbatimReader
+	codeA, codeB codeSpanReader
 }
 
 // compare reports the difference between event ea of a and event eb of b.
@@ -62,14 +77,32 @@ func (c *comparer) compare(ea event, okA bool, eb event, okB bool) error {
 		what = "different keys"
 	case ea.op == contentEvent && ea.group != eb.group:
 		what = "different content groups"
-	case ea.op == contentEvent && !equalPieces(
-		&runReader{t: c.a, i: uint32(ea.id), end: uint32(ea.end)},
-		&runReader{t: c.b, i: uint32(eb.id), end: uint32(eb.end)}):
+	case ea.op == contentEvent && !c.equalRuns(ea, eb):
 		what = "different content"
 	default:
 		return nil
 	}
-	return fmt.Errorf("markdown: %s: %s against %s", what, describe(c.a, ea, okA), describe(c.b, eb, okB))
+	at := NodeID(0)
+	if okA {
+		at = ea.id
+	}
+	return &MismatchError{At: at, msg: fmt.Sprintf("markdown: %s: %s against %s", what, describe(c.a, ea, okA), describe(c.b, eb, okB))}
+}
+
+// A MismatchError is a difference that [Equal] or [KeptMismatch] finds
+// between two trees. At is the node of the first tree where they part, or 0
+// where the first tree has no node there.
+type MismatchError struct {
+	At  NodeID
+	msg string
+}
+
+func (m *MismatchError) Error() string { return m.msg }
+
+func (c *comparer) equalRuns(ea, eb event) bool {
+	c.runA = runReader{t: c.a, i: uint32(ea.id), end: uint32(ea.end)}
+	c.runB = runReader{t: c.b, i: uint32(eb.id), end: uint32(eb.end)}
+	return equalPieces(&c.runA, &c.runB)
 }
 
 func describe(t *Tree, e event, ok bool) string {
@@ -103,12 +136,12 @@ func (c *comparer) equalKeys(ia, ib NodeID) bool {
 	case Heading:
 		return a.HeadingLevel(ia) == b.HeadingLevel(ib)
 	case CodeBlock:
-		infoA, infoB := a.infoReader(ia), b.infoReader(ib)
-		ra, rb := newVerbatimReader(a, ia, CodeText), newVerbatimReader(b, ib, CodeText)
-		return equalPieces(&infoA, &infoB) && equalPieces(&ra, &rb)
+		c.infoA, c.infoB = a.infoReader(ia), b.infoReader(ib)
+		c.textA, c.textB = newVerbatimReader(a, ia, CodeText), newVerbatimReader(b, ib, CodeText)
+		return equalPieces(&c.infoA, &c.infoB) && equalPieces(&c.textA, &c.textB)
 	case HTMLBlock:
-		ra, rb := newVerbatimReader(a, ia, HTMLText), newVerbatimReader(b, ib, HTMLText)
-		return equalPieces(&ra, &rb)
+		c.textA, c.textB = newVerbatimReader(a, ia, HTMLText), newVerbatimReader(b, ib, HTMLText)
+		return equalPieces(&c.textA, &c.textB)
 	case Autolink:
 		return a.AutolinkAngle(ia) == b.AutolinkAngle(ib) && a.AutolinkEmail(ia) == b.AutolinkEmail(ib)
 	case Link, Image:
@@ -122,8 +155,8 @@ func (c *comparer) equalKeys(ia, ib NodeID) bool {
 		c.labelA, c.labelB = a.AppendLinkLabel(c.labelA[:0], ia), b.AppendLinkLabel(c.labelB[:0], ib)
 		return bytes.Equal(c.labelA, c.labelB)
 	case CodeSpan:
-		ra, rb := newCodeSpanReader(a, ia), newCodeSpanReader(b, ib)
-		return equalPieces(&ra, &rb)
+		c.codeA, c.codeB = newCodeSpanReader(a, ia), newCodeSpanReader(b, ib)
+		return equalPieces(&c.codeA, &c.codeB)
 	case LinkReferenceDefinition:
 		c.labelA, c.labelB = a.AppendLabel(c.labelA[:0], ia), b.AppendLabel(c.labelB[:0], ib)
 		return bytes.Equal(c.labelA, c.labelB)
@@ -183,7 +216,7 @@ type projection struct {
 }
 
 func newProjection(t *Tree) projection {
-	p := projection{t: t, spans: t.dialectSpans()}
+	p := projection{t: t, spans: t.spans}
 	p.dialect, p.walk.t = len(p.spans) > 0, t
 	return p
 }
@@ -217,7 +250,11 @@ func (p *projection) next() (event, bool) {
 			for len(p.spans) > 0 && p.spans[0].id <= i {
 				if p.spans[0].id == i {
 					e.rows = p.spans[0].rows
-					p.spanWalk = containerWalk{t: p.t, col: p.walk.col, chain: slices.Clone(p.walk.chain)}
+					// The chain is shared, not copied: a container that is open
+					// at a span stays open until after the span, so the walk
+					// never rewrites these entries, and the full capacity makes
+					// an append by the span's own walk copy.
+					p.spanWalk = containerWalk{t: p.t, col: p.walk.col, chain: slices.Clip(p.walk.chain)}
 				}
 				p.spans = p.spans[1:]
 			}
@@ -370,13 +407,13 @@ func (r *runReader) next() []byte {
 }
 
 // equalSpans reports whether the dialect spans ia of pa's tree and ib of pb's
-// tree, which the projections entered last, have equal bytes outside prefix
-// leaves, and the same number of matched containers on each line after the
-// first that is not blank (design 10.4).
+// tree, which the projections entered last, have equal bytes and equal lines
+// (design 10.4): the same containers matched on each line after the first
+// that is not blank, and the same columns of indentation before its content.
 func equalSpans(pa *projection, ia NodeID, pb *projection, ib NodeID) bool {
 	a, b := pa.t, pb.t
-	ra := spanReader{t: a, i: uint32(ia) + 1, end: a.nodes[ia].link}
-	rb := spanReader{t: b, i: uint32(ib) + 1, end: b.nodes[ib].link}
+	ra := spanReader{t: a, span: uint32(ia), i: uint32(ia) + 1, end: a.nodes[ia].link}
+	rb := spanReader{t: b, span: uint32(ib), i: uint32(ib) + 1, end: b.nodes[ib].link}
 	if !equalPieces(&ra, &rb) {
 		return false
 	}
@@ -394,13 +431,18 @@ func equalSpans(pa *projection, ia NodeID, pb *projection, ib NodeID) bool {
 	}
 }
 
-// spanReader reads the bytes of the leaves of a dialect span that are not
-// prefix leaves or code indentation, with a split tab as its virt spaces
-// (design 4.3) and each line ending as a line feed. Code indentation is not
-// read because it can take columns inside a split tab too, where no leaf
-// holds them.
+// spanReader reads the bytes of the leaves of a dialect span, with each line
+// ending as a line feed.
+//
+// It does not read the prefix leaves of the span or of the containers around
+// it, which print in the canonical style, nor any indentation: indentation
+// means its columns, which a tab writes from the column that it starts at,
+// and spanLines compares them. It reads the markers of the containers inside
+// the span, because past 99 blocks on a line GitHub reads a marker as text
+// (dialect.md), except for the spaces after a marker that ends its line.
 type spanReader struct {
 	t       *Tree
+	span    uint32
 	i, end  uint32
 	b       []byte // the rest of the last leaf
 	last    byte   // the last byte read
@@ -431,16 +473,25 @@ func (r *spanReader) read() []byte {
 		if m.kind.class() == classStructure {
 			continue
 		}
-		if _, prefix := m.kind.owner(); prefix || m.kind == CodeIndent {
+		_, prefix := m.kind.owner()
+		indent := m.kind == Indent || m.kind == CodeIndent || m.kind == ItemIndent || m.kind == FootnoteIndent
+		if indent || prefix && m.link <= r.span {
 			// The leaf is not read, but its line holds it, so the end of the
 			// input ends the line.
 			r.last, r.started = ' ', true
 			continue
 		}
 		r.b = r.t.src[m.start:m.end]
+		if prefix && (r.i == r.end || r.t.nodes[r.i].kind == BlankLine || r.t.nodes[r.i].kind == LineEnding) {
+			r.b = bytes.TrimRight(r.b, " \t")
+		}
 		if m.virt > 0 {
+			// The rest of a split tab (design 4.3) is indentation, except in
+			// code and HTML, where it is spaces of the value.
 			r.b = r.b[1:]
-			return spaces[:m.virt:m.virt]
+			if m.kind == CodeText || m.kind == HTMLText {
+				return spaces[:m.virt:m.virt]
+			}
 		}
 	}
 	b := r.b
@@ -456,37 +507,56 @@ func (r *spanReader) read() []byte {
 	return lineFeed[:1:1]
 }
 
-// spanLines yields the number of containers that each line of a dialect span
-// matched, for the lines after its first line that are not blank.
+// spanLine is a line of a dialect span: the containers that it matched, and
+// the columns of indentation between their prefixes and its content, which a
+// tab gives from the column that it starts at.
+type spanLine struct{ matched, indent int }
+
+// spanLines yields the lines of a dialect span after its first line that are
+// not blank.
 type spanLines struct {
 	w         containerWalk // at the span node
 	i, end    uint32
 	lineStart bool
 }
 
-func (s *spanLines) next() (int, bool) {
+func (s *spanLines) next() (spanLine, bool) {
 	t := s.w.t
+	var line spanLine
+	pending, base := false, 0
 	for s.i < s.end {
 		i := s.i
 		s.i++
 		n := t.nodes[i]
-		matched, found := 0, false
-		if s.lineStart && n.kind.class() != classStructure {
+		leaf := n.kind.class() != classStructure
+		if s.lineStart && leaf {
 			s.lineStart = false
 			if !t.blankRest(i, s.end) {
-				matched, _ = s.w.matched(i)
-				found = true
+				line.matched, base = s.w.matched(i)
+				pending = true
 			}
 		}
-		s.w.visit(i)
-		if c := t.src[n.end-1]; n.kind.class() != classStructure && (c == '\n' || c == '\r') {
+		start, _ := s.w.visit(i)
+		if !leaf {
+			continue
+		}
+		if c := t.src[n.end-1]; c == '\n' || c == '\r' {
 			s.lineStart = true
 		}
-		if found {
-			return matched, true
+		if !pending {
+			continue
+		}
+		if _, prefix := n.kind.owner(); !prefix && n.kind != Indent && n.kind != CodeIndent {
+			line.indent = start - base
+			if n.kind != CodeText && n.kind != HTMLText {
+				// The rest of a split tab at the start of the leaf is
+				// indentation, where code and HTML read it as spaces.
+				line.indent += int(n.virt)
+			}
+			return line, true
 		}
 	}
-	return 0, false
+	return spanLine{}, false
 }
 
 // blankRest reports whether the line from leaf i, before node end, has only

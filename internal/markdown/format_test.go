@@ -38,9 +38,9 @@ func TestFormatSource(t *testing.T) {
 		// The largest output-to-input ratio is a stage 6 gate (design 12).
 		largest, largestIn := 0.0, []byte(nil)
 		for _, src := range inputs {
-			out, err := format.Source(src)
+			out, err := format.Strict(src)
 			if err != nil {
-				t.Fatalf("Source(%q) error: %v", src, err)
+				t.Fatalf("Strict(%q) error: %v", src, err)
 			}
 			if ratio := float64(len(out)) / float64(max(len(src), 1)); ratio > largest {
 				largest, largestIn = ratio, src
@@ -53,6 +53,10 @@ func TestFormatSource(t *testing.T) {
 	})
 
 	t.Run("pathological", func(t *testing.T) {
+		if testing.Short() {
+			t.Skip("the pathological subtests measure time, which takes about 20 s")
+		}
+
 		inputs := formatInputs()
 		for _, name := range slices.Sorted(maps.Keys(inputs)) {
 			if name == "empty" {
@@ -138,6 +142,15 @@ func formatInputs() map[string]func(n int) []byte {
 	inputs["nested list items then an HTML block of one long line"] = func(n int) []byte {
 		return []byte(strings.Repeat("- ", n/4) + "a\n\n<div " + strings.Repeat("a", n/2))
 	}
+	inputs["escapes before emphasis"] = func(n int) []byte {
+		return []byte(strings.Repeat("\\!", n/2) + "*a*")
+	}
+	inputs["nested block quotes then blank quote lines"] = func(n int) []byte {
+		return []byte(strings.Repeat(">", n/2) + "a\n" + strings.Repeat(">\n", n/4))
+	}
+	inputs["nested strong emphasis"] = func(n int) []byte {
+		return []byte(strings.Repeat("**", n/4) + "a" + strings.Repeat("**", n/4))
+	}
 	inputs["emphasis in nested emphasis"] = func(n int) []byte {
 		return []byte(strings.Repeat("*a ", n/6) + strings.Repeat("*b* ", n/8) + strings.Repeat("a* ", n/6))
 	}
@@ -206,6 +219,35 @@ func formatChild(t *testing.T, spec string) {
 	fmt.Printf("markfmt-format-long %d %d %d %q\n", d, len(src), len(out), msg)
 }
 
+// FuzzSource checks what users run: format.Source keeps the bytes of a block
+// that it cannot format, so it never fails below the input limit, never
+// changes the test HTML or the kept syntax, and gives the same output again.
+func FuzzSource(f *testing.F) {
+	for _, src := range markdown.CorpusInputs(f) {
+		f.Add(src)
+	}
+	f.Add([]byte("* 0\r--\n  |-"))
+
+	f.Fuzz(func(t *testing.T, src []byte) {
+		if len(src) > format.MaxInput {
+			return
+		}
+		out, err := format.Source(src)
+		if err != nil {
+			t.Fatalf("Source(%q) error: %v", src, err)
+		}
+		if in, got := markdown.RenderTestHTML(markdown.Parse(src)), markdown.RenderTestHTML(markdown.Parse(out)); in != got {
+			t.Fatalf("Source(%q) = %q, whose test HTML differs:\n %q\n %q", src, out, in, got)
+		}
+		if in, got := markdown.Kept(markdown.Parse(src)), markdown.Kept(markdown.Parse(out)); !slices.Equal(in, got) {
+			t.Fatalf("Source(%q) = %q, whose kept syntax differs:\n %q\n %q", src, out, in, got)
+		}
+		if again, err := format.Source(out); err != nil || !bytes.Equal(again, out) {
+			t.Fatalf("Source is not idempotent\ninput: %q\n once: %q\ntwice: %q, %v", src, out, again, err)
+		}
+	})
+}
+
 // FuzzFormat checks the formatter against the test HTML, so that Equal is not
 // its own oracle (design 10.5).
 func FuzzFormat(f *testing.F) {
@@ -225,13 +267,13 @@ func FuzzFormat(f *testing.F) {
 	}
 
 	f.Fuzz(func(t *testing.T, src []byte) {
-		out, err := format.Source(src)
+		out, err := format.Strict(src)
 		if err != nil {
-			t.Fatalf("Source(%q) error: %v", src, err)
+			t.Fatalf("Strict(%q) error: %v", src, err)
 		}
-		again, err := format.Source(out)
+		again, err := format.Strict(out)
 		if err != nil {
-			t.Fatalf("Source(%q), the output of Source(%q), error: %v", out, src, err)
+			t.Fatalf("Strict(%q), the output of Strict(%q), error: %v", out, src, err)
 		}
 		if !bytes.Equal(again, out) {
 			t.Fatalf("Source is not idempotent\ninput: %q\n once: %q\ntwice: %q", src, out, again)

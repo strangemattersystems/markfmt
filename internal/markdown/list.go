@@ -69,6 +69,9 @@ func (p *blockParser) startItem(m listMarker, indent, matched int) {
 	p.closeUnmatched(matched)
 	p.appendPrefix()
 	p.addChild()
+	// A list is content of the container that holds it, as every block but a
+	// paragraph is when it starts (startBlock).
+	p.containers[len(p.containers)-1].content = true
 	if !same {
 		p.b.open(List)
 		p.push(container{kind: List, node: p.b.top(), marker: m.char})

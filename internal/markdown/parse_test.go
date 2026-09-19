@@ -216,6 +216,62 @@ func TestParse(t *testing.T) {
 		}
 	})
 
+	t.Run("gives a task box to the first block of an item that is not a definition", func(t *testing.T) {
+		t.Parallel()
+
+		// Design 6.5: every line of a paragraph can be a definition, so the
+		// first block that remains is the one that can hold a box.
+		for _, tt := range []struct {
+			name string
+			src  string
+			want int
+		}{
+			{"the first block of the item", "- [ ] a\n", 1},
+			{"a later block of the item", "- a\n\n  [ ] b\n", 0},
+			{"the first block after definitions alone", "- [x]: /u\n\n  [ ] b\n", 1},
+			{"a block after a list", "- - a\n\n  [x] b\n", 0},
+			{"a block after a list of an empty item", "-\n  -\n\n  [x] b\n", 0},
+		} {
+			t.Run(tt.name, func(t *testing.T) {
+				t.Parallel()
+
+				tree := Parse([]byte(tt.src))
+				if err := tree.Verify(); err != nil {
+					t.Fatal(err)
+				}
+				if n := countKind(tree, TaskBox); n != tt.want {
+					t.Fatalf("Parse(%q) gives %d task boxes, want %d", tt.src, n, tt.want)
+				}
+			})
+		}
+	})
+
+	t.Run("counts a label without the indentation of its lines", func(t *testing.T) {
+		t.Parallel()
+
+		// 997 characters of two bytes, a line ending and one character make a
+		// label of 999. Indentation is not part of a paragraph's content, so
+		// it is not part of the label (design 6.7).
+		label := strings.Repeat("é", 997) + "\n  a"
+		src := "[" + label + "]\n\n[" + label + "]: /u\n"
+		if n := countKind(Parse([]byte(src)), Link); n != 1 {
+			t.Fatalf("Parse gives %d links, want 1", n)
+		}
+	})
+
+	t.Run("counts a cell pipe escape in a label as one character", func(t *testing.T) {
+		t.Parallel()
+
+		// In a cell the pair "\|" is one character of the label, so the
+		// reference and the definition hold the same label of 999
+		// characters (design 6.7).
+		label := strings.Repeat("é", 998)
+		src := "| [" + label + `\|` + "] |\n| - |\n\n[" + label + "|]: /u\n"
+		if n := countKind(Parse([]byte(src)), Link); n != 1 {
+			t.Fatalf("Parse gives %d links, want 1", n)
+		}
+	})
+
 	t.Run("ends a table above 524,288 missing cells", func(t *testing.T) {
 		t.Parallel()
 
@@ -240,6 +296,10 @@ func TestParse(t *testing.T) {
 	})
 
 	t.Run("pathological", func(t *testing.T) {
+		if testing.Short() {
+			t.Skip("the pathological subtests measure time, which takes about 20 s")
+		}
+
 		for _, in := range pathologicalInputs {
 			t.Run(in.name, func(t *testing.T) {
 				// The 10n run takes at least 50 ms, so the n run is long enough to
@@ -463,6 +523,35 @@ var pathologicalInputs = []struct {
 	}},
 	{"nested footnote references across lines", func(n int) []byte {
 		return []byte(strings.Repeat("[^\n", n/4) + "a" + strings.Repeat("]", n/4))
+	}},
+	{"definitions then a line of trailing spaces", func(n int) []byte {
+		return []byte(strings.Repeat("[a]: b\n", n/14) + "x" + strings.Repeat(" ", n/2))
+	}},
+	{"nested full reference images", func(n int) []byte {
+		k := n / 6
+		return []byte(strings.Repeat("![", k) + "a" + strings.Repeat("][x]", k) + "\n\n[x]: u")
+	}},
+	{"nested dialect spans", func(n int) []byte {
+		var b []byte
+		for j := 1; len(b) < n; j++ {
+			b = append(append(b, strings.Repeat(">", j)...), '\n')
+			b = append(append(b, strings.Repeat(">", j+99)...), "- x\n"...)
+		}
+		return b
+	}},
+	{"table cells with dialect spans in nested block quotes", func(n int) []byte {
+		k := max(n/16, 1)
+		row := strings.Repeat(">", k) + "|" + strings.Repeat("£*a*|", k) + "\n"
+		return []byte(row + strings.Repeat(">", k) + "|" + strings.Repeat("-|", k) + "\n" + row)
+	}},
+	{"brackets without closers", func(n int) []byte {
+		return []byte(strings.Repeat("[", n))
+	}},
+	{"emphasis characters in pairs", func(n int) []byte {
+		return []byte("a" + strings.Repeat("*_", n/2))
+	}},
+	{"lines that end with a carriage return", func(n int) []byte {
+		return []byte(strings.Repeat("a\r", n/2))
 	}},
 	{"tables with many rows", func(n int) []byte {
 		return []byte("| a |\n| - |\n" + strings.Repeat("| b |\n", n/6))

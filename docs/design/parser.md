@@ -76,8 +76,8 @@ Decision:
   `<search>` after a paragraph line, the paragraph and the HTML block; for
   flanking next to a symbol, the smallest block with inline content
   (paragraph, heading or table cell).
-- `Equal` compares dialect spans (section 10.4), and the printer keeps their
-  bytes (section 12).
+- `Equal` compares dialect spans (section 10.4), and the printer prints each
+  top-level block that holds one as written (section 12).
 
 Known divergences at draft 3:
 
@@ -703,8 +703,9 @@ in one pre-pass and holds only what a node's own kind needs.
 | Input | 8 MiB | Worst case 3.85 GiB peak, measured at stage 6 for block quotes nested on one line; real documents about 120 to 140 MiB. |
 | Output | 16 MiB, absolute | The printer writes into a writer that fails at the limit, so it never builds more. Appendix B bounds each expanding rule, so real files stay far below it. |
 
-Both limits are constants, not options. `Format` returns an error above
-either. The long test (section 11.1) measures peak memory in a child process
+Both limits are constants, not options: `markfmt.MaxInput` and
+`markfmt.MaxOutput`. Above either, `Format` returns an error that wraps
+`markfmt.ErrTooLarge`. The long test (section 11.1) measures peak memory in a child process
 at the input limit: `Parse`, `Verify` and `Equal` of a tree with itself from
 stage 2, and `Format` within the 4 GiB budget from stage 6. The stage 8 CLI limits concurrent work
 by input bytes, not by file count.
@@ -909,8 +910,18 @@ so the filters read the same text in input and output.
 ## 10. Runtime check
 
 `markfmt.Format` parses the input, prints it, parses the output, and calls
-`markdown.Equal`. A mismatch, or a recovered panic, returns an error and
-writes nothing.
+`markdown.Equal` and `markdown.KeptMismatch` (section 12). Output that equals
+the input skips both: it parses to the same tree.
+
+A mismatch does not fail the input. markfmt formats what it can and changes
+nothing that it cannot keep: the mismatch names a node of the input, and the
+block of the document that holds it prints again as the input holds it, with
+LF line endings and the input's blank lines around it. When that block
+already keeps its bytes, the block before it does too, since the canonical
+form of a block can join the next one. After 4 prints, or with no block to
+name, the whole input stays as it is. `format.Strict` keeps the error, for
+the tests of the printer, where a block that keeps its bytes is a bug. A
+recovered panic returns an error and writes nothing.
 
 ### 10.1 Events
 
@@ -982,15 +993,25 @@ adds its set of `Dialect(row)` values to its Enter event. `Equal` requires:
 
 - equal row sets at every event, in both directions, so the printer can neither
   create nor remove a place where GitHub and CommonMark disagree;
-- for each span, equal bytes of the leaves that are not prefix leaves or
-  CodeIndent, with a split tab read as its `virt` spaces (section 4.3) and
-  each line ending as LF (product rule 7). Code indentation can take columns
-  inside a split tab, where no leaf holds them, so its leaves are not read
-  either; the CodeBlock key compares the code. And for
-  each of its lines after the first that is not blank the same number of
-  matched containers, so a lazy line stays lazy. The prefix leaves of a line
-  do not give that number: a container that consumes columns only inside a
-  split tab has no leaf. The cost is O(span bytes).
+- for each span, equal bytes of its leaves, with each line ending as LF
+  (product rule 7). The bytes leave out the prefix leaves of the span and of
+  the containers around it, which print in the canonical style, and all
+  indentation: `Indent`, `CodeIndent`, `ItemIndent`, `FootnoteIndent`, and
+  the rest of a split tab (section 4.3) outside code and HTML, where those
+  columns are spaces of the value. The markers of the containers inside the
+  span are read, because past 99 blocks on a line GitHub reads a marker as
+  text (`dialect.md`), except for the spaces after a marker that ends its
+  line;
+- for each line of the span after the first that is not blank, the same
+  number of matched containers, so a lazy line stays lazy, and the same
+  columns of indentation between their prefixes and its content, which a tab
+  gives from the column where it starts. The prefix leaves of a line do not
+  give either: a container that consumes columns only inside a split tab has
+  no leaf, so both come from the walk of the containers;
+- a span inside a span is not read again. The read of the outer span covers
+  its bytes and its lines, and the events compare the value of each run on
+  both sides of its bounds, so every span costs O(bytes of the outermost
+  span that holds it).
 
 ### 10.5 Tests of the check
 
@@ -1039,7 +1060,7 @@ adds its set of `Dialect(row)` values to its Enter event. `Equal` requires:
 | Builder checks | Always on. `close()` closes the innermost open node, so mis-nesting cannot be written. |
 | `TestParse` subtest `"pathological"` | Each input of section 6.8 at size n and 10n, where the 10n run takes at least 50 ms. Best of 3. Fails at a ratio above 30. `TestParse` does not call `t.Parallel`, with one comment that gives the reason (timing). |
 | `TestFormatSource` subtests `"pathological"` and `"long"` | The same two tests for `format.Source`, over the inputs of section 6.8, tab-indented code in list items, and the inputs that deep nesting makes slow in the printer. A builder that passes the input limit is called again with a smaller size, because a cut input is a different input. The long subtest fails above a time ratio of 30, or above the 4 GiB budget of section 7.2. |
-| `TestParse` subtest `"long"` | Each input of section 6.8 runs in a child process (the test binary with `-test.run` and an environment variable), at a tenth of the input limit and at the limit. The child builds the input, then times only `Parse`, `Verify` and `Equal` of the tree with itself, best of 3, and reports the times and `len(nodes)` on stdout. The parent fails the input when: the time ratio between the two sizes is above 30; or the time at the limit is above 20 × (bytes × tb + nodes × tn), where tb is prose time per byte and tn is time per node of `>a` lines, both calibrated in the same run (this catches a linear path with a large constant, such as nested label normalization, whatever its node count); or its peak memory is above the bound (at stage 2, 2 GiB: half the 4 GiB `Format` budget, because `Format` parses two trees; from stage 6, the 4 GiB `Format` budget). Peak memory is `Maxrss` from `ProcessState.SysUsage`, converted by `maxrssBytes` (KiB on Linux, bytes on darwin; unit tested with a child that touches a known size), minus the `Maxrss` of a child that runs the same path on an empty input. `TotalAlloc` is not used: `append` growth allocates about 5 times an array's final size. Skipped under the race detector (a `//go:build race` constant in `race_test.go`) and unless `MARKFMT_LONG=1`. Runs as `task long`, without `-race`, in the ubuntu CI job. |
+| `TestParse` subtest `"long"` | Each input of section 6.8 runs in a child process (the test binary with `-test.run` and an environment variable), at a tenth of the input limit and at the limit. The child builds the input, then times only `Parse`, `Verify` and `Equal` of the tree with itself, best of 3, and reports the times and `len(nodes)` on stdout. The parent fails the input when: the time ratio between the two sizes is above 30; or the time at the limit is above 20 × (bytes × tb + nodes × tn), where tb is prose time per byte and tn is time per node of `>a` lines, both calibrated in the same run (this catches a linear path with a large constant, such as nested label normalization, whatever its node count); or its peak memory is above the bound (at stage 2, 2 GiB: half the 4 GiB `Format` budget, because `Format` parses two trees; from stage 6, the 4 GiB `Format` budget). Peak memory is `Maxrss` from `ProcessState.SysUsage`, converted by `maxrssBytes` (KiB on Linux, bytes on darwin; unit tested with a child that touches a known size), minus the `Maxrss` of a child that runs the same path on an empty input. `TotalAlloc` is not used: `append` growth allocates about 5 times an array's final size. Skipped under the race detector (a `//go:build race` constant in `race_test.go`) and unless `MARKFMT_LONG=1`. Runs as `task long`, without `-race`, before a release. |
 
 ### 11.2 Conformance
 
@@ -1189,8 +1210,14 @@ This section records how the cases were found.
 the inputs of every corpus joined, and `docs/design/parser.md`. At stage 3 it
 also parsed them with goldmark v2.0.2 with no extensions, for a manual gate
 recorded with `benchstat` output in the roadmap: parse throughput within 2
-times goldmark's, with pass 1 included. Stage 7 removed goldmark. `benchstat` runs with `go run
-golang.org/x/perf/cmd/benchstat@VERSION`, not from `tools/go.mod`.
+times goldmark's, with pass 1 included. Stage 7 removed goldmark.
+
+`BenchmarkSource` and `BenchmarkPrinter` measure the pipeline, `BenchmarkEqual`
+the meaning check, `BenchmarkPathological` the inputs of section 6.8 at a fixed
+size, and `BenchmarkCheckDir` the CLI over a directory. Their inputs are frozen
+in `internal/markdown/testdata/bench`. `task bench-compare` builds the base and
+the head test binaries and runs them alternately, which holds the noise near
+1%, where consecutive runs vary by 8%. `benchstat` runs from `tools/go.mod`.
 
 ## 12. Printer interface
 
@@ -1205,9 +1232,11 @@ require of it. Appendix B collects printer traps with byte bounds.
   list (appendix B, trap 11), and for each
   dialect span its non-prefix bytes, the number of matched containers on each
   of its lines (so lazy lines stay lazy), and the blank lines before and after
-  it. At stage 6, a `Kept(t)` event stream sits next to the projection, and the
-  fuzz gate asserts it is equal for input and output. Anything outside the set
-  is canonical: code block style, heading style, emphasis character.
+  it. The printer keeps a span's syntax by printing its top-level block as
+  written. A `Kept(t)` event stream sits next to the projection, and the
+  runtime check compares it for input and output (section 10). Anything
+  outside the set is canonical: code block style, heading style, emphasis
+  character.
 - **Kept markers.** A list item that keeps its input marker keeps the
   indentation, number and padding that set its columns. Its bullet or
   delimiter is its list's: the sign decides where a list ends (spec 5.3), and
@@ -1652,8 +1681,8 @@ design, not parser gates.
    escape (section 12). The rule depends on content, not on whether the source
    line was lazy, so it is idempotent (CM 238).
 2. A lazy line stays lazy when its full canonical prefix is longer than its
-   printed content (after trap 1). Inside a dialect span, lazy lines always
-   stay lazy (section 10.4).
+   printed content (after trap 1). A block that holds a dialect span prints
+   as written, so its lazy lines stay lazy (section 10.4).
 3. Adjacent sibling lists of one type alternate the marker by position (`-`,
    `*`; `.`, `)`). No `<!-- -->` separator: it adds a node. An item that keeps
    its input marker writes its list's marker too (section 12).
@@ -1701,8 +1730,8 @@ design, not parser gates.
     indentation in spaces, at most 2.86 bytes of output per input byte. An
     input of such lines near the input limit passes the output limit, and
     `Format` returns an error (section 7.2).
-21. A printed line starts at most 99 blocks, unless a dialect span keeps the
-    line. So a footnote definition stays a definition (section 9.2), and no
+21. A printed line starts at most 99 blocks, unless a block that prints as
+    written holds the line. So a footnote definition stays a definition (section 9.2), and no
     printed line of list items becomes a `dialect.md` span. A container whose
     first child would be block 100 on its line puts that child on the next
     line.

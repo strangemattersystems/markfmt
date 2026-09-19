@@ -2,7 +2,6 @@ package markdown
 
 import (
 	"bytes"
-	"fmt"
 	"os"
 	"path/filepath"
 	"slices"
@@ -117,6 +116,20 @@ func TestEqual(t *testing.T) {
 		for _, pair := range [][2]string{
 			{"a  \n<search>", "a\n<search>"},
 			{"> a\n> b\n<search>", "> a\nb\n<search>"},
+			{"£~!a~", "£~~!a~~"},
+			// GitHub opens no block after 99 on a line, so it reads the 100th
+			// marker as text (dialect.md).
+			{strings.Repeat(">", 99) + "*", strings.Repeat("> ", 99) + "-\n"},
+			{strings.Repeat("- ", 100) + "a", strings.Repeat("- ", 99) + "* a"},
+			// A span right after a span: the paragraph that a table split off,
+			// and a second line of 100 markers.
+			{"a\\|b\n| x |\n| - |\n", "a\\|b\n|x|\n|-|\n"},
+			{strings.Repeat(strings.Repeat("- ", 100)+"a\n", 2), strings.Repeat("- ", 100) + "a\n" + strings.Repeat("- ", 99) + "* a\n"},
+			// Indentation that GitHub reads: an HTML block starts after at most
+			// 3 columns, and past 99 blocks a line of 4 more columns is code.
+			{"a\n    <source>\n", "a\n   <source>\n"},
+			{"> a\n    <b x=1>\n", "> a\n  <b x=1>\n"},
+			{strings.Repeat("- ", 100) + "a\n\n" + strings.Repeat(" ", 202) + "b\n", strings.Repeat("- ", 100) + "a\n\n" + strings.Repeat(" ", 200) + "b\n"},
 		} {
 			if err := Equal(Parse([]byte(pair[0])), Parse([]byte(pair[1]))); err == nil {
 				t.Errorf("Equal of %q and %q = nil, want a difference", pair[0], pair[1])
@@ -128,7 +141,10 @@ func TestEqual(t *testing.T) {
 			{"[x]: /u\n'", "[x]: /u\n'\n"},
 			{" ```\f\n\t0", " ```\f\n    0"},
 			{" ```\v\n ", " ```\v\n \n"},
-			{strings.Repeat(">", 99) + "*", strings.Repeat("> ", 99) + "-\n"},
+			// A span that ends where the span holding it ends.
+			{"\\|\n0\n -|\n0*\x80", "\\|\n0\n -|\n0*\x80\n"},
+			// A tab and spaces of equal columns, in the lines of a span.
+			{strings.Repeat("- ", 100) + "a\n\n" + strings.Repeat("\t", 3) + "b\n", strings.Repeat("- ", 100) + "a\n\n" + strings.Repeat(" ", 12) + "b\n"},
 		} {
 			if err := Equal(Parse([]byte(pair[0])), Parse([]byte(pair[1]))); err != nil {
 				t.Errorf("Equal of %q and %q = %v, want nil", pair[0], pair[1], err)
@@ -366,6 +382,36 @@ func swapLineEnding(b []byte) []byte {
 	return b
 }
 
+// TestComparer_Compare covers the guards of compare that no pair of trees
+// reaches: Equal stops at an earlier difference before a projection can run
+// out of events or give two content runs of different groups.
+func TestComparer_Compare(t *testing.T) {
+	t.Parallel()
+
+	tree := Parse([]byte("a\n"))
+	c := comparer{a: tree, b: tree}
+
+	t.Run("reports that one tree has more events", func(t *testing.T) {
+		t.Parallel()
+
+		enter := event{op: enterEvent}
+		if err := c.compare(enter, true, enter, false); err == nil {
+			t.Fatal("compare gives no error where one tree has no more events")
+		}
+	})
+
+	t.Run("reports different content groups", func(t *testing.T) {
+		t.Parallel()
+
+		content := event{op: contentEvent, group: Paragraph}
+		other := content
+		other.group = Heading
+		if err := c.compare(content, true, other, true); err == nil {
+			t.Fatal("compare gives no error for content runs of different groups")
+		}
+	})
+}
+
 func TestKept(t *testing.T) {
 	t.Parallel()
 
@@ -389,165 +435,9 @@ func TestKept(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			if got := kept(Parse([]byte(tt.src))); !slices.Equal(got, tt.want) {
-				t.Fatalf("kept(%q) = %q, want %q", tt.src, got, tt.want)
+			if got := Kept(Parse([]byte(tt.src))); !slices.Equal(got, tt.want) {
+				t.Fatalf("Kept(%q) = %q, want %q", tt.src, got, tt.want)
 			}
 		})
 	}
-}
-
-// kept returns the kept syntax of tree in document order (design 12): the
-// rows of each dialect span and the blank lines before and after it, the
-// bytes of each Escape, EntityRef and CellPipeEscape leaf, the raw bytes of
-// each label, each NUL and invalid UTF-8 sequence in a content leaf, and each
-// ordered list with lazy numbering.
-func kept(tree *Tree) []string {
-	var events []string
-	spans := tree.dialectSpans()
-	for i, n := range tree.nodes {
-		id := NodeID(i)
-		b := tree.src[n.start:n.end]
-		if len(spans) > 0 && spans[0].id == uint32(i) {
-			events = append(events, fmt.Sprintf("span %b, blank lines %d and %d", spans[0].rows, blankLinesBefore(tree, i), blankLinesAfter(tree, int(n.link))))
-			spans = spans[1:]
-		}
-		switch n.kind {
-		case Escape, EntityRef, CellPipeEscape:
-			events = append(events, n.kind.String()+" "+string(b))
-		case LinkReferenceDefinition, FootnoteReference:
-			events = append(events, "label "+string(rawLabel(tree, id, 1)))
-		case FootnoteDefinition:
-			events = append(events, "label "+string(tree.FootnoteDefinitionLabel(id)))
-		case Link, Image:
-			switch tree.LinkForm(id) {
-			case FullReference:
-				events = append(events, "label "+string(rawLabel(tree, id, 3)))
-			case CollapsedReference, ShortcutReference:
-				events = append(events, "label "+string(rawLabel(tree, id, 1)))
-			case InlineLink:
-			}
-		case List:
-			if lazyNumbering(tree, id) {
-				events = append(events, "lazy numbering")
-			}
-		}
-		if n.kind.class() != classContent {
-			continue
-		}
-		for len(b) > 0 {
-			r, size := decodeRune(b)
-			if r == '�' && !bytes.HasPrefix(b, []byte("�")) {
-				events = append(events, "invalid "+string(b[:size]))
-			}
-			b = b[size:]
-		}
-	}
-	return events
-}
-
-// rawLabel returns the bytes of the leaves of node id after its own bracket
-// first and before the next one, without prefix, Indent and Caret leaves, and
-// with LF line endings.
-func rawLabel(tree *Tree, id NodeID, first int) []byte {
-	var label []byte
-	brackets, nested := 0, uint32(0)
-	for i := uint32(id) + 1; i < tree.nodes[id].link && brackets <= first; i++ {
-		m := tree.nodes[i]
-		_, prefix := m.kind.owner()
-		switch {
-		case m.kind.class() == classStructure:
-			nested = max(nested, m.link)
-		case m.kind == Bracket && i >= nested:
-			brackets++
-		case brackets == first && !prefix && m.kind != Indent && m.kind != Caret:
-			label = append(label, tree.src[m.start:m.end]...)
-		}
-	}
-	return bytes.ReplaceAll(bytes.ReplaceAll(label, []byte("\r\n"), []byte("\n")), []byte("\r"), []byte("\n"))
-}
-
-// lazyNumbering reports whether list id is ordered, starts at 1, and has a
-// second item numbered 1.
-func lazyNumbering(tree *Tree, id NodeID) bool {
-	if start, ordered := tree.ListStart(id); !ordered || start != 1 {
-		return false
-	}
-	for i := tree.nodes[id+1].link; i < tree.nodes[id].link; i++ {
-		if tree.nodes[i].kind != ListItem {
-			continue
-		}
-		marker := tree.nodes[i+1]
-		j := marker.start
-		for isSpaceOrTab(tree.src[j]) {
-			j++
-		}
-		m, _ := parseListMarker(tree.src, j, marker.end)
-		return m.start == 1
-	}
-	return false
-}
-
-// blankLinesBefore counts the BlankLine leaves between node id and the block
-// before it, across prefix leaves. Blank lines at the start of a container
-// have no meaning, so they count as none, and the blank rest of a marker line
-// is no blank line.
-func blankLinesBefore(tree *Tree, id int) int {
-	n := 0
-	for i := id - 1; i >= 0; i-- {
-		m := tree.nodes[i]
-		_, prefix := m.kind.owner()
-		switch {
-		case m.kind == BlankLine:
-			if !markerRest(tree, i) {
-				n++
-			}
-		case prefix:
-		case m.kind.class() == classStructure && int(m.link) > id:
-			return 0
-		case m.kind.class() == classStructure:
-			return n
-		default:
-			// The leaf starts a container that holds node id when that
-			// container is its parent: the label line of a footnote
-			// definition.
-			for j := i - 1; j >= 0; j-- {
-				if s := tree.nodes[j]; s.kind.class() == classStructure && int(s.link) > i {
-					if int(s.link) > id {
-						return 0
-					}
-					return n
-				}
-			}
-			return n
-		}
-	}
-	return 0
-}
-
-// markerRest reports whether BlankLine i is the rest of the first line of a
-// list item or a footnote definition.
-func markerRest(tree *Tree, i int) bool {
-	j := i - 1
-	for j >= 0 && (tree.nodes[j].kind.class() == classStructure || tree.nodes[j].kind == Whitespace) {
-		j--
-	}
-	return j >= 0 && (tree.nodes[j].kind == ListMarker || tree.nodes[j].kind == Colon)
-}
-
-// blankLinesAfter counts the BlankLine leaves from node i to the next node,
-// across prefix leaves. Blank lines at the end of the input have no meaning,
-// so they count as none.
-func blankLinesAfter(tree *Tree, i int) int {
-	n := 0
-	for ; i < len(tree.nodes); i++ {
-		m := tree.nodes[i]
-		_, prefix := m.kind.owner()
-		switch {
-		case m.kind == BlankLine:
-			n++
-		case !prefix:
-			return n
-		}
-	}
-	return 0
 }

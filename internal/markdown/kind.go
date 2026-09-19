@@ -111,6 +111,13 @@ func (k Kind) Leaf() bool {
 	return k.class() != classStructure
 }
 
+// Prefix reports whether k is the kind of a prefix leaf: the marker or the
+// indentation that a container writes on a line.
+func (k Kind) Prefix() bool {
+	_, prefix := k.owner()
+	return prefix
+}
+
 // owner returns the kind of the container that owns a prefix leaf of kind k,
 // and whether k is a prefix kind.
 func (k Kind) owner() (Kind, bool) {

@@ -38,8 +38,6 @@ type blockParser struct {
 	pending []pendingLine // lines of the open leaf block that are not appended yet (design 5.3)
 	arena   []prefixLeaf  // prefix leaves of the pending lines
 
-	first bool // the last block that started is the first block of a list item that is not a link reference definition
-
 	aligns []Alignment    // the alignments of the columns of the open table
 	cell   [1]pendingLine // the content of a table cell, for the inline phase
 }
@@ -77,7 +75,6 @@ type leafBlock struct {
 	fence codeFence // the opening fence of fenced code
 	html  uint8     // the kind of an HTML block
 	tried bool      // a paragraph tried a table header
-	first bool      // a paragraph is the first block of its list item that is not a definition
 
 	// A table's columns, its rows with the header row, and the cells of its
 	// rows up to the column count.
@@ -214,8 +211,8 @@ starts:
 		p.b.leafIf(BlankLine, l.eol)
 		return
 	}
-	p.startBlock(matched)
-	p.leaf = leafBlock{kind: paragraphLeaf, first: p.first}
+	p.startParagraph(matched)
+	p.leaf = leafBlock{kind: paragraphLeaf}
 	if p.trace != nil && !note {
 		p.trace(l, 0, p.col+p.used, false)
 	}
@@ -374,8 +371,21 @@ func (p *blockParser) startLeaf(first uint32, indent, matched int) bool {
 // startBlock prepares the start of a block that is not a list item after the
 // first matched containers. It closes the other open blocks, and a matched
 // list, because the block is not one of its items (design 5.5). It appends
-// the line's prefix leaves and records the new child.
+// the line's prefix leaves and records the new child, whose content its
+// container holds.
 func (p *blockParser) startBlock(matched int) {
+	p.startLeafBlock(matched)
+	p.containers[len(p.containers)-1].content = true
+}
+
+// startParagraph prepares the start of a paragraph the same way, and records
+// no content: every line of a paragraph can be a link reference definition,
+// and appendLines records the content of the lines that remain (design 6.5).
+func (p *blockParser) startParagraph(matched int) {
+	p.startLeafBlock(matched)
+}
+
+func (p *blockParser) startLeafBlock(matched int) {
 	if p.containers[matched-1].kind == List {
 		matched--
 	}
@@ -424,8 +434,6 @@ func (p *blockParser) addChild() {
 		p.blocking = p.blocking[:len(p.blocking)-1]
 	}
 	c.child = true
-	p.first = c.kind == ListItem && !c.content
-	c.content = true
 }
 
 // push opens container c. A block quote, and a list item, which has no child
@@ -477,8 +485,6 @@ func (p *blockParser) closeLeaf() {
 		if p.commitDefinitions() {
 			p.appendParagraph(Paragraph)
 			p.b.close()
-		} else {
-			p.definitionsOnly()
 		}
 		p.clearPending()
 	case indentedCodeLeaf:
@@ -495,15 +501,6 @@ func (p *blockParser) closeLeaf() {
 	}
 	p.orBlank(p.leaf.blank)
 	p.leaf = leafBlock{}
-}
-
-// definitionsOnly records that link reference definitions took every line of
-// the open paragraph, so that the next block of its list item can be its
-// first block that is not a definition (design 6.5).
-func (p *blockParser) definitionsOnly() {
-	if p.leaf.first {
-		p.containers[len(p.containers)-1].content = false
-	}
 }
 
 // addPending adds the rest of the line to the pending lines, with the prefix
@@ -535,10 +532,15 @@ func (p *blockParser) appendLines(k Kind, lines []pendingLine, pipes bool) {
 	p.appendPendingPrefix(lines[0])
 	p.b.open(k)
 	last := lines[len(lines)-1].rest
+	c := &p.containers[len(p.containers)-1]
+	// Only the first block of a list item that is not a definition can hold a
+	// task box (design 6.5), and these lines are that block's content.
+	first := k == Paragraph && c.kind == ListItem && !c.content
+	c.content = true
 	if p.pass1 {
 		p.b.leaf(Text, last.end)
 	} else {
-		p.inline.arena, p.inline.pipes, p.inline.task = p.arena, pipes, k == Paragraph && p.leaf.first
+		p.inline.arena, p.inline.pipes, p.inline.task = p.arena, pipes, first
 		p.inline.inlines(lines)
 		if p.inline.box != 0 {
 			p.b.flagOpen(p.containers[len(p.containers)-1].node, taskFlags(p.inline.box))

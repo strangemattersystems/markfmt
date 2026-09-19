@@ -19,10 +19,12 @@ type Node struct {
 }
 
 // Tree is a lossless concrete syntax tree: a preorder array of nodes whose
-// leaves tile the input.
+// leaves tile the input. A Tree does not change after [Parse], so it is safe
+// for concurrent use.
 type Tree struct {
 	src   []byte
-	nodes []Node // nodes[0] is the document
+	nodes []Node        // nodes[0] is the document
+	spans []dialectSpan // the dialect spans, in node order
 }
 
 // NodeID is the index of a node in a [Tree].
@@ -67,6 +69,17 @@ func (t *Tree) RestOfLine(id NodeID) []byte {
 // structures consumed in part, or 0 (design 4.3).
 func (t *Tree) SplitTab(id NodeID) int {
 	return int(t.nodes[id].virt)
+}
+
+// Len returns the number of nodes of t.
+func (t *Tree) Len() int {
+	return len(t.nodes)
+}
+
+// NodeSpan returns the input bytes that node id covers.
+func (t *Tree) NodeSpan(id NodeID) (start, end uint32) {
+	n := t.nodes[id]
+	return n.start, n.end
 }
 
 // Raw returns the source bytes of node id.

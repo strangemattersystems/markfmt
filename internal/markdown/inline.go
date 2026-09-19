@@ -18,6 +18,7 @@ type inlineParser struct {
 	start      uint32 // start of the first piece
 	lineStart  uint32 // start of the content of the line being scanned, after its Indent leaf
 	contentEnd uint32 // end of the content of the block, before its trailing spaces
+	trimmed    trimmedLine
 	delims     []delimiter
 	brackets   []bracket
 	seq        int            // push sequence number of the last bracket
@@ -112,16 +113,25 @@ func (s *inlineParser) inlines(lines []pendingLine) {
 	s.pipes, s.task = false, false
 }
 
+// trimmedLine is the content end of one line, before its trailing spaces.
+// commitDefinitions calls begin once for each definition of a paragraph, and
+// each call trims the same last line, so the trim is cached.
+type trimmedLine struct{ start, end, content uint32 }
+
 // begin starts the pieces of lines at the Indent leaf of the first line.
 func (s *inlineParser) begin(lines []pendingLine) {
 	s.lines, s.pieces, s.delims, s.brackets, s.k = lines, s.pieces[:0], s.delims[:0], s.brackets[:0], 0
 	s.seq, s.linkFormed, s.closers, s.notes = 0, 0, 0, s.notes[:0]
 	s.start = lines[0].rest.start
 	last := lines[len(lines)-1].rest
-	s.contentEnd = last.end
-	for s.contentEnd > last.start && isSpaceChar(s.src[s.contentEnd-1]) {
-		s.contentEnd--
+	if s.trimmed.start != last.start || s.trimmed.end != last.end {
+		content := last.end
+		for content > last.start && isSpaceChar(s.src[content-1]) {
+			content--
+		}
+		s.trimmed = trimmedLine{last.start, last.end, content}
 	}
+	s.contentEnd = s.trimmed.content
 	s.ticks, s.ticksAll, s.failed = s.ticks[:0], false, [len(closers)]uint32{}
 	s.startLine()
 }

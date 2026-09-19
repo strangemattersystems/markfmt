@@ -36,6 +36,7 @@ func TestTree_DialectSpans(t *testing.T) {
 		{"finds no span for raw html comments that github reads", "a <!-- b --> <!----> <!-- c - d -->", nil},
 		{"finds a delimiter run next to a unicode symbol", "£_a_£", []string{"Paragraph 5"}},
 		{"finds delimiter runs next to nul, invalid utf-8 and u+fffd", "a\x00*b*\n\nc*d*\xa6\n\ne\ufffd_f_", []string{"Paragraph 5", "Paragraph 5", "Paragraph 5"}},
+		{"finds a strikethrough delimiter run next to a unicode symbol", "£~!a~", []string{"Paragraph 5"}},
 		{"finds a delimiter run next to an emoji in a table cell", "| a |\n| - |\n| 😀*b* |", []string{"TableCell 5"}},
 		{"finds no span for delimiter runs next to ascii punctuation or spaces", "$*a*$ £ _b_ £", nil},
 		{"finds a code span after a backtick run that is text", "a `` b `c` d `e`", []string{"Paragraph 6"}},
@@ -65,7 +66,7 @@ func TestTree_DialectSpans(t *testing.T) {
 
 			tree := Parse([]byte(tt.src))
 			var got []string
-			for _, s := range tree.dialectSpans() {
+			for _, s := range tree.spans {
 				span := []string{tree.nodes[s.id].kind.String()}
 				for row := range 32 {
 					if s.rows&(1<<row) != 0 {
@@ -75,7 +76,7 @@ func TestTree_DialectSpans(t *testing.T) {
 				got = append(got, strings.Join(span, " "))
 			}
 			if !slices.Equal(got, tt.want) {
-				t.Fatalf("dialectSpans of %q = %q, want %q", tt.src, got, tt.want)
+				t.Fatalf("spans of %q = %q, want %q", tt.src, got, tt.want)
 			}
 		})
 	}
@@ -108,7 +109,7 @@ func TestTree_DialectSpans(t *testing.T) {
 				continue
 			}
 			delete(rows, ex.section)
-			if !slices.ContainsFunc(Parse([]byte(ex.markdown)).dialectSpans(), func(s dialectSpan) bool { return s.rows&(1<<row) != 0 }) {
+			if !slices.ContainsFunc(Parse([]byte(ex.markdown)).spans, func(s dialectSpan) bool { return s.rows&(1<<row) != 0 }) {
 				t.Errorf("%s: no span of row %d in %q", ex.section, row, ex.markdown)
 			}
 		}

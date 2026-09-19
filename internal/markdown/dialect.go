@@ -75,21 +75,20 @@ type dialectSpan struct {
 }
 
 // DialectSpans returns the structure nodes where GitHub and CommonMark 0.31.2
-// give the document a different meaning, in node order. The printer keeps
-// their bytes and the blank lines around them (design 2.1, 12).
+// give the document a different meaning, in node order. The printer prints
+// each top-level block that holds one as written (design 2.1, 12).
 func (t *Tree) DialectSpans() []NodeID {
-	spans := t.dialectSpans()
-	ids := make([]NodeID, len(spans))
-	for i, s := range spans {
+	ids := make([]NodeID, len(t.spans))
+	for i, s := range t.spans {
 		ids[i] = NodeID(s.id)
 	}
 	return ids
 }
 
-// dialectSpans returns the dialect spans of t in node order. Each predicate
-// is conservative: a span where GitHub gives the same meaning only keeps
-// bytes that the printer could have changed.
-func (t *Tree) dialectSpans() []dialectSpan {
+// findDialectSpans returns the dialect spans of t in node order. Each
+// predicate is conservative: a span where GitHub gives the same meaning only
+// keeps bytes that the printer could have changed.
+func (t *Tree) findDialectSpans() []dialectSpan {
 	f := spanFinder{t: t, lineStart: true, newLine: true, vtff: bytes.ContainsAny(t.src, "\v\f")}
 	f.walk.t = t
 	for i := range t.nodes {
@@ -374,14 +373,15 @@ func isGitHubComment(v []byte) bool {
 		!bytes.HasSuffix(text, []byte("-")) && !bytes.Contains(text, []byte("--"))
 }
 
-// flankingDiffers reports whether a run of '*' or '_' in b is next to a
+// flankingDiffers reports whether a run of '*', '_' or '~' in b is next to a
 // character that markfmt reads as punctuation for flanking and GitHub does
 // not: a Unicode symbol that is neither ASCII nor punctuation, or U+FFFD,
-// which NUL and invalid UTF-8 also give (design 6.7).
+// which NUL and invalid UTF-8 also give (design 6.7). cmark-gfm scans a
+// strikethrough run with the same punctuation test as emphasis.
 func flankingDiffers(b []byte) bool {
 	for i := 0; i < len(b); {
 		c := b[i]
-		if c != '*' && c != '_' {
+		if c != '*' && c != '_' && c != '~' {
 			i++
 			continue
 		}

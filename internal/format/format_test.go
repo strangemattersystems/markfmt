@@ -10,10 +10,109 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+
+	"github.com/strangemattersystems/markfmt/internal/markdown"
 )
+
+func TestCheck(t *testing.T) {
+	t.Parallel()
+
+	t.Run("accepts an output with the meaning of the input", func(t *testing.T) {
+		t.Parallel()
+
+		if err := check(markdown.Parse([]byte("*a*\n")), []byte("_a_\n")); err != nil {
+			t.Fatalf("check gives %v, want no error", err)
+		}
+	})
+
+	t.Run("rejects an output that drops an escape", func(t *testing.T) {
+		t.Parallel()
+
+		// The trees are equal, but an escape is kept syntax (design 12).
+		if err := check(markdown.Parse([]byte("a\\*b\n")), []byte("a*b\n")); err == nil {
+			t.Fatal("check gives no error for an output without its escape")
+		}
+	})
+
+	t.Run("rejects an output that changes the meaning", func(t *testing.T) {
+		t.Parallel()
+
+		if err := check(markdown.Parse([]byte("*a*\n")), []byte("a\n")); err == nil {
+			t.Fatal("check gives no error for an output without its emphasis")
+		}
+	})
+}
+
+func TestSourceTree(t *testing.T) {
+	t.Parallel()
+
+	t.Run("rejects an output above the limit", func(t *testing.T) {
+		t.Parallel()
+
+		if _, err := sourceTree(markdown.Parse([]byte("# a\n")), nil, 2); err == nil {
+			t.Fatal("sourceTree gives no error for an output above the limit")
+		}
+	})
+
+	t.Run("prints a tree within the limit", func(t *testing.T) {
+		t.Parallel()
+
+		if out, err := sourceTree(markdown.Parse([]byte("#  a\n")), nil, MaxOutput); err != nil || string(out) != "# a\n" {
+			t.Fatalf("sourceTree = %q, %v, want %q", out, err, "# a\n")
+		}
+	})
+}
 
 func TestSource(t *testing.T) {
 	t.Parallel()
+
+	t.Run("keeps a block that it cannot format as the input holds it", func(t *testing.T) {
+		t.Parallel()
+
+		// No layout keeps the tight list, the paragraph and a header row that
+		// reads as a delimiter row (roadmap, stage 6).
+		src := []byte("* 0\r--\n  |-")
+		if _, err := Strict(src); err == nil {
+			t.Fatalf("Strict(%q) gives no error, want one: the case is not open any more", src)
+		}
+		if out, err := Source(src); err != nil || string(out) != "* 0\n--\n  |-\n" {
+			t.Fatalf("Source(%q) = %q, %v, want %q", src, out, err, "* 0\n--\n  |-\n")
+		}
+	})
+
+	t.Run("formats the blocks around a block that it cannot format", func(t *testing.T) {
+		t.Parallel()
+
+		src := []byte("#  a\n\n* 0\r--\n  |-\n\n*b*\n")
+		if out, err := Source(src); err != nil || string(out) != "# a\n\n* 0\n--\n  |-\n\n_b_\n" {
+			t.Fatalf("Source(%q) = %q, %v, want %q", src, out, err, "# a\n\n* 0\n--\n  |-\n\n_b_\n")
+		}
+	})
+
+	t.Run("formats a link title in text that holds its quotes", func(t *testing.T) {
+		t.Parallel()
+
+		for _, src := range []string{
+			`[](0 "[](0 "")")`,
+			`[[](0 '](0 '')')`,
+			`[](0 "[](0 ')')`,
+		} {
+			checkSource(t, []byte(src))
+		}
+	})
+
+	t.Run("formats a dialect span whose lines hold tabs and deep markers", func(t *testing.T) {
+		t.Parallel()
+
+		for _, src := range []string{
+			strings.Repeat("- ", 100) + "a\n\n" + strings.Repeat("\t", 50) + "b\n",
+			strings.Repeat(">", 99) + "* ",
+			strings.Repeat("* ", 100) + "*\x00",
+			"-  " + strings.Repeat("- ", 99) + "a\n\n\t£_b_£\n",
+		} {
+			checkSource(t, []byte(src))
+		}
+	})
 
 	t.Run("cases", func(t *testing.T) {
 		t.Parallel()
@@ -106,13 +205,13 @@ func TestSource(t *testing.T) {
 func checkSource(t testing.TB, in []byte) []byte {
 	t.Helper()
 
-	once, err := Source(in)
+	once, err := Strict(in)
 	if err != nil {
-		t.Fatalf("Source(%q) error: %v", in, err)
+		t.Fatalf("Strict(%q) error: %v", in, err)
 	}
-	twice, err := Source(once)
+	twice, err := Strict(once)
 	if err != nil {
-		t.Fatalf("Source(%q) error: %v", once, err)
+		t.Fatalf("Strict(%q) error: %v", once, err)
 	}
 	if !bytes.Equal(once, twice) {
 		t.Fatalf("Source is not idempotent\ninput: %q\n once: %q\ntwice: %q", in, once, twice)
@@ -247,8 +346,8 @@ func readSpec(t testing.TB) []specExample {
 // A case is a "N: description" header, an optional OPTIONS line, then the
 // Markdown and the HTML, each opened by a separator line.
 //
-// The OPTIONS are not applied. An input with its escape sequences or
-// surrounding space left in is still valid Markdown.
+// The OPTIONS are not applied. An input that keeps its escape sequences or
+// surrounding space is valid Markdown.
 func readGoldmarkCases(file, data string) []specExample {
 	const separator = "//- - - - - - - - -//"
 	const end = "//= = = = = = = = = = = = = = = = = = = = = = = =//"

@@ -29,7 +29,7 @@ func TestBuilder_Flag(t *testing.T) {
 	t.Run("sets the flags of the innermost open node", func(t *testing.T) {
 		t.Parallel()
 
-		b := newBuilder([]byte("<p>"))
+		b := newBuilder([]byte("<p>"), 0)
 		b.open(Document)
 		b.open(HTMLBlock)
 		b.flag(6)
@@ -58,7 +58,7 @@ func TestBuilder_Leaf(t *testing.T) {
 	t.Run("gives the next leaf the columns left of a split tab", func(t *testing.T) {
 		t.Parallel()
 
-		b := newBuilder([]byte("\ta"))
+		b := newBuilder([]byte("\ta"), 0)
 		b.open(Document)
 		b.split = 2
 		b.leaf(Text, 1)
@@ -124,7 +124,7 @@ func TestBuilder_LeafIf(t *testing.T) {
 	t.Run("appends nothing for an empty leaf", func(t *testing.T) {
 		t.Parallel()
 
-		b := newBuilder([]byte("a"))
+		b := newBuilder([]byte("a"), 0)
 		b.open(Document)
 		b.leafIf(Text, 0)
 		b.leafIf(Text, 1)
@@ -146,7 +146,7 @@ func TestBuilder_Prefix(t *testing.T) {
 	t.Run("appends a leaf with its owner", func(t *testing.T) {
 		t.Parallel()
 
-		b := newBuilder([]byte(">"))
+		b := newBuilder([]byte(">"), 0)
 		b.open(Document)
 		b.open(BlockQuote)
 		b.prefix(QuoteMarker, 1, 1)
@@ -190,7 +190,7 @@ func TestBuilder_Close(t *testing.T) {
 	t.Run("closes the innermost open node", func(t *testing.T) {
 		t.Parallel()
 
-		b := newBuilder([]byte("ab"))
+		b := newBuilder([]byte("ab"), 0)
 		b.open(Document)
 		b.open(Document)
 		b.leaf(Text, 1)
@@ -264,7 +264,7 @@ func testPanics(t *testing.T, tests []panicTest) {
 					t.Fatal("no panic")
 				}
 			}()
-			tt.build(newBuilder([]byte(tt.src)))
+			tt.build(newBuilder([]byte(tt.src), 0))
 		})
 	}
 }
