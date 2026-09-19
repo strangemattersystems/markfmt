@@ -91,7 +91,7 @@ tasks:
           done
           # The benchmark inputs come from the working tree as well, so both
           # sides measure the same bytes. A base that cannot format a case the
-          # head adds fails here, and names it.
+          # head adds skips that input, and benchstat shows it for the head only.
           for d in internal/markdown/testdata/bench internal/format/testdata/cases; do
             rm -rf "$base/$d"
             mkdir -p "$base/$d"

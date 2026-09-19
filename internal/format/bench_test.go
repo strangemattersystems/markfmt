@@ -86,6 +86,13 @@ func benchmarkBytes(b *testing.B, n int, f func()) {
 func BenchmarkSource(b *testing.B) {
 	for _, in := range benchInputs(b) {
 		b.Run("input="+in.name, func(b *testing.B) {
+			for _, doc := range in.docs {
+				if _, err := Source(doc); err != nil {
+					// task bench-compare runs these benchmarks on the base's
+					// code, which can fail on a case that the head adds.
+					b.Skipf("Source cannot format the input: %v", err)
+				}
+			}
 			benchmarkBytes(b, in.size(), func() {
 				for _, doc := range in.docs {
 					if _, err := Source(doc); err != nil {
