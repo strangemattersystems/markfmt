@@ -6,7 +6,7 @@ import "strings"
 // footnote definition at first, the first byte of the rest of a line that is
 // not a space or a tab, before end, or 0 and 0: "[^", one or more bytes that are
 // not ']', a space, a tab, CR, LF or NUL, "]:", then spaces and tabs, as
-// cmark-gfm's footnote_definition scanner reads it (design 9.2).
+// cmark-gfm's footnote_definition scanner reads it.
 func footnoteStart(src []byte, first, end uint32) (labelEnd, contentStart uint32) {
 	if end-first < 5 || src[first] != '[' || src[first+1] != '^' {
 		return 0, 0
@@ -53,7 +53,7 @@ func (p *blockParser) startFootnote(first, labelEnd, contentStart uint32) {
 // of the line: on 4 columns of indentation, which it consumes as a
 // [FootnoteIndent] leaf, or on a line with no byte before its line ending.
 // cmark-gfm tests the whole line, so a line of spaces and a line with a prefix
-// end it (design 5.1, 9.2).
+// end it.
 func (p *blockParser) continueFootnote(c container) bool {
 	if _, indent := p.indentation(); indent < 4 {
 		return p.l.start == p.l.end
@@ -67,7 +67,7 @@ func (p *blockParser) continueFootnote(c container) bool {
 }
 
 // FootnoteDefinitionLabel returns the label of footnote definition id, as
-// written: GitHub writes it into element ids (design 9.2).
+// written: GitHub writes it into element ids.
 func (t *Tree) FootnoteDefinitionLabel(id NodeID) []byte {
 	for i := uint32(id) + 1; i < t.nodes[id].link; i++ {
 		if m := t.nodes[i]; m.kind == FootnoteLabel {
@@ -84,8 +84,7 @@ func (t *Tree) FootnoteReferenceResolved(id NodeID) bool {
 }
 
 // AppendFootnoteReferenceLabel appends the label of footnote reference id to
-// dst: the label bytes after its caret (design 6.7), normalized when normalize
-// is true.
+// dst: the label bytes after its caret, normalized when normalize is true.
 func (t *Tree) AppendFootnoteReferenceLabel(dst []byte, id NodeID, normalize bool) []byte {
 	f := labelFolder{dst: dst, start: len(dst)}
 	caret := false

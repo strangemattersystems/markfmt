@@ -2,7 +2,7 @@
 
 `github.txt` and `printer.txt` hold the HTML that the
 [GitHub Markdown API](https://docs.github.com/en/rest/markdown/markdown) gives
-for each input in `input/` (design 11.4). Both use the `spec.txt` example
+for each input in `input/`. Both use the `spec.txt` example
 format, with one section per input.
 
 - `TestParse` runs `github.txt` as conformance: footnotes, task lists, tables,

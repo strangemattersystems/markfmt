@@ -59,7 +59,7 @@ func (p *blockParser) codeLine(rest line, col, used, n int) {
 	p.b.leafIf(VerbatimLineEnding, rest.eol)
 }
 
-// AppendCode appends the value of code block id to dst (design 8.2).
+// AppendCode appends the value of code block id to dst.
 func (t *Tree) AppendCode(dst []byte, id NodeID) []byte {
 	return t.appendVerbatim(dst, id, CodeText)
 }
@@ -83,7 +83,7 @@ var (
 // its leaves of kind text, with virt spaces for a split tab and U+FFFD for
 // NUL and each maximal invalid UTF-8 subsequence, a line feed for each
 // VerbatimLineEnding, and a line feed after a last content line without one
-// (design 8.2, 8.4). A fence line is not a content line.
+// A fence line is not a content line.
 type verbatimReader struct {
 	t      *Tree
 	i, end uint32 // the next leaf, and the end of the block
@@ -136,7 +136,7 @@ func (r *verbatimReader) next() []byte {
 }
 
 // isInfoSpace reports whether c is trimmed from the ends of an info string: a
-// space or a tab, and VT or FF, as cmark trims them (design 8.4).
+// space or a tab, and VT or FF, as cmark trims them.
 func isInfoSpace(c byte) bool {
 	return c == ' ' || c == '\t' || c == '\v' || c == '\f'
 }
@@ -149,7 +149,7 @@ func (t *Tree) AppendInfo(dst []byte, id NodeID) []byte {
 
 // infoReader returns a reader of the value of the info string of code block
 // id, which reads nothing when it has none. The value has no whitespace at
-// its ends after its entity references decode, as cmark trims it (design 8.4).
+// its ends after its entity references decode, as cmark trims it.
 func (t *Tree) infoReader(id NodeID) valueReader {
 	for _, m := range t.nodes[id+1 : t.nodes[id].link] {
 		switch m.kind {

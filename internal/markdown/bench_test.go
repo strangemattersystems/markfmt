@@ -26,7 +26,7 @@ func BenchmarkEqual(b *testing.B) {
 	}
 }
 
-// BenchmarkPathological parses each input of design 6.8 at one size, so a
+// BenchmarkPathological parses each pathological input at one size, so a
 // change of the linear-time mechanisms shows as a time, not as a failure.
 func BenchmarkPathological(b *testing.B) {
 	const n = 1 << 16

@@ -15,8 +15,8 @@ func (p *printer) column() int {
 }
 
 // rest returns the prefix that container f writes on the lines after its
-// first: its marker for a block quote, 4 columns for a footnote definition
-// (appendix B, trap 18), and the columns of its marker for a list item.
+// first: its marker for a block quote, 4 columns for a footnote definition,
+// and the columns of its marker for a list item.
 func (f *frame) rest() []byte {
 	switch f.kind {
 	case markdown.BlockQuote:
@@ -92,7 +92,7 @@ prefixes:
 		case !f.started:
 			if opened >= 99 && f.kind != markdown.BlockQuote {
 				// GitHub starts no list item or footnote definition after 99
-				// blocks on a line (appendix B, trap 21).
+				// blocks on a line.
 				p.nextPrefixLine(start, i)
 				start, opened = len(p.out), 0
 			}
@@ -154,9 +154,8 @@ func (p *printer) nextPrefixLine(start, end int) {
 // continuation sets the prefix and the indentation of a paragraph line whose
 // first written leaf is id. The line gets the prefixes of every open
 // container, unless it is lazy in the input, those prefixes are longer than
-// the line (appendix B, trap 2), and it starts no block as a lazy line. It
-// gets 4 columns of indentation when its content would otherwise start a
-// block (trap 1).
+// the line, and it starts no block as a lazy line. It gets 4 columns of
+// indentation when its content would otherwise start a block.
 func (p *printer) continuation(id markdown.NodeID) {
 	// A hard break of spaces can print as a backslash, so the decisions read
 	// the line without a last backslash and with one, and a second format
@@ -170,8 +169,8 @@ func (p *printer) continuation(id markdown.NodeID) {
 	p.indent = -1
 	if p.matched < p.prefixes && !interrupts(true) {
 		// The line stays lazy when its canonical prefix is longer than its
-		// printed content, which endLine knows (appendix B, trap 2). With
-		// the prefix, the line gets the padding of trap 1.
+		// printed content, which endLine knows. With the prefix, the line
+		// gets 4 columns of indentation when its content would start a block.
 		p.lazyLine, p.lazyPad = true, interrupts(false)
 		return
 	}
@@ -193,8 +192,8 @@ func (p *printer) endLine() {
 
 // prefixLazyLine writes the prefixes that the open lazy line does not have
 // before its content, unless its full canonical prefix is longer than that
-// content (appendix B, trap 2). The content is a measure of the printer's own
-// output, so a second format decides the same (design 12).
+// content. The content is a measure of the printer's own output, so a second
+// format decides the same.
 func (p *printer) prefixLazyLine() {
 	if !p.lazyLine {
 		return

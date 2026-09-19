@@ -566,8 +566,8 @@ func equalFoldASCII(b []byte, name string) bool {
 }
 
 // normalizeGitHub returns html, in the normal form of [normalizeHTML], without
-// the decorations of the GitHub Markdown API and of cmark-gfm's footnotes
-// (design 11.3), so that a GitHub fixture compares with the test renderer.
+// the decorations of the GitHub Markdown API and of cmark-gfm's footnotes, so
+// that a GitHub fixture compares with the test renderer.
 func normalizeGitHub(html string) string {
 	for _, d := range gitHubDecorations {
 		html = d.re.ReplaceAllString(html, d.with)

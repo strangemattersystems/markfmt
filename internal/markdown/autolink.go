@@ -22,7 +22,7 @@ func (s *inlineParser) autolink(i, end uint32) bool {
 
 // autolinkEnd returns the end of the angle autolink at src[i:end], which
 // starts with '<', or 0: '<', an absolute URI or an email address, and '>'
-// (CM 594 to 610). With pipes, a "\|" pair is a '|' (design 8.2).
+// (CM 594 to 610). With pipes, a "\|" pair is a '|'.
 func autolinkEnd(src []byte, i, end uint32, pipes bool) uint32 {
 	for _, e := range [...]uint32{uriEnd(src, i+1, end), emailEnd(src, i+1, end, pipes)} {
 		if e > 0 && e < end && src[e] == '>' {
@@ -34,8 +34,7 @@ func autolinkEnd(src []byte, i, end uint32, pipes bool) uint32 {
 
 // uriEnd returns the end of the absolute URI at src[i:end], or 0: a scheme of
 // 2 to 32 characters, ':', and characters that are not U+0001 to U+001F,
-// spaces, '<' or '>'. cmark takes DEL, which the spec text excludes (design
-// 8.4).
+// spaces, '<' or '>'. cmark takes DEL, which the spec text excludes.
 func uriEnd(src []byte, i, end uint32) uint32 {
 	if i == end || !isASCIILetter(src[i]) {
 		return 0
@@ -122,7 +121,7 @@ func (t *Tree) AppendAutolinkText(dst []byte, id NodeID) []byte {
 
 // appendEmails appends to dst the start and the end of each extended email
 // autolink in text, the decoded text of a run, as cmark-gfm's postprocess_text
-// finds them (design 6.6): an '@' after letters, digits, '.', '+', '-' and '_',
+// finds them: an '@' after letters, digits, '.', '+', '-' and '_',
 // which "mailto:" or "xmpp:" can precede when no letter or digit precedes it,
 // then letters, digits, '-', '_', '/' after "xmpp:", and '.' before a letter or
 // digit, with at least one such '.', ending with a letter or '.', and then
@@ -215,7 +214,7 @@ func validProtocol(text []byte, at, rewind, maxRewind int, protocol string) bool
 // wwwAutolink pushes the extended www autolink at i, on a line that ends at
 // end, and reports whether there is one, as cmark-gfm's www_match finds it: no
 // bracket is open, the line starts at i or the byte before i is a space, '*',
-// '_', '~' or '(', then "www." and a domain with a dot (design 6.2).
+// '_', '~' or '(', then "www." and a domain with a dot.
 func (s *inlineParser) wwwAutolink(i, end uint32) bool {
 	if len(s.brackets) > 0 || !bytes.HasPrefix(s.src[i:end], []byte("www.")) ||
 		i > s.lineStart && !isSpaceChar(s.src[i-1]) && strings.IndexByte("*_~(", s.src[i-1]) < 0 {
@@ -236,8 +235,8 @@ func (s *inlineParser) wwwAutolink(i, end uint32) bool {
 // urlAutolink pushes the extended URL autolink whose ':' is at i, on a line
 // that ends at end, and reports whether there is one, as cmark-gfm's url_match
 // finds it: no bracket is open, the letters before i are http, https or ftp in
-// any case, then "://", a host character and a domain (design 6.2). The last
-// [Text] piece gives the letters back.
+// any case, then "://", a host character and a domain. The last [Text] piece
+// gives the letters back.
 func (s *inlineParser) urlAutolink(i, end uint32) bool {
 	if len(s.brackets) > 0 || end-i < 4 || s.src[i+1] != '/' || s.src[i+2] != '/' {
 		return false

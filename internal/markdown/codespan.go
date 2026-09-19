@@ -21,7 +21,7 @@ func (s *inlineParser) codeSpan(i, end uint32) {
 // length n that starts at or after from, on the line being scanned or a later
 // one. It records the last run of each length that any search passed. After
 // one search reaches the end of the block, a search that the record answers
-// needs no scan, so the searches of a block are linear (design 6.8).
+// needs no scan, so the searches of a block are linear.
 func (s *inlineParser) findBackticks(from, n uint32) (int, uint32, bool) {
 	if s.ticksAll && (int(n) >= len(s.ticks) || s.ticks[n] <= from) {
 		return 0, 0, false

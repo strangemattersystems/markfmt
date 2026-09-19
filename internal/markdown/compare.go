@@ -7,10 +7,9 @@ import (
 )
 
 // Equal reports the first difference between the event projections of a and
-// b, or nil when they are equal (design 10). The projection of a tree has an
-// Enter event with a key for each structure node, a Content event for each
-// run of content leaves of one group, and an Exit event at the end of each
-// structure node.
+// b, or nil when they are equal. The projection of a tree has an Enter event
+// with a key for each structure node, a Content event for each run of content
+// leaves of one group, and an Exit event at the end of each structure node.
 func Equal(a, b *Tree) error {
 	c := comparer{a: a, b: b}
 	pa, pb := newProjection(a), newProjection(b)
@@ -114,7 +113,7 @@ func describe(t *Tree, e event, ok bool) string {
 }
 
 // equalKeys reports whether the structure nodes ia of a and ib of b, of one
-// kind, have equal keys (design 10.2).
+// kind, have equal keys.
 func (c *comparer) equalKeys(ia, ib NodeID) bool {
 	a, b := c.a, c.b
 	//exhaustive:enforce
@@ -167,8 +166,8 @@ func (c *comparer) equalKeys(ia, ib NodeID) bool {
 		if resolved != b.FootnoteReferenceResolved(ib) {
 			return false
 		}
-		// An unresolved label is copied whole: O(label) memory, where design
-		// 10.1 compares values with decoding cursors.
+		// An unresolved label is copied whole: O(label) memory, where other
+		// values compare with decoding cursors.
 		c.labelA = a.AppendFootnoteReferenceLabel(c.labelA[:0], ia, resolved)
 		c.labelB = b.AppendFootnoteReferenceLabel(c.labelB[:0], ib, resolved)
 		return bytes.Equal(c.labelA, c.labelB)
@@ -189,12 +188,12 @@ const (
 	exitEvent
 )
 
-// event is one event of a projection (design 10.1).
+// event is one event of a projection.
 type event struct {
 	op    eventOp
 	id    NodeID // the node of an Enter or Exit event, or the first leaf of a content run
 	end   NodeID // one past the last leaf of a content run
-	group Kind   // the group of a content run (design 10.3)
+	group Kind   // the group of a content run
 	rows  dialectRows
 }
 
@@ -289,8 +288,7 @@ func (p *projection) next() (event, bool) {
 
 // skipEmptyCell skips e, the event that next returned last, and reports true,
 // when e enters an empty table cell within the column count while the other
-// tree exits a table row, of kind other: an empty cell equals a missing cell
-// (design 10.3).
+// tree exits a table row, of kind other: an empty cell equals a missing cell.
 func (p *projection) skipEmptyCell(e event, other Kind) bool {
 	n := p.t.nodes[e.id]
 	if other != TableRow || e.op != enterEvent || n.kind != TableCell || p.cell > p.columns {
@@ -320,8 +318,7 @@ func (p *projection) observe(m Node) {
 }
 
 // group returns the content group of leaf m in node parent, or false when m
-// gives no Content event: it is syntax, or its value is in a key (design
-// 10.1, 10.3).
+// gives no Content event: it is syntax, or its value is in a key.
 func (p *projection) group(m, parent Node) (Kind, bool) {
 	if m.kind == CellPipeEscape {
 		m.kind = Kind(m.flags)
@@ -407,9 +404,9 @@ func (r *runReader) next() []byte {
 }
 
 // equalSpans reports whether the dialect spans ia of pa's tree and ib of pb's
-// tree, which the projections entered last, have equal bytes and equal lines
-// (design 10.4): the same containers matched on each line after the first
-// that is not blank, and the same columns of indentation before its content.
+// tree, which the projections entered last, have equal bytes and equal lines:
+// the same containers matched on each line after the first that is not
+// blank, and the same columns of indentation before its content.
 func equalSpans(pa *projection, ia NodeID, pb *projection, ib NodeID) bool {
 	a, b := pa.t, pb.t
 	ra := spanReader{t: a, span: uint32(ia), i: uint32(ia) + 1, end: a.nodes[ia].link}
@@ -456,7 +453,7 @@ func (r *spanReader) next() []byte {
 	case b != nil:
 		r.last, r.started = b[len(b)-1], true
 	case r.started && r.last != '\n' && !r.done:
-		// The end of the input is a line ending (design 8.2).
+		// The end of the input is a line ending.
 		r.done = true
 		return lineFeed[:1:1]
 	}
@@ -486,8 +483,8 @@ func (r *spanReader) read() []byte {
 			r.b = bytes.TrimRight(r.b, " \t")
 		}
 		if m.virt > 0 {
-			// The rest of a split tab (design 4.3) is indentation, except in
-			// code and HTML, where it is spaces of the value.
+			// The rest of a split tab is indentation, except in code and
+			// HTML, where it is spaces of the value.
 			r.b = r.b[1:]
 			if m.kind == CodeText || m.kind == HTMLText {
 				return spaces[:m.virt:m.virt]

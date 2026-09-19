@@ -147,10 +147,10 @@ func (p *printer) definitionLeaf(id markdown.NodeID, k markdown.Kind, start int)
 }
 
 // delimiter returns the delimiter of node id of kind k, which is emphasis,
-// strong emphasis or strikethrough: '_', "**" or "~~" (roadmap Decisions),
-// or nil to keep the input's. A node keeps its input delimiters wherever the
-// canonical delimiters could pair differently (spec 6.2), or could change a
-// construct that starts next to them.
+// strong emphasis or strikethrough: '_', "**" or "~~", or nil to keep the
+// input's. A node keeps its input delimiters wherever the canonical
+// delimiters could pair differently (spec 6.2), or could change a construct
+// that starts next to them.
 func (p *printer) delimiter(id markdown.NodeID, k markdown.Kind) []byte {
 	t := p.tree
 	raw, open := t.Raw(id), t.Raw(id+1)
@@ -167,22 +167,22 @@ func (p *printer) delimiter(id markdown.NodeID, k markdown.Kind) []byte {
 	}
 	content := raw[len(open) : len(raw)-len(closer)]
 	if t.Kind(id+2) == markdown.Autolink || len(content) >= 4 && bytes.EqualFold(content[:4], []byte("www.")) {
-		// An extended www autolink depends on the byte before it (design 6.2).
+		// An extended www autolink depends on the byte before it.
 		return nil
 	}
 	// An extended autolink can start in the word before the node, which its
-	// bytes continue, or in the last word of its content (design 6.2).
+	// bytes continue, or in the last word of its content.
 	nodeStart, _ := t.NodeSpan(id)
 	if p.autolinkWord(0, nodeStart) || p.autolinkWord(contentStart, contentEnd) {
 		// An underscore in the last two segments of a domain keeps an
-		// extended autolink from forming (design 6.2), so '*' would make one,
-		// of the word before the node or of the word that its content ends
-		// with.
+		// extended autolink from forming, so '*' would make one, of the word
+		// before the node or of the word that its content ends with.
 		return nil
 	}
 	before, after := t.Around(id)
 	if before == '$' || after == '$' || len(content) > 0 && (content[0] == '$' || content[len(content)-1] == '$') {
-		// No character next to '$' changes (appendix B, trap 16).
+		// GitHub math reads the characters next to '$', so none of them
+		// changes.
 		return nil
 	}
 	switch k {
@@ -199,14 +199,14 @@ func (p *printer) delimiter(id markdown.NodeID, k markdown.Kind) []byte {
 		}
 		return []byte{'_'}
 	case markdown.Strong:
-		// Next to '*' or '_', which can be the unused part of a delimiter run
-		// (design 6.4), "**" could pair differently.
+		// Next to '*' or '_', which can be the unused part of a delimiter
+		// run, "**" could pair differently.
 		if bytes.ContainsAny(content, "*_") || before == '*' || before == '_' || after == '*' || after == '_' || p.inText('*') {
 			return nil
 		}
 		return []byte("**")
 	default:
-		// No '~' goes next to a "~~" delimiter (appendix B, trap 13), and
+		// No '~' goes next to a "~~" delimiter, and
 		// "~~" inside a strikethrough could close it.
 		if bytes.IndexByte(content, '~') >= 0 || before == '~' || after == '~' || p.inText('~') || p.inStrike > 0 {
 			return nil
@@ -221,8 +221,8 @@ func lastWord(b []byte) []byte {
 }
 
 // autolinkWordBytes reports whether word holds "://" or "www.", the start of
-// an extended autolink (design 6.2). The printer asks this of its output,
-// where no input offsets exist.
+// an extended autolink. The printer asks this of its output, where no input
+// offsets exist.
 func autolinkWordBytes(word []byte) bool {
 	if bytes.Contains(word, []byte("://")) {
 		return true
@@ -239,8 +239,8 @@ func autolinkWordBytes(word []byte) bool {
 type span struct{ start, end uint32 }
 
 // autolinkWord reports whether the word that ends at input offset end holds
-// "://" or "www.", the start of an extended autolink (design 6.2). The word
-// starts after the last whitespace before end, and never before low.
+// "://" or "www.", the start of an extended autolink. The word starts after
+// the last whitespace before end, and never before low.
 //
 // The offsets come from one pass over the text block, because reading the
 // word for each node of a block costs O(n^2).
@@ -332,9 +332,9 @@ func flanksLikeSpace(c byte) bool {
 // The fence is the shortest run of backticks that its value does not hold,
 // with a space inside each end when the input has one there, or the value
 // starts or ends with a backtick, or starts and ends with a space and is not
-// only spaces (spec 6.1, appendix B, trap 9). Padding the input has stays: a
-// space can keep the text around the code span from forming a link
-// destination or definition, which hold no space (spec 6.3, 4.7).
+// only spaces (spec 6.1). Padding the input has stays: a space can keep the
+// text around the code span from forming a link destination or definition,
+// which hold no space (spec 6.3, 4.7).
 func (p *printer) codeSpan(id markdown.NodeID) []byte {
 	t := p.tree
 	end, _ := t.Next(id)
@@ -481,8 +481,8 @@ func (p *printer) tailLeaf(in *inlineFrame, id markdown.NodeID, k markdown.Kind,
 
 // codeFence returns the fence of code block id: backticks, or tildes when its
 // info string has a backtick, one more than the longest run of that
-// character in the code and at least 3 (roadmap Decisions). It also reports
-// whether the input's code block has a fence line.
+// character in the code and at least 3. It also reports whether the input's
+// code block has a fence line.
 func (p *printer) codeFence(id markdown.NodeID) ([]byte, bool) {
 	t := p.tree
 	end, _ := t.Next(id)

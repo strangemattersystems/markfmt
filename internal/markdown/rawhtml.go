@@ -126,7 +126,7 @@ func (s *inlineParser) attribute(p pos) (pos, bool) {
 // search returns the position after the first closer c that starts at or
 // after p, on p's line or a later line. A failed search records where it
 // started, and a later search stops there, so no two failed searches for one
-// closer read the same bytes (design 6.8).
+// closer read the same bytes.
 func (s *inlineParser) search(p pos, c int) (pos, bool) {
 	closer := closers[c]
 	limit := uint32(math.MaxUint32) // no closer starts at or after limit

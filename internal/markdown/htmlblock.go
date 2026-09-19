@@ -56,7 +56,7 @@ func htmlBlockStart(src []byte, i, end uint32) uint8 {
 		return 6
 	}
 	// cmark also takes an open tag named pre, script, style or textarea, which
-	// the spec text excludes, and FF but not VT after the tag (design 8.4).
+	// the spec text excludes, and FF but not VT after the tag.
 	if n := htmlTagLen(s); n > 0 && len(bytes.Trim(s[n:], " \t\f")) == 0 {
 		return 7
 	}
@@ -187,8 +187,7 @@ func (t *Tree) htmlKindAgrees(i int) bool {
 
 // HTMLBlockClosed reports whether HTML block id ends at its end condition,
 // so that a blank line after it is not its content: a block of kind 6 or 7,
-// or a block of kind 1 to 5 whose last line meets the end condition (design
-// 8.2).
+// or a block of kind 1 to 5 whose last line meets the end condition.
 func (t *Tree) HTMLBlockClosed(id NodeID) bool {
 	n := t.nodes[id]
 	if n.flags >= 6 {
@@ -202,7 +201,7 @@ func (t *Tree) HTMLBlockClosed(id NodeID) bool {
 	return false
 }
 
-// AppendHTML appends the value of HTML block id to dst (design 8.2).
+// AppendHTML appends the value of HTML block id to dst.
 func (t *Tree) AppendHTML(dst []byte, id NodeID) []byte {
 	return t.appendVerbatim(dst, id, HTMLText)
 }
@@ -212,7 +211,7 @@ func isAttrNameStart(c byte) bool {
 }
 
 // isTagSpace reports whether c is whitespace in an HTML tag: a space, a tab,
-// VT or FF, as cmark and commonmark.js read it (design 8.4).
+// VT or FF, as cmark and commonmark.js read it.
 func isTagSpace(c byte) bool {
 	return c == ' ' || c == '\t' || c == '\v' || c == '\f'
 }

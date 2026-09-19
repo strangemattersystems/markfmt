@@ -75,9 +75,9 @@ func main() {
 	ins := inputs(paths, exclude)
 	results := make([]result, len(ins))
 	// Peak memory follows the input bytes that are formatted at once, so they
-	// stay within the input limit of one file (design 7.2). Each input is read
-	// before it takes its cost, so the cost is the bytes read, not a size from
-	// os.Stat that can change.
+	// stay within the input limit of one file. Each input is read before it
+	// takes its cost, so the cost is the bytes read, not a size from os.Stat
+	// that can change.
 	b := newBudget(markfmt.MaxInput)
 	procs := runtime.GOMAXPROCS(0)
 	var wg sync.WaitGroup

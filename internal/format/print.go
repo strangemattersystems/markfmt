@@ -147,15 +147,15 @@ type frame struct {
 // document prints the tree.
 func (p *printer) document() {
 	t := p.tree
-	// The output of the corpora is at most 3 times the input (design 12), and
-	// most of it is about its size, so out starts there and rarely grows.
+	// The output of the corpora is at most 3 times the input, and most of it
+	// is about its size, so out starts there and rarely grows.
 	_, size := t.NodeSpan(0)
 	p.out = make([]byte, 0, min(int(size), p.max))
 	p.layout = t.Layout()
 	// A block of the document that holds a dialect span prints as the input
 	// holds it: its bytes are its meaning where GitHub and CommonMark read it
 	// differently, and the canonical containers around a span would move the
-	// columns that its lines are read in (design 12).
+	// columns that its lines are read in.
 	for _, span := range t.DialectSpans() {
 		if block, ok := topLevelBlock(t, span); ok && !p.raw[block] {
 			if p.raw == nil {
@@ -262,8 +262,7 @@ func (p *printer) enter(id markdown.NodeID, k markdown.Kind) {
 	case markdown.List:
 		f.tight = !t.ListLoose(id)
 		f.start, f.ordered = t.ListStart(id)
-		// Adjacent sibling lists of one type alternate their markers
-		// (appendix B, trap 3).
+		// Adjacent sibling lists of one type alternate their markers.
 		f.alt = prev.children > 0 && prev.lastChild == markdown.List && prev.listOrdered == f.ordered && !prev.listAlt
 		if !f.ordered {
 			f.bullet = p.bullet(id, prev)
@@ -318,13 +317,13 @@ func (p *printer) enter(id markdown.NodeID, k markdown.Kind) {
 		p.inlines = append(p.inlines, inlineFrame{})
 		in := &p.inlines[f.inline]
 		if (k == markdown.Link || k == markdown.Image) && (t.LinkForm(id) == markdown.CollapsedReference || t.LinkForm(id) == markdown.ShortcutReference) {
-			// The raw text is the label (design 6.7), which Kept keeps.
+			// The raw text is the label, which Kept keeps.
 			in.label = true
 			p.inLabel++
 		}
 		if before, after := t.Around(id); k == markdown.CodeSpan && p.inLabel == 0 &&
 			before != '$' && after != '$' {
-			// A code span next to '$' is GitHub math (appendix B, trap 16).
+			// A code span next to '$' is GitHub math.
 			in.code = p.codeSpan(id)
 		}
 		if (k == markdown.Link || k == markdown.Image) && t.LinkForm(id) == markdown.InlineLink && p.inLabel == 0 {
@@ -352,8 +351,7 @@ func (p *printer) enter(id markdown.NodeID, k markdown.Kind) {
 	if k == markdown.Heading {
 		p.head, p.headLevel, p.headDone = headSingle, t.HeadingLevel(id), false
 		if p.multiLine(id) {
-			// A setext heading of more than one line stays setext (appendix B,
-			// trap 5).
+			// A setext heading of more than one line stays setext.
 			p.head = headMulti
 		}
 	}
@@ -386,9 +384,9 @@ func (p *printer) leaf(id markdown.NodeID, k markdown.Kind, start, end int) {
 			// line, or a blank line at its start.
 			top.blankFirst = true
 		case p.afterRaw:
-			// A blank line after a block that prints as written is kept syntax
-			// (design 12), with the prefixes of the containers that its line matched:
-			// the next block can be in fewer containers than it is.
+			// A blank line after a block that prints as written is kept
+			// syntax, with the prefixes of the containers that its line
+			// matched: the next block can be in fewer containers than it is.
 			start := len(p.out)
 			p.writePrefix(false)
 			p.trimSpaces(start)
@@ -466,29 +464,28 @@ func (p *printer) leaf(id markdown.NodeID, k markdown.Kind, start, end int) {
 		// would start indented code with it.
 		p.indent = -1
 	case k == markdown.Indent || k == markdown.CodeIndent:
-		// Indentation is its columns, whatever tabs it holds (design 4.3):
-		// content writes them.
+		// Indentation is its columns, whatever tabs it holds: content writes
+		// them.
 	case k == markdown.Whitespace && p.afterBox:
 		p.write(spaces[:1])
 	case k == markdown.TrailingSpace && p.inLabel == 0:
 		// After a backslash that is not an escape, the line ending would
 		// make a hard break (spec 6.7). The content of a heading that prints
 		// as ATX ends on its line, where no break forms, and the heading
-		// drops the space when it is read again (design 12).
+		// drops the space when it is read again.
 		if p.backslash && p.head != headSingle {
 			p.write(spaces[:1])
 		}
 	case k == markdown.HardBreakMarker && p.inLabel == 0 && t.Raw(id)[0] != '\\':
 		// A hard break is a backslash, except after a backslash that is not
-		// an escape, which the backslash would escape (appendix B, trap 10),
-		// and in a paragraph that starts with '[', where the backslash could
-		// be the destination of a link reference definition. After a
-		// character of a delimiter run, the break keeps its input form: a
-		// backslash is punctuation and a line ending is whitespace, so the
-		// form decides whether the run flanks. After '$', it keeps its form
-		// too (appendix B, trap 16). After a word with an extended autolink,
-		// the backslash would join the autolink, which ends at whitespace
-		// (design 6.2).
+		// an escape, which the backslash would escape, and in a paragraph
+		// that starts with '[', where the backslash could be the destination
+		// of a link reference definition. After a character of a delimiter
+		// run, the break keeps its input form: a backslash is punctuation and
+		// a line ending is whitespace, so the form decides whether the run
+		// flanks. After '$', it keeps its form too. After a word with an
+		// extended autolink, the backslash would join the autolink, which
+		// ends at whitespace.
 		last := byte(0)
 		if len(p.out) > 0 {
 			last = p.out[len(p.out)-1]
@@ -508,7 +505,7 @@ func (p *printer) leaf(id markdown.NodeID, k markdown.Kind, start, end int) {
 	case len(p.out) == 0 && len(p.stack) == 2 && k == markdown.Text &&
 		(p.head != headSingle || p.headDone) && !p.hardBreakAfter(id) &&
 		string(bytes.TrimRight(t.RestOfLine(id), " \t\r\n")) == "+++":
-		// The first block never looks like front matter (appendix B, trap 7).
+		// The first block never looks like front matter.
 		// A heading that prints as ATX writes its markers first, so its line
 		// never starts with the fence, and a hard break ends the line with a
 		// backslash or two spaces, which no fence has.
@@ -605,7 +602,7 @@ func (p *printer) exit() {
 	next, ok := p.afterBlanks(f.id)
 	if f.container && p.blanks > 0 && ok && p.raw[next] {
 		// The blank lines before a block that prints as written are kept
-		// syntax (design 12). They are the container's, so they stay in it:
+		// syntax. They are the container's, so they stay in it:
 		// after it they would be blank lines of its parent, which can make a
 		// list loose. At the end of an item they do not (spec 5.3).
 		//
@@ -684,8 +681,7 @@ func (p *printer) exit() {
 			p.head = headNone
 		}
 		// A last line of code or HTML at the end of the input without a line
-		// ending is a line of the value, also when it holds only syntax
-		// (design 8.2).
+		// ending is a line of the value, also when it holds only syntax.
 		if !p.lineStart || !p.inputLine && (g.kind == markdown.CodeBlock || g.kind == markdown.HTMLBlock) {
 			p.endLine()
 		}

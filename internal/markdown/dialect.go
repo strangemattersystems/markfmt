@@ -10,7 +10,7 @@ import (
 )
 
 // dialectRow is a row of testdata/dialect.md: a rule where GitHub and
-// CommonMark 0.31.2 give a document a different meaning (design 2.1).
+// CommonMark 0.31.2 give a document a different meaning.
 type dialectRow uint8
 
 const (
@@ -68,7 +68,7 @@ const (
 type dialectRows uint32
 
 // dialectSpan is a structure node that a dialect predicate matches, with its
-// rows (design 10.4).
+// rows.
 type dialectSpan struct {
 	id   uint32
 	rows dialectRows
@@ -76,7 +76,7 @@ type dialectSpan struct {
 
 // DialectSpans returns the structure nodes where GitHub and CommonMark 0.31.2
 // give the document a different meaning, in node order. The printer prints
-// each top-level block that holds one as written (design 2.1, 12).
+// each top-level block that holds one as written.
 func (t *Tree) DialectSpans() []NodeID {
 	ids := make([]NodeID, len(t.spans))
 	for i, s := range t.spans {
@@ -376,8 +376,8 @@ func isGitHubComment(v []byte) bool {
 // flankingDiffers reports whether a run of '*', '_' or '~' in b is next to a
 // character that markfmt reads as punctuation for flanking and GitHub does
 // not: a Unicode symbol that is neither ASCII nor punctuation, or U+FFFD,
-// which NUL and invalid UTF-8 also give (design 6.7). cmark-gfm scans a
-// strikethrough run with the same punctuation test as emphasis.
+// which NUL and invalid UTF-8 also give. cmark-gfm scans a strikethrough run
+// with the same punctuation test as emphasis.
 func flankingDiffers(b []byte) bool {
 	for i := 0; i < len(b); {
 		c := b[i]

@@ -1,6 +1,6 @@
 package markdown
 
-// bracket is a link or image opener on the bracket stack (design 6.3).
+// bracket is a link or image opener on the bracket stack.
 type bracket struct {
 	piece   int // the opener piece: the '[', or the '!' of an image
 	bottom  int // the top of the delimiter stack when the opener was pushed
@@ -18,8 +18,7 @@ func (b bracket) text() int {
 
 // openBracket pushes the '[' at i, or the '![' when image is true, as a bracket
 // and held pieces: the '!' and the '[' of an image, which a footnote reference
-// splits, and a '^' after the '[', which a footnote reference makes its caret
-// (design 6.3).
+// splits, and a '^' after the '[', which a footnote reference makes its caret.
 func (s *inlineParser) openBracket(i uint32, image bool) {
 	s.seq++
 	s.brackets = append(s.brackets, bracket{piece: len(s.pieces), bottom: len(s.delims) - 1, seq: s.seq, closers: s.closers, image: image})
@@ -36,7 +35,7 @@ func (s *inlineParser) openBracket(i uint32, image bool) {
 // closeBracket pushes the ']' at i, on a line that ends at end, with the
 // inline link or image that it closes, or as text (CM 482 to 526). A link
 // makes every link opener before it inactive in O(1): an opener pushed before
-// the last link's opener is inactive (design 6.3).
+// the last link's opener is inactive.
 func (s *inlineParser) closeBracket(i, end uint32) {
 	n := len(s.brackets)
 	if n == 0 {
@@ -90,11 +89,10 @@ type footnoteNote struct {
 
 // footnoteReference makes the bracket text of opener b, which the ']' at i
 // closes, a footnote reference, and reports whether it did: the text decodes
-// to '^' and more (design 6.3 step 4). The delimiters inside it go, and its
-// pieces become label pieces; a reference that completed inside it is passed
-// in one step. It resolves when no ']' was handled inside it (inner is false),
-// its label has at most 1,000 label bytes, and its normalized label is a
-// footnote label (design 6.7).
+// to '^' and more. The delimiters inside it go, and its pieces become label
+// pieces; a reference that completed inside it is passed in one step. It
+// resolves when no ']' was handled inside it (inner is false), its label has
+// at most 1,000 label bytes, and its normalized label is a footnote label.
 func (s *inlineParser) footnoteReference(b bracket, i uint32, inner bool) bool {
 	open := b.text() - 1
 	caret := open + 1
@@ -198,8 +196,8 @@ func (s *inlineParser) reference(b bracket) (LinkForm, bool) {
 // labelBytes returns the bytes of piece j that count toward the size of a
 // label: none for indentation and prefix leaves, which are not content, one
 // byte for a line ending, and one byte less for a cell pipe escape, whose
-// pair writes one byte (design 6.7). Only the byte count and the character
-// count of the result are used, not its bytes.
+// pair writes one byte. Only the byte count and the character count of the
+// result are used, not its bytes.
 func (s *inlineParser) labelBytes(j int) []byte {
 	b := s.src[s.startOf(j):s.pieces[j].end]
 	switch k := s.pieces[j].kind; k {
@@ -220,7 +218,7 @@ func (s *inlineParser) labelBytes(j int) []byte {
 // defined reports whether the label bytes of the pieces from index from to
 // index to, normalized, are a defined label. The label cap is checked before
 // the label is read: at most 999 bytes, or at most 3,996 bytes and 999
-// characters (design 6.7).
+// characters.
 func (s *inlineParser) defined(from, to int) bool {
 	size := 0
 	for j := from; j < to; j++ {
@@ -250,7 +248,7 @@ func (s *inlineParser) defined(from, to int) bool {
 	return len(f.dst) > 0 && s.defs.defined[string(f.dst)]
 }
 
-// LinkForm is the form of a link or an image (design 10.2).
+// LinkForm is the form of a link or an image.
 type LinkForm uint8
 
 const (
@@ -267,7 +265,7 @@ func (t *Tree) LinkForm(id NodeID) LinkForm {
 
 // AppendLinkLabel appends the normalized label of reference link or image id
 // to dst: the label of a full reference, or the bracket text of a collapsed
-// or shortcut reference (design 6.7).
+// or shortcut reference.
 func (t *Tree) AppendLinkLabel(dst []byte, id NodeID) []byte {
 	f := labelFolder{dst: dst, start: len(dst), link: true}
 	first := 1 // the label follows this many of the link's own brackets
@@ -323,9 +321,8 @@ func (s *inlineParser) linkTail() bool {
 
 // linkLabel pushes the link label at the position: '[', up to 999 characters
 // with no unescaped bracket and at least one that is not a space, tab or line
-// ending, and ']' (design 6.7). It reports whether there is one, and whether
-// it is blank: it has only spaces, tabs, VT, FF and line endings, as cmark
-// reads it.
+// ending, and ']'. It reports whether there is one, and whether it is blank:
+// it has only spaces, tabs, VT, FF and line endings, as cmark reads it.
 func (s *inlineParser) linkLabel() (found, blank bool) {
 	j := s.end()
 	if c, ok := s.byteAt(pos{s.k, j}); !ok || c != '[' {
@@ -400,7 +397,7 @@ func (s *inlineParser) linkDestination() bool {
 			continue
 		}
 		// cmark ends a destination at these and takes every other control
-		// character, which the spec text excludes (design 8.4).
+		// character, which the spec text excludes.
 		if c == ' ' || c == '\t' || c == '\v' || c == '\f' || c == ')' && depth == 0 {
 			break
 		}

@@ -2,7 +2,7 @@ package markdown
 
 import "bytes"
 
-// inlineParser runs the inline phase on the lines of one block (design 6).
+// inlineParser runs the inline phase on the lines of one block.
 // It writes pieces to a scratch buffer, then appends them to the builder in
 // one pass, so a later decision can change a piece that is already written.
 type inlineParser struct {
@@ -31,17 +31,17 @@ type inlineParser struct {
 
 	failed [len(closers)]uint32 // one past the start of the last failed search for each raw HTML closer
 
-	// pipes makes each "\|" pair a CellPipeEscape: in a table cell, and in the
-	// paragraph split off above a table (design 8.2). task makes inlines look
-	// for a task box, and box is the character between its brackets, or 0.
-	// inlines clears pipes and task.
+	// pipes makes each "\|" pair a CellPipeEscape: in a table cell, and in
+	// the paragraph split off above a table. task makes inlines look for a
+	// task box, and box is the character between its brackets, or 0. inlines
+	// clears pipes and task.
 	pipes, task bool
 	box         byte
 
 	// The spans that emit has open, and how many of them are links or
 	// autolinks. runEnd is the end of the last run of Text-group pieces that
 	// emit searched for email autolinks, cuts are the places where those
-	// open and close, and cut is the next cut to apply (design 6.6).
+	// open and close, and cut is the next cut to apply.
 	spans    []Kind
 	links    int
 	runEnd   int
@@ -331,7 +331,7 @@ func (s *inlineParser) push(x piece) {
 // pushContent pushes content pieces of kind k to end, on the line being
 // scanned. With pipes, each "\|" pair is a CellPipeEscape piece of group k,
 // and in a destination or a title, which decode escapes, an unescaped '\'
-// before the pair joins it (design 8.2).
+// before the pair joins it.
 func (s *inlineParser) pushContent(k Kind, end uint32) {
 	decodes := k == Destination || k == Title
 	for i := s.end(); s.pipes && i+1 < end; i++ {
@@ -378,7 +378,7 @@ func (s *inlineParser) startOf(j int) uint32 {
 // emit appends the pieces to the builder, with their spans. A piece with
 // join, and a Text piece after a Text piece, extend the leaf before them.
 // Email autolinks open and close inside runs of Text-group pieces outside
-// links (design 6.6).
+// links.
 func (s *inlineParser) emit() {
 	s.spans, s.links, s.runEnd, s.cuts, s.cut = s.spans[:0], 0, 0, s.cuts[:0], 0
 	for j, x := range s.pieces {

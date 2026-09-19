@@ -219,8 +219,8 @@ func TestParse(t *testing.T) {
 	t.Run("gives a task box to the first block of an item that is not a definition", func(t *testing.T) {
 		t.Parallel()
 
-		// Design 6.5: every line of a paragraph can be a definition, so the
-		// first block that remains is the one that can hold a box.
+		// Every line of a paragraph can be a definition, so the first block
+		// that remains is the one that can hold a box.
 		for _, tt := range []struct {
 			name string
 			src  string
@@ -251,7 +251,7 @@ func TestParse(t *testing.T) {
 
 		// 997 characters of two bytes, a line ending and one character make a
 		// label of 999. Indentation is not part of a paragraph's content, so
-		// it is not part of the label (design 6.7).
+		// it is not part of the label.
 		label := strings.Repeat("é", 997) + "\n  a"
 		src := "[" + label + "]\n\n[" + label + "]: /u\n"
 		if n := countKind(Parse([]byte(src)), Link); n != 1 {
@@ -264,7 +264,7 @@ func TestParse(t *testing.T) {
 
 		// In a cell the pair "\|" is one character of the label, so the
 		// reference and the definition hold the same label of 999
-		// characters (design 6.7).
+		// characters.
 		label := strings.Repeat("é", 998)
 		src := "| [" + label + `\|` + "] |\n| - |\n\n[" + label + "|]: /u\n"
 		if n := countKind(Parse([]byte(src)), Link); n != 1 {
@@ -364,11 +364,11 @@ func TestParse(t *testing.T) {
 	}
 }
 
-// inputLimit is the input limit of markfmt.Format (design 7.2).
+// inputLimit is the input limit of markfmt.Format.
 const inputLimit = 8 << 20
 
-// memoryBound is the peak memory of the long test at stage 2: half the 4 GiB
-// budget of markfmt.Format, which parses two trees (design 7.2, 11.1).
+// memoryBound is the peak memory of the long test: half the 4 GiB budget of
+// markfmt.Format, which parses two trees.
 const memoryBound = 2 << 30
 
 // longInputs are the calibration inputs of the long test, by name: prose for
@@ -386,7 +386,7 @@ type longResult struct {
 }
 
 // runLongChild runs the input called name at size bytes in a child process of
-// the test binary (design 11.1).
+// the test binary.
 func runLongChild(t *testing.T, name string, size int) longResult {
 	t.Helper()
 
@@ -429,8 +429,8 @@ func longChild(t *testing.T, spec string) {
 	fmt.Printf("markfmt-long %d %d %d\n", d, nodes, len(src))
 }
 
-// pathologicalInputs are the inputs of design 6.8. Each builds an input
-// of about n bytes.
+// pathologicalInputs are the inputs that a parser without linear-time
+// mechanisms reads in superlinear time. Each builds an input of about n bytes.
 var pathologicalInputs = []struct {
 	name  string
 	build func(n int) []byte
@@ -797,14 +797,13 @@ func readGrammarDiffers(t *testing.T, path string, examples []example, failing m
 	return differs
 }
 
-// BenchmarkParse parses each benchmark input, both passes included (design
-// 11.6).
+// BenchmarkParse parses each benchmark input, both passes included.
 func BenchmarkParse(b *testing.B) {
 	spec, err := os.ReadFile("testdata/commonmark/spec.txt")
 	if err != nil {
 		b.Fatal(err)
 	}
-	design, err := os.ReadFile("../../docs/design/parser.md")
+	design, err := os.ReadFile("testdata/bench/design.md")
 	if err != nil {
 		b.Fatal(err)
 	}

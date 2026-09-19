@@ -6,7 +6,7 @@ import (
 )
 
 // blockParser runs the block phase: it reads the input line by line and
-// appends the blocks to the builder (design 5).
+// appends the blocks to the builder.
 type blockParser struct {
 	b   *builder
 	src []byte
@@ -19,23 +19,23 @@ type blockParser struct {
 	l      line         // the line being parsed
 	pos    uint32       // start of the rest of the line: the first byte after the prefix leaves
 	col    int          // column at the start of the byte at pos
-	used   int          // columns of a tab at pos that structures consumed (design 4.3)
+	used   int          // columns of a tab at pos that structures consumed
 	prefix []prefixLeaf // prefix leaves of the line that are not appended yet
 
 	breakMemo uint32 // a thematic break scan from a marker of the line before this offset fails
 
 	// The last run of spaces and tabs that indentation scanned: from spaceFrom
-	// to spaceEnd, whose column is spaceCol (design 5.1).
+	// to spaceEnd, whose column is spaceCol.
 	spaceFrom, spaceEnd uint32
 	spaceCol            int
 
 	inline inlineParser
 	defs   *definitions
-	pass1  bool // the block phase of pass 1, which skips the inline phase (design 7.1)
+	pass1  bool // the block phase of pass 1, which skips the inline phase
 	trace  func(line, int, int, bool)
 	label  []byte // a normalized label
 
-	pending []pendingLine // lines of the open leaf block that are not appended yet (design 5.3)
+	pending []pendingLine // lines of the open leaf block that are not appended yet
 	arena   []prefixLeaf  // prefix leaves of the pending lines
 
 	aligns []Alignment    // the alignments of the columns of the open table
@@ -46,7 +46,7 @@ type blockParser struct {
 // of them.
 type container struct {
 	kind  Kind
-	blank bool // the last line that the container received was blank (design 5.6)
+	blank bool // the last line that the container received was blank
 	child bool // a block started in the container
 	loose bool // a List is loose
 
@@ -97,17 +97,17 @@ type pendingLine struct {
 	prefixN     uint32
 }
 
-// parseLine adds one line to the tree (design 5.1 and 5.2).
+// parseLine adds one line to the tree.
 func (p *blockParser) parseLine(l line) {
 	p.l, p.pos, p.col, p.used, p.breakMemo = l, l.start, 0, 0, 0
 	p.spaceFrom, p.spaceEnd = 1, 0
 
 	matched, passed, notes := 1, 0, 0
 	for matched < len(p.containers) {
-		// Blank-line fast path (design 5.1): on an empty rest, each container
-		// before the next block quote or list item with no child continues
-		// and consumes nothing. A footnote definition continues on an empty
-		// rest only when the whole line is empty.
+		// Blank-line fast path: on an empty rest, each container before the
+		// next block quote or list item with no child continues and consumes
+		// nothing. A footnote definition continues on an empty rest only when
+		// the whole line is empty.
 		if p.pos == l.end {
 			next := len(p.containers)
 			if passed < len(p.blocking) {
@@ -153,14 +153,14 @@ func (p *blockParser) parseLine(l line) {
 				return
 			}
 			// No paragraph line remains: the line is paragraph text, and no
-			// other block starts on it, as in cmark (design 5.4).
+			// other block starts on it, as in cmark.
 			p.clearPending()
 			p.addPending()
 			return
 		}
 	}
 	// cmark-gfm starts a footnote definition only when fewer than 99 blocks
-	// started before it on the line (its MAX_LIST_DEPTH, design 9.2).
+	// started before it on the line (its MAX_LIST_DEPTH).
 	opened, note := 0, false
 starts:
 	for indent < 4 && first < l.end {
@@ -295,7 +295,7 @@ func (p *blockParser) startLeaf(first uint32, indent, matched int) bool {
 	l, para := p.l, p.leaf.kind == paragraphLeaf
 	if indent >= 4 {
 		// Indented code never starts while a paragraph is open, matched or
-		// not (design 5.1).
+		// not.
 		if para {
 			return false
 		}
@@ -352,7 +352,7 @@ func (p *blockParser) startLeaf(first uint32, indent, matched int) bool {
 		return true
 	}
 	// HTML block kind 7 never starts while a paragraph is open, matched or not
-	// (design 5.1, testdata/dialect.md).
+	// (testdata/dialect.md).
 	if k := htmlBlockStart(p.src, first, l.end); k != 0 && (k < 7 || !para) {
 		p.startBlock(matched)
 		p.b.open(HTMLBlock)
@@ -370,9 +370,8 @@ func (p *blockParser) startLeaf(first uint32, indent, matched int) bool {
 
 // startBlock prepares the start of a block that is not a list item after the
 // first matched containers. It closes the other open blocks, and a matched
-// list, because the block is not one of its items (design 5.5). It appends
-// the line's prefix leaves and records the new child, whose content its
-// container holds.
+// list, because the block is not one of its items. It appends the line's
+// prefix leaves and records the new child, whose content its container holds.
 func (p *blockParser) startBlock(matched int) {
 	p.startLeafBlock(matched)
 	p.containers[len(p.containers)-1].content = true
@@ -380,7 +379,7 @@ func (p *blockParser) startBlock(matched int) {
 
 // startParagraph prepares the start of a paragraph the same way, and records
 // no content: every line of a paragraph can be a link reference definition,
-// and appendLines records the content of the lines that remain (design 6.5).
+// and appendLines records the content of the lines that remain.
 func (p *blockParser) startParagraph(matched int) {
 	p.startLeafBlock(matched)
 }
@@ -416,8 +415,7 @@ func (p *blockParser) closeUnmatched(n int) {
 }
 
 // addChild records that a block starts in the innermost open container. A
-// list item or list whose last line was blank makes its list loose (design
-// 5.6).
+// list item or list whose last line was blank makes its list loose.
 func (p *blockParser) addChild() {
 	i := len(p.containers) - 1
 	c := &p.containers[i]
@@ -450,7 +448,7 @@ func (p *blockParser) push(c container) {
 
 // isThematicBreak reports whether the rest of the line from first is a
 // thematic break. A failed scan leaves a memo, so a later start on the line
-// that the memo covers needs no scan (design 5.1).
+// that the memo covers needs no scan.
 func (p *blockParser) isThematicBreak(first uint32) bool {
 	if first < p.breakMemo {
 		return false
@@ -534,7 +532,7 @@ func (p *blockParser) appendLines(k Kind, lines []pendingLine, pipes bool) {
 	last := lines[len(lines)-1].rest
 	c := &p.containers[len(p.containers)-1]
 	// Only the first block of a list item that is not a definition can hold a
-	// task box (design 6.5), and these lines are that block's content.
+	// task box, and these lines are that block's content.
 	first := k == Paragraph && c.kind == ListItem && !c.content
 	c.content = true
 	if p.pass1 {
@@ -616,7 +614,7 @@ func count(n int) uint32 {
 // tabs at src[i:end]: its offset, the column at that offset, and the columns
 // of a tab there that are consumed. The byte at i is at column col, and used
 // columns of a tab there are consumed already. A tab that the n columns
-// consume only in part stays at the returned offset (design 4.3).
+// consume only in part stays at the returned offset.
 func skipColumns(src []byte, i, end uint32, col, used, n int) (uint32, int, int) {
 	for n > 0 && i < end && isSpaceOrTab(src[i]) {
 		next := nextColumn(src[i], col)
@@ -652,7 +650,7 @@ func nextColumn(c byte, col int) int {
 // after its container prefixes and without indentation, would start a block,
 // a setext underline or a table delimiter row there. On a lazy line a list
 // item of any start or content starts a list, and no underline or delimiter
-// row is read (design 5.1, 5.4).
+// row is read.
 func InterruptsParagraph(line []byte, lazy bool) bool {
 	end := count(len(line))
 	if end == 0 {
@@ -685,14 +683,13 @@ func InterruptsParagraph(line []byte, lazy bool) bool {
 
 // StartsBlock reports whether line, without indentation, would start a block
 // outside a paragraph: a block that interrupts a paragraph on a lazy line, or
-// an HTML block of kind 7 (design 5.1).
+// an HTML block of kind 7.
 func StartsBlock(line []byte) bool {
 	return InterruptsParagraph(line, true) || htmlBlockStart(line, 0, count(len(line))) == 7
 }
 
 // A Layout follows a walk over the nodes of a tree in order. It gives the
-// columns of each leaf, and the containers that each line matched (design
-// 4.3, 12).
+// columns of each leaf, and the containers that each line matched.
 type Layout struct {
 	w containerWalk
 }
@@ -711,15 +708,14 @@ func (l *Layout) Visit(id NodeID) (start, end int) {
 }
 
 // ItemIndent returns the columns that the list item that [Layout.Visit]
-// entered last continues on: its indentation, marker and padding (design 5.5).
+// entered last continues on: its indentation, marker and padding.
 func (l *Layout) ItemIndent() int {
 	return l.w.chain[len(l.w.chain)-1].indent
 }
 
 // ItemIndentOf returns the columns that the open list item id continues on,
-// counted from its own first column: its indentation, marker and padding
-// (design 5.5). The item must be one that [Layout.Visit] entered and has not
-// left.
+// counted from its own first column: its indentation, marker and padding.
+// The item must be one that [Layout.Visit] entered and has not left.
 func (l *Layout) ItemIndentOf(id NodeID) int {
 	for _, c := range l.w.chain {
 		if c.id == uint32(id) {
@@ -740,7 +736,7 @@ func (l *Layout) Matched(id NodeID) (matched, end int) {
 // containerWalk follows a walk over the nodes of a tree in order. It keeps the
 // open block quotes, list items and footnote definitions with the columns that
 // each continues on, and the column after the last leaf, so that it can count
-// the containers that a line matched (design 4.3, 10.4).
+// the containers that a line matched.
 type containerWalk struct {
 	t     *Tree
 	col   int
@@ -787,9 +783,9 @@ func (w *containerWalk) pop(i uint32) {
 // matched returns how many open containers the line whose first leaf is node
 // i matched: the owners of its prefix leaves and the containers before them,
 // then the list items and footnote definitions whose indentation ends inside
-// the split tab of the first leaf that is not a prefix leaf (design 4.3). It
-// also returns the column where the prefixes of the line's containers end,
-// with the containers that start on the line.
+// the split tab of the first leaf that is not a prefix leaf. It also returns
+// the column where the prefixes of the line's containers end, with the
+// containers that start on the line.
 func (w *containerWalk) matched(i uint32) (int, int) {
 	w.pop(i)
 	t, chain := w.t, w.chain
@@ -839,8 +835,7 @@ func (w *containerWalk) matched(i uint32) (int, int) {
 }
 
 // itemIndent returns the columns that list item id continues on, when its
-// ListMarker leaf is at column col: its indentation, marker and padding
-// (design 5.5).
+// ListMarker leaf is at column col: its indentation, marker and padding.
 func (t *Tree) itemIndent(id NodeID, col int) int {
 	marker := t.nodes[id+1]
 	start, end := t.leafColumns(marker, col)
@@ -861,7 +856,7 @@ func (t *Tree) itemIndent(id NodeID, col int) int {
 
 // leafColumns returns the columns of leaf n, whose first byte is at column
 // col: the column where its own columns start, after the columns of a split
-// tab that structures consumed (design 4.3), and the column after it.
+// tab that structures consumed, and the column after it.
 func (t *Tree) leafColumns(n Node, col int) (start, end int) {
 	b := t.src[n.start:n.end]
 	start, end = col, col+len(b)

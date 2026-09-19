@@ -6,7 +6,7 @@ import (
 	"unicode/utf8"
 )
 
-// Kept returns the kept syntax of tree in document order (design 12): the
+// Kept returns the kept syntax of tree in document order: the
 // rows of each dialect span and the blank lines before and after it, the
 // bytes of each Escape, EntityRef and CellPipeEscape leaf, the raw bytes of
 // each label, each NUL and invalid UTF-8 sequence in a content leaf, and each

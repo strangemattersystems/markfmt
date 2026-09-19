@@ -7,7 +7,7 @@ import (
 )
 
 // Parse parses src into a [Tree]. Pass 1 finds the link reference
-// definitions, so that pass 2 can resolve references to them (design 7.1).
+// definitions, so that pass 2 can resolve references to them.
 // Every definition contains "]:", so an input without it needs no pass 1.
 func Parse(src []byte) *Tree {
 	return parse(src, nil)
@@ -62,7 +62,7 @@ func parseBlocks(src []byte, defs *definitions, pass1 bool, trace func(line, int
 // definitions is the link label list and the footnote label list: the
 // normalized labels of the link reference definitions and of the footnote
 // definitions that pass 1 finds, in document order. Pass 2 finds the same
-// definitions, or panics: a mismatch is a parser bug (design 7.1).
+// definitions, or panics: a mismatch is a parser bug.
 type definitions struct {
 	labels  []string
 	defined map[string]bool

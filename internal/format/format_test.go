@@ -28,7 +28,7 @@ func TestCheck(t *testing.T) {
 	t.Run("rejects an output that drops an escape", func(t *testing.T) {
 		t.Parallel()
 
-		// The trees are equal, but an escape is kept syntax (design 12).
+		// The trees are equal, but an escape is kept syntax.
 		if err := check(markdown.Parse([]byte("a\\*b\n")), []byte("a*b\n")); err == nil {
 			t.Fatal("check gives no error for an output without its escape")
 		}
@@ -70,7 +70,7 @@ func TestSource(t *testing.T) {
 		t.Parallel()
 
 		// No layout keeps the tight list, the paragraph and a header row that
-		// reads as a delimiter row (roadmap, stage 6).
+		// reads as a delimiter row.
 		src := []byte("* 0\r--\n  |-")
 		if _, err := Strict(src); err == nil {
 			t.Fatalf("Strict(%q) gives no error, want one: the case is not open any more", src)

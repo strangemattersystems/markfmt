@@ -10,7 +10,7 @@ import (
 )
 
 // MaxInput and MaxOutput are the sizes in bytes above which [Source] returns
-// an error that wraps [ErrTooLarge] (design 7.2).
+// an error that wraps [ErrTooLarge].
 const (
 	MaxInput  = 8 << 20
 	MaxOutput = 16 << 20
@@ -97,15 +97,14 @@ func sourceTree(tree *markdown.Tree, raw map[markdown.NodeID]bool, limit int) ([
 }
 
 // check reports whether out, the printed form of tree, would change what the
-// input means (design 10), or its kept syntax (design 12). The error holds a
-// [markdown.MismatchError].
+// input means, or its kept syntax. The error holds a [markdown.MismatchError].
 func check(tree *markdown.Tree, out []byte) error {
 	printed := markdown.Parse(out)
 	if err := markdown.Equal(tree, printed); err != nil {
 		return fmt.Errorf("the output would change the meaning of the input: %w", err)
 	}
 	// Equal reads the value of a construct, where GitHub can read the bytes
-	// that the kept syntax holds (design 12).
+	// that the kept syntax holds.
 	if err := markdown.KeptMismatch(tree, printed); err != nil {
 		return fmt.Errorf("the output would change the kept syntax of the input: %w", err)
 	}

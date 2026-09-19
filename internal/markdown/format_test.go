@@ -35,7 +35,6 @@ func TestFormatSource(t *testing.T) {
 			}
 			inputs = append(inputs, src)
 		}
-		// The largest output-to-input ratio is a stage 6 gate (design 12).
 		largest, largestIn := 0.0, []byte(nil)
 		for _, src := range inputs {
 			out, err := format.Strict(src)
@@ -113,7 +112,7 @@ func TestFormatSource(t *testing.T) {
 }
 
 // formatMemoryBound is the peak memory budget of format.Source at the input
-// limit (design 7.2, 11.1).
+// limit.
 const formatMemoryBound = 4 << 30
 
 // timeSource returns the best of 3 times of format.Source on src.
@@ -128,10 +127,9 @@ func timeSource(src []byte) time.Duration {
 }
 
 // formatInputs returns the inputs of the pathological and long subtests, by
-// name: the pathological inputs of design 6.8; tab-indented code in list
-// items, which has the largest output-to-input ratio of the corpora (appendix
-// B, trap 20); and inputs that deep nesting makes pathological for the
-// printer.
+// name: the pathological inputs of the parser; tab-indented code in list
+// items, which has the largest output-to-input ratio of the corpora; and
+// inputs that deep nesting makes pathological for the printer.
 func formatInputs() map[string]func(n int) []byte {
 	inputs := markdown.PathologicalInputs()
 	inputs["empty"] = func(int) []byte { return nil }
@@ -168,7 +166,7 @@ type formatResult struct {
 }
 
 // runFormatChild runs format.Source on the input called name at size bytes
-// in a child process of the test binary (design 11.1).
+// in a child process of the test binary.
 func runFormatChild(t *testing.T, name string, size int) formatResult {
 	t.Helper()
 
@@ -249,7 +247,7 @@ func FuzzSource(f *testing.F) {
 }
 
 // FuzzFormat checks the formatter against the test HTML, so that Equal is not
-// its own oracle (design 10.5).
+// its own oracle.
 func FuzzFormat(f *testing.F) {
 	for _, src := range markdown.CorpusInputs(f) {
 		f.Add(src)

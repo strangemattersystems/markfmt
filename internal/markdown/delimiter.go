@@ -5,7 +5,7 @@ import (
 	"unicode/utf8"
 )
 
-// delimiter is a run of '*', '_' or '~' on the delimiter stack (design 6.4).
+// delimiter is a run of '*', '_' or '~' on the delimiter stack.
 // The run has one piece per character. Closers use its characters from the left,
 // and openers from the right.
 type delimiter struct {
@@ -62,9 +62,9 @@ func (s *inlineParser) delimiterRun(i, end uint32) {
 
 // processEmphasis matches the delimiters above index bottom into emphasis,
 // strong emphasis and strikethrough, and removes them from the stack: the
-// "process emphasis" procedure of the CommonMark spec. The bound on the search
-// for an opener, by character, closer length modulo 3 and whether the closer
-// can open, keeps it linear (design 6.8). cmark-gfm bounds a '~' closer by its
+// "process emphasis" procedure of the CommonMark spec. The bound on the
+// search for an opener, by character, closer length modulo 3 and whether the
+// closer can open, keeps it linear. cmark-gfm bounds a '~' closer by its
 // length modulo 3 only.
 func (s *inlineParser) processEmphasis(bottom int) {
 	var openersBottom [2][6]int
@@ -161,7 +161,7 @@ func (s *inlineParser) match(opener, closer *delimiter) {
 
 // strike makes strikethrough from the '~' runs of opener and closer when their
 // lengths are equal, and leaves both as text otherwise. Either way it uses all
-// their characters (design 6.4).
+// their characters.
 func (s *inlineParser) strike(opener, closer *delimiter) {
 	if opener.length == closer.length {
 		for k := range opener.length {
@@ -187,13 +187,13 @@ func (s *inlineParser) unlink(d int) {
 }
 
 // isUnicodeSpace reports whether r is Unicode whitespace for flanking: Zs,
-// tab, line feed, form feed or carriage return (design 6.7).
+// tab, line feed, form feed or carriage return.
 func isUnicodeSpace(r rune) bool {
 	return r == '\t' || r == '\n' || r == '\f' || r == '\r' || unicode.Is(unicode.Zs, r)
 }
 
 // isUnicodePunct reports whether r is Unicode punctuation for flanking: P or
-// S. U+FFFD is So (design 6.7, testdata/dialect.md).
+// S. U+FFFD is So (testdata/dialect.md).
 func isUnicodePunct(r rune) bool {
 	return unicode.IsPunct(r) || unicode.IsSymbol(r)
 }

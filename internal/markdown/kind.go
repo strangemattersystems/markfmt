@@ -2,8 +2,7 @@ package markdown
 
 import "strconv"
 
-// Kind is the kind of a [Node]. Appendix A of docs/design/parser.md lists
-// every kind.
+// Kind is the kind of a [Node].
 type Kind uint8
 
 const (
@@ -106,7 +105,7 @@ func (k Kind) class() class {
 }
 
 // Leaf reports whether k is a leaf kind. Other kinds are structure kinds,
-// which group the nodes after them (design 3.4).
+// which group the nodes after them.
 func (k Kind) Leaf() bool {
 	return k.class() != classStructure
 }
@@ -148,7 +147,7 @@ func (k Kind) validFlags(f uint8) bool {
 	case FootnoteReference:
 		return f <= 1
 	case CellPipeEscape:
-		// The kind of the content leaves around it (design 10.3).
+		// The flags are the kind of the content leaves around it.
 		switch Kind(f) {
 		case Text, CodeText, HTMLText, AutolinkText, Destination, Title, LinkLabel, FootnoteLabel:
 			return true

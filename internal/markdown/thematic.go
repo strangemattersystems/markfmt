@@ -4,7 +4,7 @@ package markdown
 // indentation, is a thematic break: three or more of one marker, '*', '-' or
 // '_', with only spaces and tabs between and after them. When it is not, it
 // also returns an offset such that a scan from any marker of src[i:end] before
-// that offset fails too, or 0 (design 5.1).
+// that offset fails too, or 0.
 func scanThematicBreak(src []byte, i, end uint32) (bool, uint32) {
 	c := src[i]
 	if c != '*' && c != '-' && c != '_' {

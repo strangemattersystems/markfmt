@@ -87,7 +87,7 @@ func (p *printer) startTableLine(delimiter bool) {
 // delimiter cells of at least 3 dashes. Its columns are aligned by display
 // width and its short rows get empty cells, unless that adds more bytes than
 // the table has without them, or the table has as many missing cells as
-// cmark-gfm's cap (appendix B, trap 14).
+// cmark-gfm's cap.
 func (p *printer) printTable() {
 	tb := p.table
 	p.table, p.lineStart = nil, true

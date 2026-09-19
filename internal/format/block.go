@@ -17,7 +17,7 @@ func (p *printer) separate(parent int, id markdown.NodeID, k markdown.Kind, raw 
 		case p.open:
 			n = 0
 		case p.afterRaw || raw:
-			// Kept syntax (design 12).
+			// A block that prints as written keeps the blank lines around it.
 			n = p.blanks
 		case k == markdown.Table && f.lastChild == markdown.Paragraph && p.blanks == 0 && p.bracket:
 			// The table split the paragraph off, which after a blank line
@@ -45,8 +45,7 @@ func (p *printer) separate(parent int, id markdown.NodeID, k markdown.Kind, raw 
 			}
 		case (k == markdown.Paragraph || k == markdown.LinkReferenceDefinition) && p.lazyFirst(id):
 			// A blank line would end the lazy line's continuation, and the
-			// containers that it does not match would end with it (appendix
-			// B, trap 2).
+			// containers that it does not match would end with it.
 			n = 0
 		case (f.kind == markdown.List || f.kind == markdown.ListItem) && f.tight:
 			// A blank line would make the list loose.
@@ -84,8 +83,7 @@ func (p *printer) separate(parent int, id markdown.NodeID, k markdown.Kind, raw 
 
 // lazyFirst reports whether the first line of block id is lazy: it matches
 // fewer containers than are open, so a blank line before it would take the
-// block out of the containers that its line does not match (appendix B,
-// trap 2).
+// block out of the containers that its line does not match.
 func (p *printer) lazyFirst(id markdown.NodeID) bool {
 	t := p.tree
 	leaf := id + 1
@@ -218,9 +216,9 @@ func (p *printer) hardBreakAfter(id markdown.NodeID) bool {
 
 // thematicRun returns the thematic break to write before the prefix of its
 // line: "---", or "***" where "---" would be a setext underline after a
-// paragraph line or text after a definition line, the opener of front matter
-// (appendix B, trap 7), or a longer break with the bullet of the list item
-// whose marker line it is on (trap 4).
+// paragraph line or text after a definition line, the opener of front matter,
+// or a longer break with the bullet of the list item whose marker line it is
+// on.
 func (p *printer) thematicRun() []byte {
 	if p.afterText || len(p.out) == 0 && len(p.stack) == 2 {
 		return []byte("***")
@@ -301,7 +299,7 @@ func (p *printer) multiLine(id markdown.NodeID) bool {
 
 // endHeading ends the line of a heading that prints as ATX: an empty heading
 // is its markers alone, and content that is number signs, or ends with them
-// after a space or a tab, gets a closing sequence (appendix B, trap 6).
+// after a space or a tab, gets a closing sequence.
 func (p *printer) endHeading() {
 	p.headDone = true
 	marker := bytes.Repeat([]byte{'#'}, p.headLevel)
