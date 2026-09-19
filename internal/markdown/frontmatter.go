@@ -22,7 +22,7 @@ func (t *Tree) FrontMatterTOML(id NodeID) bool {
 }
 
 // frontMatter appends the front matter at the start of the lines of it, if
-// there is one, and returns the lines after it (design 8.1).
+// there is one, and returns the lines after it.
 func (p *blockParser) frontMatter(it lines) lines {
 	body := it
 	open, ok := body.next()

@@ -9,35 +9,21 @@ import (
 	"github.com/strangemattersystems/markfmt/internal/markdown"
 )
 
-// MaxInput and MaxOutput are the sizes in bytes above which [Source] returns
-// an error that wraps [ErrTooLarge] (design 7.2).
-const (
-	MaxInput  = 8 << 20
-	MaxOutput = 16 << 20
-)
-
-// ErrTooLarge is the error for an input above [MaxInput] or an output above
-// [MaxOutput].
-var ErrTooLarge = errors.New("larger than the limit")
-
 // Source returns src in the canonical style, with LF line endings. A
 // top-level block whose canonical form would change what the input means
 // keeps the bytes of the input, and where no block can be found for a
 // difference, the whole input stays as it is: Source formats what it can,
 // and changes nothing that it cannot keep.
 //
-// Source returns an error only when src is larger than [MaxInput] or the
-// output would be larger than [MaxOutput].
+// Source returns an error only when the output would pass outputLimit,
+// which is a printer bug.
 func Source(src []byte) ([]byte, error) {
-	if len(src) > MaxInput {
-		return nil, fmt.Errorf("the input is %w of %d bytes", ErrTooLarge, MaxInput)
-	}
 	tree := markdown.Parse(src)
 	var raw map[markdown.NodeID]bool
 	// Each retry prints and checks the whole input again, so a few are
 	// allowed: a finding of the check is rare, and nearly always one block.
 	for range maxRetries {
-		out, err := sourceTree(tree, raw, MaxOutput)
+		out, err := sourceTree(tree, raw, outputLimit(len(src)))
 		var m *markdown.MismatchError
 		switch {
 		case err == nil:
@@ -70,10 +56,14 @@ const maxRetries = 4
 // keep bytes of the input: the tests of the printer use it, so that a block
 // that the printer cannot write is a failure and not a quiet copy.
 func Strict(src []byte) ([]byte, error) {
-	if len(src) > MaxInput {
-		return nil, fmt.Errorf("the input is %w of %d bytes", ErrTooLarge, MaxInput)
-	}
-	return sourceTree(markdown.Parse(src), nil, MaxOutput)
+	return sourceTree(markdown.Parse(src), nil, outputLimit(len(src)))
+}
+
+// outputLimit returns the most bytes that the printer writes for an input of
+// n bytes. The printer writes at most about 4 bytes per input byte, where a
+// tab of indentation becomes spaces, so the limit only stops a printer bug.
+func outputLimit(n int) int {
+	return 8*n + 64<<10
 }
 
 // sourceTree prints tree, with the top-level blocks in raw as the input holds
@@ -83,7 +73,7 @@ func sourceTree(tree *markdown.Tree, raw map[markdown.NodeID]bool, limit int) ([
 	p := printer{tree: tree, max: limit, raw: raw}
 	p.document()
 	if p.full {
-		return nil, fmt.Errorf("the output is %w of %d bytes", ErrTooLarge, limit)
+		return nil, fmt.Errorf("the output is larger than %d bytes", limit)
 	}
 	if bytes.Equal(p.out, tree.Raw(0)) {
 		// The output parses to the tree of the input, so the check has
@@ -97,15 +87,14 @@ func sourceTree(tree *markdown.Tree, raw map[markdown.NodeID]bool, limit int) ([
 }
 
 // check reports whether out, the printed form of tree, would change what the
-// input means (design 10), or its kept syntax (design 12). The error holds a
-// [markdown.MismatchError].
+// input means, or its kept syntax. The error holds a [markdown.MismatchError].
 func check(tree *markdown.Tree, out []byte) error {
 	printed := markdown.Parse(out)
 	if err := markdown.Equal(tree, printed); err != nil {
 		return fmt.Errorf("the output would change the meaning of the input: %w", err)
 	}
 	// Equal reads the value of a construct, where GitHub can read the bytes
-	// that the kept syntax holds (design 12).
+	// that the kept syntax holds.
 	if err := markdown.KeptMismatch(tree, printed); err != nil {
 		return fmt.Errorf("the output would change the kept syntax of the input: %w", err)
 	}

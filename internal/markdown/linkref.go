@@ -1,8 +1,8 @@
 package markdown
 
 // commitDefinitions appends the link reference definitions at the start of
-// the pending paragraph lines, and removes their lines (design 5.4). It
-// reports whether a pending line remains.
+// the pending paragraph lines, and removes their lines. It reports whether a
+// pending line remains.
 func (p *blockParser) commitDefinitions() bool {
 	s := &p.inline
 	s.arena = p.arena
@@ -26,7 +26,7 @@ func (p *blockParser) commitDefinitions() bool {
 }
 
 // AppendLabel appends the normalized label of link reference definition id
-// to dst (design 6.7).
+// to dst.
 func (t *Tree) AppendLabel(dst []byte, id NodeID) []byte {
 	f := labelFolder{dst: dst, start: len(dst), link: true}
 	brackets := 0

@@ -1,6 +1,6 @@
 package markdown
 
-// Alignment is the alignment of a table column (design 10.2).
+// Alignment is the alignment of a table column.
 type Alignment uint8
 
 const (
@@ -69,7 +69,7 @@ func (t *Tree) CellHeader(id NodeID) bool {
 const maxCells = 65535
 
 // MaxMissingCells is the most missing cells of a table after which cmark-gfm
-// and GitHub read another row (GitHub API, 2026-09-13; design 8.2).
+// and GitHub read another row (GitHub API, 2026-09-13).
 const MaxMissingCells = 0x80000
 
 // cellFlags returns the flags of the cell at index col of the row at index row
@@ -108,9 +108,9 @@ func pipeEnd(src []byte, i, end uint32) uint32 {
 	return skipTableSpace(src, i+1, end)
 }
 
-// cellEnd returns the end of the table cell that starts at i in src[:end]: the
-// first '|' that does not follow a '\', or end (design 8.2). cmark-gfm's cell
-// scanner takes the longest match, so a '|' after a '\' is always in the cell.
+// cellEnd returns the end of the table cell that starts at i in src[:end]:
+// the first '|' that does not follow a '\', or end. cmark-gfm's cell scanner
+// takes the longest match, so a '|' after a '\' is always in the cell.
 func cellEnd(src []byte, i, end uint32) uint32 {
 	for j := i; j < end; j++ {
 		if src[j] == '|' && (j == i || src[j-1] != '\\') {
@@ -181,9 +181,8 @@ func appendDelimiterRow(dst []Alignment, src []byte, i, end uint32) ([]Alignment
 
 // tableLine adds the line to a table, and reports whether it did: as the
 // delimiter row of a table whose header row is the last line of the open
-// paragraph, or as a row of the open table (design 5.4, 8.2). first is the
-// first byte of the rest of the line that is not a space or a tab, after indent
-// columns.
+// paragraph, or as a row of the open table. first is the first byte of the
+// rest of the line that is not a space or a tab, after indent columns.
 func (p *blockParser) tableLine(first uint32, indent int) bool {
 	l := p.l
 	switch p.leaf.kind {
@@ -219,7 +218,7 @@ func (p *blockParser) tableLine(first uint32, indent int) bool {
 // startTable appends the lines of the open paragraph before its last line as a
 // paragraph, with no definition parse and with the cell pipe rule, then opens a
 // table whose header row is the last line and appends the delimiter row that
-// starts at first (design 5.4).
+// starts at first.
 func (p *blockParser) startTable(first uint32) {
 	n := len(p.pending) - 1
 	if n > 0 {

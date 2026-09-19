@@ -24,8 +24,7 @@ func (t *Tree) ListItemTask(id NodeID) (task, checked bool) {
 
 // isTaskBox reports whether src[i:end], the first line of a paragraph from its
 // first byte that is not a space or a tab, starts with a task box: '[', a
-// space, a tab, 'x' or 'X', and ']', then spaces or tabs and another byte
-// (design 6.5).
+// space, a tab, 'x' or 'X', and ']', then spaces or tabs and another byte.
 func isTaskBox(src []byte, i, end uint32) bool {
 	if end-i < 5 || src[i] != '[' || src[i+2] != ']' || !isSpaceOrTab(src[i+3]) {
 		return false
@@ -43,8 +42,8 @@ func isTaskBox(src []byte, i, end uint32) bool {
 
 // taskBox pushes the task box at the start of the first line and the spaces
 // and tabs after it, and records the character between its brackets in box,
-// unless its brackets form a link (design 6.5). The brackets are scanned as a
-// link opener and closer, so that a defined label wins.
+// unless its brackets form a link. The brackets are scanned as a link opener
+// and closer, so that a defined label wins.
 func (s *inlineParser) taskBox() {
 	i, end := s.lineStart, s.lines[0].rest.end
 	if !isTaskBox(s.src, i, end) {

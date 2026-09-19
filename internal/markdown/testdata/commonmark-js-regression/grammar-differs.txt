@@ -1,7 +1,6 @@
 # commonmark.js regression examples whose meaning cmark and commonmark.js
 # disagree on, one per line: the example ID, the rule, a colon, and the
-# section of ../markfmt/grammar.txt whose case gives cmark's expected HTML
-# (design 2, 11.2). The test fails when an entry no longer differs, when its
-# case is missing or has another input, and when an entry is also in
-# failing.txt.
+# section of ../markfmt/grammar.txt whose case gives cmark's expected HTML.
+# The test fails when an entry no longer differs, when its case is missing or
+# has another input, and when an entry is also in failing.txt.
 25 list looseness after a blank line in an HTML block follows cmark: commonmark-js-regression 25

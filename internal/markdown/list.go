@@ -41,7 +41,7 @@ func (p *blockParser) listItemStart(first uint32, allMatched bool) (listMarker, 
 	end := p.l.end
 	// A thematic break comes first. An item interrupts a paragraph that is a
 	// child of the last matched container only when it starts at 1 and has
-	// content (design 5.1).
+	// content.
 	para := allMatched && p.leaf.kind == paragraphLeaf
 	if p.isThematicBreak(first) {
 		return listMarker{}, false
@@ -84,7 +84,7 @@ func (p *blockParser) startItem(m listMarker, indent, matched int) {
 	width := int(m.end - p.pos)
 	p.pos, p.col = m.end, p.col+width
 	// Padding of 5 or more columns, or a blank rest, is 1 column: the rest is
-	// indented code or empty (design 5.5).
+	// indented code or empty.
 	padding := 1
 	if first, n := p.indentation(); n < 5 && first < p.l.end {
 		padding = max(n, 1)
@@ -96,8 +96,8 @@ func (p *blockParser) startItem(m listMarker, indent, matched int) {
 }
 
 // continueItem reports whether list item c continues on the rest of the line:
-// on its content indentation, or on a blank rest when it has a child (design
-// 5.1). The bytes it consumes are one ItemIndent leaf.
+// on its content indentation, or on a blank rest when it has a child. The bytes
+// it consumes are one [ItemIndent] leaf.
 func (p *blockParser) continueItem(c container) bool {
 	first, indent := p.indentation()
 	switch {

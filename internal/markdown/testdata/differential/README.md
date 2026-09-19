@@ -1,7 +1,7 @@
 # Differential cases
 
 `cases.txt` holds the disagreements between markfmt and goldmark v2.0.2 that
-`FuzzDifferential` found (design 11.5), in the `spec.txt` example format. A
+`FuzzDifferential` found, in the `spec.txt` example format. A
 `␀` in an input is NUL. `TestParse` runs the cases as conformance. The
 section of each case gives its verdict, "fixed in markfmt" or "goldmark
 deviates". Stage 7 removed goldmark and the differential test; the cases stay.

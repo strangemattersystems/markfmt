@@ -20,7 +20,6 @@ package main
 
 import (
 	"bytes"
-	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -75,10 +74,10 @@ func main() {
 	ins := inputs(paths, exclude)
 	results := make([]result, len(ins))
 	// Peak memory follows the input bytes that are formatted at once, so they
-	// stay within the input limit of one file (design 7.2). Each input is read
-	// before it takes its cost, so the cost is the bytes read, not a size from
-	// os.Stat that can change.
-	b := newBudget(markfmt.MaxInput)
+	// stay within the input limit of one file. Each input is read before it
+	// takes its cost, so the cost is the bytes read, not a size from os.Stat
+	// that can change.
+	b := newBudget(markfmt.DefaultMaxInput)
 	procs := runtime.GOMAXPROCS(0)
 	var wg sync.WaitGroup
 	for i, in := range ins {
@@ -105,9 +104,6 @@ func main() {
 		switch {
 		case r.err != nil:
 			fmt.Fprintf(os.Stderr, "markfmt: %s: %v\n", ins[i].path, r.err)
-			if ie := (*markfmt.InternalError)(nil); errors.As(r.err, &ie) {
-				fmt.Fprintf(os.Stderr, "%s", ie.Stack)
-			}
 			status = 2
 		case r.changed && *check:
 			fmt.Println(ins[i].path)
@@ -206,8 +202,8 @@ func isMarkdown(path string) bool {
 }
 
 // read returns the contents of path, or standard input for "-". It stops one
-// byte past [markfmt.MaxInput], so an input that [markfmt.Format] rejects costs
-// no more memory than one it accepts.
+// byte past [markfmt.DefaultMaxInput], so an input that [markfmt.Format]
+// rejects costs no more memory than one it accepts.
 func read(path string) ([]byte, error) {
 	f := os.Stdin
 	if path != "-" {
@@ -217,14 +213,14 @@ func read(path string) ([]byte, error) {
 		}
 		defer func() { _ = f.Close() }()
 	}
-	return io.ReadAll(io.LimitReader(f, markfmt.MaxInput+1))
+	return io.ReadAll(io.LimitReader(f, markfmt.DefaultMaxInput+1))
 }
 
 // cost returns the budget that formatting n input bytes takes: n up to the
 // input limit, and no less than the limit divided by procs, which bounds the
 // files at once to procs.
 func cost(n, procs int) int {
-	return max(min(n, markfmt.MaxInput), markfmt.MaxInput/procs)
+	return max(min(n, markfmt.DefaultMaxInput), markfmt.DefaultMaxInput/procs)
 }
 
 // budget is a count of bytes that goroutines take and give back.

@@ -114,7 +114,7 @@ func BenchmarkPrinter(b *testing.B) {
 		b.Run("input="+in.name, func(b *testing.B) {
 			benchmarkBytes(b, in.size(), func() {
 				for _, tree := range trees {
-					p := printer{tree: tree, max: MaxOutput}
+					p := printer{tree: tree, max: outputLimit(len(tree.Raw(0)))}
 					p.document()
 				}
 			})

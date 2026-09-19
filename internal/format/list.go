@@ -19,8 +19,8 @@ func (f *frame) sign() byte {
 
 // listMarker sets the marker and the rest of list item f, whose ListMarker
 // leaf id starts at column start: '-' or '*' in a bullet list, and in an
-// ordered list the item's number and '.' or ')' (roadmap Decisions), with
-// the padding that the list's minimum indentation needs.
+// ordered list the item's number and '.' or ')', with the padding that the
+// list's minimum indentation needs.
 func (p *printer) listMarker(f *frame, id markdown.NodeID, start int) {
 	list := &p.stack[len(p.stack)-2]
 	i := list.children - 1
@@ -38,7 +38,7 @@ func (p *printer) listMarker(f *frame, id markdown.NodeID, start int) {
 		if list.lazy {
 			n = 1
 		}
-		// A marker has at most 9 digits (appendix B, trap 11).
+		// A marker has at most 9 digits (spec 5.2).
 		delim := byte('.')
 		if list.alt {
 			delim = ')'
@@ -55,7 +55,7 @@ func (p *printer) listMarker(f *frame, id markdown.NodeID, start int) {
 		// whose marker line is blank continues after one column of padding
 		// (spec 5.2): the item keeps its indentation, marker and padding. Its
 		// marker line stays blank, so that a second format reads the same
-		// item and keeps the same marker (design 12).
+		// item and keeps the same marker.
 		f.keepBlank = blank
 		f.marker = p.sourceMarker(f, id, start, minIndent, f.marker[len(f.marker)-1])
 		p.fitMarker(f, p.stack[len(p.stack)-3].lastList)
@@ -66,10 +66,9 @@ func (p *printer) listMarker(f *frame, id markdown.NodeID, start int) {
 
 // bullet returns the bullet of bullet list id, whose parent frame is prev:
 // '-', or '*' when '-' does not work, or '+'. A bullet does not work after an
-// adjacent sibling list with that bullet (appendix B, trap 3). It does not
-// work on the marker line of an item with that bullet, or when an item's
-// first line is only that character with spaces: "- - -" and "- --" are
-// thematic breaks.
+// adjacent sibling list with that bullet. It does not work on the marker
+// line of an item with that bullet, or when an item's first line is only
+// that character with spaces: "- - -" and "- --" are thematic breaks.
 func (p *printer) bullet(id markdown.NodeID, prev frame) byte {
 	var adjacent, line byte
 	if prev.children > 0 && prev.lastChild == markdown.List && !prev.listOrdered {
@@ -177,8 +176,8 @@ func (p *printer) fitMarker(f *frame, limit int) {
 		if !f.keepBlank {
 			// The padding grows by what the indentation loses, so the item
 			// continues on the columns of its input, as every item of its list
-			// does (design 12). An item whose marker line is blank continues
-			// one column after its marker instead (spec 5.2).
+			// does. An item whose marker line is blank continues one column
+			// after its marker instead (spec 5.2).
 			f.marker = append(f.marker, spaces[:over]...)
 		}
 	}

@@ -12,8 +12,8 @@ import (
 
 // decodeRune decodes the first character of b, which is not empty, as the
 // WHATWG UTF-8 decoder does: an invalid sequence gives U+FFFD for its longest
-// start that could still be valid, and NUL gives U+FFFD (design 6.7). It
-// returns the character and its length.
+// start that could still be valid, and NUL gives U+FFFD. It returns the
+// character and its length.
 func decodeRune(b []byte) (rune, int) {
 	r, n := utf8.DecodeRune(b)
 	switch {
@@ -50,10 +50,10 @@ func decodeRune(b []byte) (rune, int) {
 	return utf8.RuneError, i
 }
 
-// valueReader reads the value of content bytes one piece at a time: each
-// NUL and each maximal invalid UTF-8 subsequence is U+FFFD (design 6.7). With
-// escapes, each backslash escape is its character, and with entities, each
-// entity reference is its characters.
+// valueReader reads the value of content bytes one piece at a time: each NUL
+// and each maximal invalid UTF-8 subsequence is U+FFFD. With escapes, each
+// backslash escape is its character, and with entities, each entity reference
+// is its characters.
 type valueReader struct {
 	b                 []byte
 	escapes, entities bool
@@ -112,9 +112,9 @@ var replacement = []byte("\uFFFD")
 var pipe = []byte("|")
 
 // newValueReader returns a reader of the value of content leaf m. Escapes and
-// entity references decode in an Escape, an EntityRef, a Destination, a Title
-// and an InfoString, and entity references in an AutolinkText, as cmark
-// decodes them (design 8.4). A VerbatimLineEnding is a line feed.
+// entity references decode in an [Escape], an [EntityRef], a [Destination], a
+// [Title] and an [InfoString], and entity references in an [AutolinkText], as
+// cmark decodes them. A [VerbatimLineEnding] is a line feed.
 func (t *Tree) newValueReader(m Node) valueReader {
 	switch m.kind {
 	case Escape, EntityRef, Destination, Title, InfoString:
@@ -142,8 +142,7 @@ type runeRange struct {
 
 // DisplayWidth returns the columns that b takes in a monospace font: 2 for a
 // character whose East Asian Width is W or F, 0 for a control character or a
-// nonspacing or enclosing mark, and 1 for another character or an invalid
-// byte (roadmap Decisions).
+// nonspacing or enclosing mark, and 1 for another character or an invalid byte.
 func DisplayWidth(b []byte) int {
 	n := 0
 	for len(b) > 0 {
@@ -203,7 +202,7 @@ func appendFold(dst []byte, r rune) []byte {
 
 // labelFolder appends a normalized label to dst, one piece of label bytes at
 // a time: UTF-8 decoding, Unicode full case folding, and each run of spaces,
-// tabs and line endings as one space, with none at either end (design 6.7).
+// tabs and line endings as one space, with none at either end.
 type labelFolder struct {
 	dst   []byte
 	start int  // length of dst before the label
@@ -234,9 +233,9 @@ func (f *labelFolder) write(b []byte) {
 	}
 }
 
-// leaf writes the label bytes of a leaf of kind k with bytes b (design 6.7):
-// none for a prefix or Indent leaf, a line feed for a line ending, b without
-// the backslash of its pair for a cell pipe escape, and b for any other leaf.
+// leaf writes the label bytes of a leaf of kind k with bytes b: none for a
+// prefix or Indent leaf, a line feed for a line ending, b without the
+// backslash of its pair for a cell pipe escape, and b for any other leaf.
 func (f *labelFolder) leaf(k Kind, b []byte) {
 	switch _, prefix := k.owner(); {
 	case prefix, k == Indent:

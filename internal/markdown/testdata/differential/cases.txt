@@ -1,7 +1,7 @@
 # Differential cases
 
 Each case is a disagreement between markfmt and goldmark v2.0.2 that
-`FuzzDifferential` found (design 11.5). The section of a case gives its
+`FuzzDifferential` found. The section of a case gives its
 verdict and its rule: "fixed in markfmt", or "goldmark deviates" with the spec
 section. The expected HTML is the output of `cmark --unsafe` 0.31.1.
 
@@ -84,7 +84,7 @@ list item for `-`. markfmt follows cmark (`../dialect.md`).
 ## goldmark deviates, spec section 5.3: a blank line at the end of a code block in a list item leaves the list tight
 
 goldmark makes the list loose, as commonmark.js does. markfmt follows cmark
-(design 2, commonmark.js regression 25).
+(commonmark.js regression 25).
 
 ```````````````````````````````` example
 - ```
@@ -171,7 +171,7 @@ paragraph text. With the whole definition on one line, goldmark agrees (CM
 
 ## fixed in markfmt, spec section 2.3: a NUL in a code block or an HTML block is U+FFFD
 
-markfmt wrote the NUL in the value of the block (design 8.4).
+markfmt wrote the NUL in the value of the block.
 
 ```````````````````````````````` example
     a␀b
@@ -374,7 +374,7 @@ that starts like one.
 ## fixed in markfmt, spec sections 4.7, 6.3 and 6.5: a destination takes control characters other than space, tab, VT and FF, and an absolute URI takes DEL
 
 The spec text excludes ASCII control characters, but no example tests it,
-so markfmt follows cmark (design 2, 8.4). The destinations hold U+000E and
+so markfmt follows cmark. The destinations hold U+000E and
 U+0001, and the autolink holds DEL.
 
 ```````````````````````````````` example
@@ -404,7 +404,7 @@ goldmark takes the form feed into the destination.
 ## fixed in markfmt, spec section 4.6: HTML block kind 7 starts at an open tag named `pre`, `script`, `style` or `textarea` that is not kind 1
 
 The spec text excludes these tag names from kind 7, but no example tests it,
-so markfmt follows cmark (design 2, 8.4).
+so markfmt follows cmark.
 
 ```````````````````````````````` example
 <textarea x="1"/>
@@ -430,8 +430,7 @@ b
 
 ## goldmark deviates, spec section 4.5: an info string loses VT and FF at its ends, as cmark trims it
 
-goldmark keeps the form feeds in the info string and in its first word
-(design 8.4).
+goldmark keeps the form feeds in the info string and in its first word.
 
 ```````````````````````````````` example
 ~~~
@@ -463,7 +462,7 @@ x
 
 ## goldmark deviates, spec section 4.5: an info string loses whitespace at its ends after its entity references decode, as cmark trims it
 
-goldmark keeps the decoded whitespace (design 8.4).
+goldmark keeps the decoded whitespace.
 
 ```````````````````````````````` example
 ~~~ &#32;a&#32;
@@ -482,9 +481,9 @@ y
 
 ## goldmark deviates, spec section 5.2: a blank line indented to the content of an empty list item continues it
 
-cmark tests the indentation of the line before it tests for a blank line
-(design 5.1). goldmark tests for a blank line first, as commonmark.js does,
-and ends the empty item (compare CM 280).
+cmark tests the indentation of the line before it tests for a blank line.
+goldmark tests for a blank line first, as commonmark.js does, and ends the
+empty item (compare CM 280).
 
 ```````````````````````````````` example
 *
@@ -851,8 +850,7 @@ a </b/>
 
 ## fixed in markfmt, spec sections 4.6 and 6.6: VT and FF are whitespace in an HTML tag, as cmark and commonmark.js read them
 
-markfmt started no HTML block of kind 1 at a tag name before a form feed
-(design 8.4).
+markfmt started no HTML block of kind 1 at a tag name before a form feed.
 
 ```````````````````````````````` example
 <stYle
@@ -865,8 +863,7 @@ x
 ## goldmark deviates, spec section 6.6: FF is whitespace in an HTML tag, as cmark reads it
 
 goldmark reads a form feed in a tag as a character of the tag, and gives
-text, except right after a kind 1 tag name that starts an HTML block
-(design 8.4).
+text, except right after a kind 1 tag name that starts an HTML block.
 
 ```````````````````````````````` example
 <div
@@ -902,8 +899,7 @@ n></p>
 
 ## fixed in markfmt, spec section 4.7: VT and FF are whitespace in a link label, as cmark reads them
 
-markfmt kept the form feed in the label, so `[ref]` matched no definition
-(design 6.7, 8.4).
+markfmt kept the form feed in the label, so `[ref]` matched no definition.
 
 ```````````````````````````````` example
 [ref]
@@ -916,7 +912,7 @@ markfmt kept the form feed in the label, so `[ref]` matched no definition
 ## goldmark deviates, spec section 4.7: FF inside a link label is whitespace, and a label of FF alone is blank, as cmark reads them
 
 goldmark keeps a form feed inside a label, and reads a label of a form feed
-as a label (design 6.7, 8.4).
+as a label.
 
 ```````````````````````````````` example
 [a b]

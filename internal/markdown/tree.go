@@ -66,7 +66,7 @@ func (t *Tree) RestOfLine(id NodeID) []byte {
 }
 
 // SplitTab returns the columns left for leaf id of a tab at its start that
-// structures consumed in part, or 0 (design 4.3).
+// structures consumed in part, or 0.
 func (t *Tree) SplitTab(id NodeID) int {
 	return int(t.nodes[id].virt)
 }
@@ -127,8 +127,7 @@ func (c *Cursor) Next() (Event, bool) {
 	return Event{ID: NodeID(id)}, true
 }
 
-// Verify reports the first broken invariant of t, or nil. Section 3.2 of
-// docs/design/parser.md numbers the invariants.
+// Verify reports the first broken invariant of t, or nil.
 func (t *Tree) Verify() error {
 	nodes := t.nodes
 	if len(nodes) == 0 || nodes[0].kind != Document {

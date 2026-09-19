@@ -65,7 +65,7 @@ func TestEqual(t *testing.T) {
 		t.Parallel()
 
 		// No pair holds this case: the test HTML normalizes the line ending
-		// to a space (design 8.4).
+		// to a space.
 		if err := Equal(Parse([]byte("a\nb")), Parse([]byte("a b"))); err == nil {
 			t.Fatal("Equal = nil, want a difference")
 		}
@@ -75,7 +75,7 @@ func TestEqual(t *testing.T) {
 		t.Parallel()
 
 		// No pair holds these cases: the forms render equal test HTML, but the
-		// form is in the key of a link (design 8.4).
+		// form is in the key of a link.
 		for _, pair := range [][2]string{
 			{"[a](/u)\n\n[a]: /u", "[a]\n\n[a]: /u"},
 			{"[a][]\n\n[a]: /u", "[a]\n\n[a]: /u"},
@@ -91,7 +91,7 @@ func TestEqual(t *testing.T) {
 		t.Parallel()
 
 		// No pair holds this case: both render equal test HTML, but the form is
-		// in the key of an autolink (design 10.2).
+		// in the key of an autolink.
 		if err := Equal(Parse([]byte("<http://a.b>")), Parse([]byte("http://a.b"))); err == nil {
 			t.Fatal("Equal = nil, want a difference")
 		}
@@ -101,7 +101,7 @@ func TestEqual(t *testing.T) {
 		t.Parallel()
 
 		// No pair holds this case: the test HTML writes no cell beyond the header
-		// count, but such cells are content (design 8.4).
+		// count, but such cells are content.
 		if err := Equal(Parse([]byte("| a |\n| - |\n| b | c |")), Parse([]byte("| a |\n| - |\n| b |"))); err == nil {
 			t.Fatal("Equal = nil, want a difference")
 		}
@@ -241,7 +241,7 @@ const mutations = 20
 // tildes of strikethrough, the outer pipes of table rows, the spaces of
 // Whitespace leaves, the dashes of delimiter row cells, the backslash before a
 // cell pipe escape, the case of the x of task boxes, or the case of footnote
-// labels (design 10.5). A mutation may change meaning.
+// labels. A mutation may change meaning.
 func mutateSyntax(tree *Tree, op byte) []byte {
 	var out []byte
 	for i, n := range tree.nodes {

@@ -1,5 +1,26 @@
 # markfmt
 
+## Product rules
+
+1. markfmt reads Markdown and writes Markdown in one canonical style. It has
+   no options.
+2. It canonicalizes syntax and preserves content: prose line breaks, code, raw
+   HTML, front matter and link destinations.
+3. Formatting is idempotent: `format(format(x)) == format(x)`.
+4. Formatting never changes the meaning of a document. A top-level block whose
+   output markfmt cannot show to keep its meaning prints as written.
+5. Output has LF line endings. Input CRLF, CR and LF are all line endings.
+6. The root `go.mod` has no requirements.
+
+## Working rules
+
+- Use Conventional Commits.
+- Run `task ci` before a commit. Use `task lint`, not a `golangci-lint` on
+  `PATH`.
+- Fix root causes. For each bug, add a failing case to the component that
+  owns it (parser, printer or comparison), and fix it where the rule lives. Do
+  not normalize output to hide a difference.
+
 ## Documentation and comments
 
 Write Go doc comments in the standard library voice.

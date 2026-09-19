@@ -4,30 +4,26 @@ package markfmt
 import (
 	"fmt"
 	"io"
-	"runtime/debug"
 
 	"github.com/strangemattersystems/markfmt/internal/format"
 )
 
-// MaxInput and MaxOutput are the sizes in bytes above which [Format] returns
-// an error that wraps [ErrTooLarge].
-const (
-	MaxInput  = format.MaxInput
-	MaxOutput = format.MaxOutput
-)
+// DefaultMaxInput is the input limit of a [Formatter] whose
+// [Formatter.MaxInput] is 0. Parsing uses memory in proportion to the input,
+// up to about 500 times its size for deeply nested input, so the default
+// keeps the worst case under 4 GiB.
+const DefaultMaxInput = 8 << 20
 
-// ErrTooLarge is the error for an input above [MaxInput] or an output above
-// [MaxOutput].
-var ErrTooLarge = format.ErrTooLarge
+// maxInput is the largest input that the parser can index: its node indices
+// are 32 bits, and an input has at most about 2 nodes per byte.
+const maxInput = 1 << 30
 
-// InternalError is a panic while formatting, which is a bug in markfmt.
-type InternalError struct {
-	Value any    // the value passed to panic
-	Stack []byte // the stack of the goroutine at the panic
-}
-
-func (e *InternalError) Error() string {
-	return fmt.Sprintf("internal error: %v", e.Value)
+// A Formatter formats Markdown. The zero value is ready to use.
+type Formatter struct {
+	// MaxInput is the largest input in bytes. 0 means [DefaultMaxInput]. A
+	// negative value, or a value above 1 GiB, means 1 GiB, the largest input
+	// that markfmt can parse.
+	MaxInput int64
 }
 
 // Format reads Markdown from r and writes it to w in the canonical style.
@@ -36,10 +32,24 @@ func (e *InternalError) Error() string {
 // the meaning of the input keeps the bytes of the input, with LF line
 // endings, so Format changes nothing that it cannot keep.
 //
-// Format writes nothing and returns an error if the input or the output is
-// too large. A panic while formatting is returned as an [*InternalError].
-func Format(w io.Writer, r io.Reader) error {
-	out, err := source(r)
+// Format writes nothing and returns an [*InputTooLargeError] if the input is
+// larger than the input limit of f.
+func (f Formatter) Format(w io.Writer, r io.Reader) error {
+	limit := f.MaxInput
+	switch {
+	case limit == 0:
+		limit = DefaultMaxInput
+	case limit < 0 || limit > maxInput:
+		limit = maxInput
+	}
+	src, err := io.ReadAll(io.LimitReader(r, limit+1))
+	if err != nil {
+		return err
+	}
+	if int64(len(src)) > limit {
+		return &InputTooLargeError{Limit: limit}
+	}
+	out, err := format.Source(src)
 	if err != nil {
 		return err
 	}
@@ -47,17 +57,17 @@ func Format(w io.Writer, r io.Reader) error {
 	return err
 }
 
-// source reads r and formats it. It recovers a panic, so that a parser or
-// printer bug fails one input and not the whole run of the CLI.
-func source(r io.Reader) (out []byte, err error) {
-	defer func() {
-		if v := recover(); v != nil {
-			out, err = nil, &InternalError{Value: v, Stack: debug.Stack()}
-		}
-	}()
-	src, err := io.ReadAll(io.LimitReader(r, MaxInput+1))
-	if err != nil {
-		return nil, err
-	}
-	return format.Source(src)
+// Format formats Markdown with the zero [Formatter].
+func Format(w io.Writer, r io.Reader) error {
+	return Formatter{}.Format(w, r)
+}
+
+// InputTooLargeError is the error for an input larger than the input limit
+// of a [Formatter].
+type InputTooLargeError struct {
+	Limit int64
+}
+
+func (e *InputTooLargeError) Error() string {
+	return fmt.Sprintf("input is larger than %d bytes", e.Limit)
 }

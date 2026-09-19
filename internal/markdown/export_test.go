@@ -22,8 +22,8 @@ func MaxrssBytes(ps *os.ProcessState) (int64, bool) {
 	return maxrssBytes(ps)
 }
 
-// PathologicalInputs returns the builders of the inputs of design 6.8, by
-// name. Each builds an input of about n bytes.
+// PathologicalInputs returns the builders of pathologicalInputs, by name.
+// Each builds an input of about n bytes.
 func PathologicalInputs() map[string]func(n int) []byte {
 	inputs := make(map[string]func(n int) []byte, len(pathologicalInputs))
 	for _, in := range pathologicalInputs {

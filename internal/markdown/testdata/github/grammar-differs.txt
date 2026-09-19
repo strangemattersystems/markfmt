@@ -1,7 +1,7 @@
 # GitHub fixtures of the rows of ../dialect.md, where markfmt's grammar and
 # GitHub give a document a different meaning, one per line: the example ID,
 # the rule, a colon, and the section of ../markfmt/grammar.txt whose case gives
-# markfmt's expected HTML (design 2.1, 11.4). The test fails when an entry no
+# markfmt's expected HTML. The test fails when an entry no
 # longer differs, when its case is missing or has another input, and when an
 # entry is also in failing.txt.
 10 dialect row, code span after an unmatched backtick run: github 10
