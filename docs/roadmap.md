@@ -61,7 +61,7 @@ pushed.
 | `1d28ee8` onwards | Stage 8: CLI directory walking, the goreleaser release and the Homebrew cask, v0.0.1 |
 | The commit after `5d4e86a` | Stage 7: goldmark, `differential_test.go` and `go.sum` removed; the root `go.mod` has no requirements |
 | `4e7fbc0`, `b10d309` (`main`, after v0.0.1) | CLI: `--exclude` replaces the built-in directory skips, double-dash flags, gofmt-style paths, a read limit per input, concurrency from `GOMAXPROCS` |
-| `8322491` onwards (`feat/phase0-gates`) | Parse and format snapshots, pathological inputs from the reviews, benchmarks and `task bench-compare`, the printer split by file, the runtime `Kept` check, pass-through of a block that fails its check, a block with a dialect span printed as written, `FuzzSource` in CI, the exported limits and errors |
+| `8322491` onwards (`feat/phase0-gates`) | Parse and format snapshots, pathological inputs from the reviews, benchmarks and `task bench-compare`, the printer split by file, the runtime `Kept` check, pass-through of a block that fails its check, a block with a dialect span printed as written, `FuzzSource`, the exported limits and errors |
 
 Layout:
 
@@ -108,7 +108,7 @@ Layout:
   Each GitHub printer fixture has a pair named `github-` and its section.
 - `internal/format/testdata/spec`: CommonMark 0.31.2 examples (goldmark's
   `spec.json`) and goldmark's extra and GFM case files, as idempotence data.
-- `internal/markdown/format_test.go`: `FuzzSource`, which CI runs, fuzzes
+- `internal/markdown/format_test.go`: `FuzzSource` fuzzes
   `format.Source` as users run it. `FuzzFormat`, an external test of
   `internal/format` against the test HTML (design 10.5). Its seeds are every
   corpus, the pairs, `testdata/cases`, and in `testdata/fuzz/FuzzFormat` the

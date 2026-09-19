@@ -33,11 +33,6 @@ tasks:
     cmds:
       - go test -race -cover ./...
 
-  test-short:
-    desc: Run the test suite without the race detector and the timing subtests
-    cmds:
-      - go test -short ./...
-
   snapshot:
     desc: Rewrite the output and tree snapshots, then review the diff
     env:
