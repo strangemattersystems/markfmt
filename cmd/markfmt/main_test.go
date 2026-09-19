@@ -259,6 +259,12 @@ func TestMarkfmt(t *testing.T) {
 		dir := t.TempDir()
 		path := filepath.Join(dir, "a.md")
 		write(t, path, unformatted, 0o640)
+		// Windows keeps only a read-only bit, so the test compares the mode
+		// with the one that the file has, not with 0o640.
+		before, err := os.Stat(path)
+		if err != nil {
+			t.Fatal(err)
+		}
 		got := runMarkfmt(t, dir, "", "a.md")
 		if got.status != 0 || got.stdout != "" || got.stderr != "" {
 			t.Fatalf("markfmt a.md = %+v, want status 0 and no output", got)
@@ -266,12 +272,12 @@ func TestMarkfmt(t *testing.T) {
 		if src := readFile(t, path); src != formatted {
 			t.Fatalf("a.md = %q, want %q", src, formatted)
 		}
-		info, err := os.Stat(path)
+		after, err := os.Stat(path)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if info.Mode().Perm() != 0o640 {
-			t.Fatalf("a.md mode = %v, want %v", info.Mode().Perm(), os.FileMode(0o640))
+		if after.Mode().Perm() != before.Mode().Perm() {
+			t.Fatalf("a.md mode = %v, want %v", after.Mode().Perm(), before.Mode().Perm())
 		}
 	})
 
