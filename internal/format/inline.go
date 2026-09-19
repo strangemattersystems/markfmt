@@ -487,6 +487,14 @@ type tailPart uint8
 // written.
 func (p *printer) tailLeaf(in *inlineFrame, id markdown.NodeID, k markdown.Kind, start int) {
 	skip := k == markdown.Whitespace || k == markdown.LineEnding || k == markdown.Indent
+	if k == markdown.LineEnding && p.head == headMulti && in.tail >= tailDestination && in.tail != tailInTitle {
+		// The heading prints as setext because its content spans lines, and
+		// this line ending can be the one that does, so it stays.
+		in.gap = false
+		p.indent = -1
+		p.endLine()
+		return
+	}
 	switch in.tail {
 	case tailNone:
 	case tailText:
@@ -542,7 +550,9 @@ func (p *printer) tailLeaf(in *inlineFrame, id markdown.NodeID, k markdown.Kind,
 			in.gap = true
 		case k == markdown.TitleQuote:
 			in.gap = false
-			p.write(spaces[:1])
+			if !p.lineStart {
+				p.write(spaces[:1])
+			}
 			p.indent, p.replace = -1, in.quotes[:1]
 			p.content(id, start)
 			in.tail = tailInTitle
