@@ -195,8 +195,8 @@ func (p *printer) delimiter(id markdown.NodeID, k markdown.Kind) []byte {
 	case markdown.Emphasis:
 		// After a '<' in text, '_' could start an attribute name of a tag.
 		if opener := p.wrapOpener(id); opener != nil && opener[0] == '*' && !p.inText('_') && !p.inText('<') {
-			// The strong emphasis around the node alone prints '*', which
-			// '_' can open and close next to: "**_a_**".
+			// The strong emphasis whose only content is the node prints '*',
+			// which '_' can open and close next to: "**_a_**".
 			return []byte{'_'}
 		}
 		if bytes.ContainsAny(content, "*_") && !p.onlyChild(id) || !flanksLikeSpace(before) || !flanksLikeSpace(after) || p.inText('_') || p.inText('<') {
@@ -211,8 +211,8 @@ func (p *printer) delimiter(id markdown.NodeID, k markdown.Kind) []byte {
 		return []byte{'_'}
 	case markdown.Strong:
 		if opener := p.wrapOpener(id); opener != nil && opener[0] == '_' && !p.inText('*') {
-			// The emphasis around the node alone prints '_', which "**" can
-			// open and close next to: "_**a**_".
+			// The emphasis whose only content is the node prints '_', which
+			// "**" can open and close next to: "_**a**_".
 			return []byte("**")
 		}
 		// Next to '*' or '_', which can be the unused part of a delimiter
@@ -222,8 +222,8 @@ func (p *printer) delimiter(id markdown.NodeID, k markdown.Kind) []byte {
 		}
 		return []byte("**")
 	default:
-		// No '~' goes next to a "~~" delimiter, and
-		// "~~" inside a strikethrough could close it.
+		// No '~' goes next to a "~~" delimiter, and "~~" inside a
+		// strikethrough could close it.
 		if bytes.IndexByte(content, '~') >= 0 || before == '~' || after == '~' || p.inText('~') || p.inStrike > 0 {
 			return nil
 		}

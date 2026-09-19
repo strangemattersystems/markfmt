@@ -112,9 +112,9 @@ var replacement = []byte("\uFFFD")
 var pipe = []byte("|")
 
 // newValueReader returns a reader of the value of content leaf m. Escapes and
-// entity references decode in an Escape, an EntityRef, a Destination, a Title
-// and an InfoString, and entity references in an AutolinkText, as cmark
-// decodes them. A VerbatimLineEnding is a line feed.
+// entity references decode in an [Escape], an [EntityRef], a [Destination], a
+// [Title] and an [InfoString], and entity references in an [AutolinkText], as
+// cmark decodes them. A [VerbatimLineEnding] is a line feed.
 func (t *Tree) newValueReader(m Node) valueReader {
 	switch m.kind {
 	case Escape, EntityRef, Destination, Title, InfoString:
@@ -142,8 +142,7 @@ type runeRange struct {
 
 // DisplayWidth returns the columns that b takes in a monospace font: 2 for a
 // character whose East Asian Width is W or F, 0 for a control character or a
-// nonspacing or enclosing mark, and 1 for another character or an invalid
-// byte.
+// nonspacing or enclosing mark, and 1 for another character or an invalid byte.
 func DisplayWidth(b []byte) int {
 	n := 0
 	for len(b) > 0 {
@@ -234,9 +233,9 @@ func (f *labelFolder) write(b []byte) {
 	}
 }
 
-// leaf writes the label bytes of a leaf of kind k with bytes b:
-// none for a prefix or Indent leaf, a line feed for a line ending, b without
-// the backslash of its pair for a cell pipe escape, and b for any other leaf.
+// leaf writes the label bytes of a leaf of kind k with bytes b: none for a
+// prefix or Indent leaf, a line feed for a line ending, b without the
+// backslash of its pair for a cell pipe escape, and b for any other leaf.
 func (f *labelFolder) leaf(k Kind, b []byte) {
 	switch _, prefix := k.owner(); {
 	case prefix, k == Indent:

@@ -8,10 +8,10 @@ import (
 	"github.com/strangemattersystems/markfmt/internal/format"
 )
 
-// DefaultMaxInput is the input limit of a [Formatter] whose MaxInput is 0.
-// Parsing uses memory in proportion to the input, up to about 500 times its
-// size for deeply nested input, so the default keeps the worst case under
-// 4 GiB.
+// DefaultMaxInput is the input limit of a [Formatter] whose
+// [Formatter.MaxInput] is 0. Parsing uses memory in proportion to the input,
+// up to about 500 times its size for deeply nested input, so the default
+// keeps the worst case under 4 GiB.
 const DefaultMaxInput = 8 << 20
 
 // maxInput is the largest input that the parser can index: its node indices
@@ -33,7 +33,7 @@ type Formatter struct {
 // endings, so Format changes nothing that it cannot keep.
 //
 // Format writes nothing and returns an [*InputTooLargeError] if the input is
-// larger than f.MaxInput.
+// larger than the input limit of f.
 func (f Formatter) Format(w io.Writer, r io.Reader) error {
 	limit := f.MaxInput
 	switch {
@@ -62,8 +62,8 @@ func Format(w io.Writer, r io.Reader) error {
 	return Formatter{}.Format(w, r)
 }
 
-// InputTooLargeError is the error for an input larger than the MaxInput of a
-// [Formatter].
+// InputTooLargeError is the error for an input larger than the input limit
+// of a [Formatter].
 type InputTooLargeError struct {
 	Limit int64
 }

@@ -80,9 +80,9 @@ var (
 )
 
 // verbatimReader reads the value of a code or HTML block one piece at a time:
-// its leaves of kind text, with virt spaces for a split tab and U+FFFD for
-// NUL and each maximal invalid UTF-8 subsequence, a line feed for each
-// VerbatimLineEnding, and a line feed after a last content line without one
+// its leaves of kind text, with virt spaces for a split tab and U+FFFD for NUL
+// and each maximal invalid UTF-8 subsequence, a line feed for each
+// [VerbatimLineEnding], and a line feed after a last content line without one.
 // A fence line is not a content line.
 type verbatimReader struct {
 	t      *Tree

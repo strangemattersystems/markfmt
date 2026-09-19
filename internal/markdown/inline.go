@@ -2,9 +2,9 @@ package markdown
 
 import "bytes"
 
-// inlineParser runs the inline phase on the lines of one block.
-// It writes pieces to a scratch buffer, then appends them to the builder in
-// one pass, so a later decision can change a piece that is already written.
+// inlineParser runs the inline phase on the lines of one block. It writes
+// pieces to a scratch buffer, then appends them to the builder in one pass,
+// so a later decision can change a piece that is already written.
 type inlineParser struct {
 	b     *builder
 	src   []byte
@@ -329,7 +329,7 @@ func (s *inlineParser) push(x piece) {
 }
 
 // pushContent pushes content pieces of kind k to end, on the line being
-// scanned. With pipes, each "\|" pair is a CellPipeEscape piece of group k,
+// scanned. With pipes, each "\|" pair is a [CellPipeEscape] piece of group k,
 // and in a destination or a title, which decode escapes, an unescaped '\'
 // before the pair joins it.
 func (s *inlineParser) pushContent(k Kind, end uint32) {
@@ -375,10 +375,9 @@ func (s *inlineParser) startOf(j int) uint32 {
 	return s.pieces[j-1].end
 }
 
-// emit appends the pieces to the builder, with their spans. A piece with
-// join, and a Text piece after a Text piece, extend the leaf before them.
-// Email autolinks open and close inside runs of Text-group pieces outside
-// links.
+// emit appends the pieces to the builder, with their spans. A piece with join,
+// and a [Text] piece after a [Text] piece, extend the leaf before them. Email
+// autolinks open and close inside runs of Text-group pieces outside links.
 func (s *inlineParser) emit() {
 	s.spans, s.links, s.runEnd, s.cuts, s.cut = s.spans[:0], 0, 0, s.cuts[:0], 0
 	for j, x := range s.pieces {

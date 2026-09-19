@@ -5,9 +5,9 @@ import (
 	"unicode/utf8"
 )
 
-// delimiter is a run of '*', '_' or '~' on the delimiter stack.
-// The run has one piece per character. Closers use its characters from the left,
-// and openers from the right.
+// delimiter is a run of '*', '_' or '~' on the delimiter stack. The run has
+// one piece per character. Closers use its characters from the left, and
+// openers from the right.
 type delimiter struct {
 	piece             int // the piece of the first character
 	used, left        int // characters that closers used, and characters not used

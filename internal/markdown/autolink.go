@@ -120,13 +120,13 @@ func (t *Tree) AppendAutolinkText(dst []byte, id NodeID) []byte {
 }
 
 // appendEmails appends to dst the start and the end of each extended email
-// autolink in text, the decoded text of a run, as cmark-gfm's postprocess_text
-// finds them: an '@' after letters, digits, '.', '+', '-' and '_',
-// which "mailto:" or "xmpp:" can precede when no letter or digit precedes it,
-// then letters, digits, '-', '_', '/' after "xmpp:", and '.' before a letter or
-// digit, with at least one such '.', ending with a letter or '.', and then
-// autolinkDelim. An '@' in the domain restarts the search from it, with the
-// protocol and the dots found so far.
+// autolink in text, the decoded text of a run, as cmark-gfm's
+// postprocess_text finds them: an '@' after letters, digits, '.', '+', '-'
+// and '_', which "mailto:" or "xmpp:" can precede when no letter or digit
+// precedes it, then letters, digits, '-', '_', '/' after "xmpp:", and '.'
+// before a letter or digit, with at least one such '.', ending with a letter
+// or '.', and then autolinkDelim. An '@' in the domain restarts the search
+// from it, with the protocol and the dots found so far.
 func appendEmails(dst []uint32, text []byte) []uint32 {
 	start, offset := 0, 0
 	for offset < len(text)-start {

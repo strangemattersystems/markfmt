@@ -294,8 +294,7 @@ func (p *blockParser) continueLeaf() bool {
 func (p *blockParser) startLeaf(first uint32, indent, matched int) bool {
 	l, para := p.l, p.leaf.kind == paragraphLeaf
 	if indent >= 4 {
-		// Indented code never starts while a paragraph is open, matched or
-		// not.
+		// Indented code never starts while a paragraph is open, matched or not.
 		if para {
 			return false
 		}
@@ -835,7 +834,7 @@ func (w *containerWalk) matched(i uint32) (int, int) {
 }
 
 // itemIndent returns the columns that list item id continues on, when its
-// ListMarker leaf is at column col: its indentation, marker and padding.
+// [ListMarker] leaf is at column col: its indentation, marker and padding.
 func (t *Tree) itemIndent(id NodeID, col int) int {
 	marker := t.nodes[id+1]
 	start, end := t.leafColumns(marker, col)

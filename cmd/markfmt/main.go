@@ -202,8 +202,8 @@ func isMarkdown(path string) bool {
 }
 
 // read returns the contents of path, or standard input for "-". It stops one
-// byte past [markfmt.DefaultMaxInput], so an input that [markfmt.Format] rejects costs
-// no more memory than one it accepts.
+// byte past [markfmt.DefaultMaxInput], so an input that [markfmt.Format]
+// rejects costs no more memory than one it accepts.
 func read(path string) ([]byte, error) {
 	f := os.Stdin
 	if path != "-" {

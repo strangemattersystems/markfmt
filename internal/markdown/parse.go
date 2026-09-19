@@ -7,8 +7,8 @@ import (
 )
 
 // Parse parses src into a [Tree]. Pass 1 finds the link reference
-// definitions, so that pass 2 can resolve references to them.
-// Every definition contains "]:", so an input without it needs no pass 1.
+// definitions, so that pass 2 can resolve references to them. Every
+// definition contains "]:", so an input without it needs no pass 1.
 func Parse(src []byte) *Tree {
 	return parse(src, nil)
 }
