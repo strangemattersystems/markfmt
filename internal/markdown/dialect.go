@@ -75,28 +75,19 @@ type dialectSpan struct {
 }
 
 // DialectSpans returns the structure nodes where GitHub and CommonMark 0.31.2
-// give the document a different meaning, in node order. The printer keeps
-// their bytes and the blank lines around them (design 2.1, 12).
+// give the document a different meaning, in node order. The printer prints
+// each top-level block that holds one as written (design 2.1, 12).
 func (t *Tree) DialectSpans() []NodeID {
-	spans := t.dialectSpans()
-	ids := make([]NodeID, len(spans))
-	for i, s := range spans {
+	ids := make([]NodeID, len(t.spans))
+	for i, s := range t.spans {
 		ids[i] = NodeID(s.id)
 	}
 	return ids
 }
 
-// dialectSpans returns the dialect spans of t in node order, and finds them
-// on the first call: the printer asks for them, and so does each projection
-// of Equal. Each predicate is conservative: a span where GitHub gives the
-// same meaning only keeps bytes that the printer could have changed.
-func (t *Tree) dialectSpans() []dialectSpan {
-	if t.spans == nil {
-		t.spans = t.findDialectSpans()
-	}
-	return t.spans
-}
-
+// findDialectSpans returns the dialect spans of t in node order. Each
+// predicate is conservative: a span where GitHub gives the same meaning only
+// keeps bytes that the printer could have changed.
 func (t *Tree) findDialectSpans() []dialectSpan {
 	f := spanFinder{t: t, lineStart: true, newLine: true, vtff: bytes.ContainsAny(t.src, "\v\f")}
 	f.walk.t = t
@@ -111,10 +102,6 @@ func (t *Tree) findDialectSpans() []dialectSpan {
 			continue
 		}
 		merged = append(merged, s)
-	}
-	if merged == nil {
-		// A tree with no span must not find them again.
-		merged = []dialectSpan{}
 	}
 	return merged
 }

@@ -19,11 +19,12 @@ type Node struct {
 }
 
 // Tree is a lossless concrete syntax tree: a preorder array of nodes whose
-// leaves tile the input.
+// leaves tile the input. A Tree does not change after [Parse], so it is safe
+// for concurrent use.
 type Tree struct {
 	src   []byte
 	nodes []Node        // nodes[0] is the document
-	spans []dialectSpan // the dialect spans, found on the first call
+	spans []dialectSpan // the dialect spans, in node order
 }
 
 // NodeID is the index of a node in a [Tree].

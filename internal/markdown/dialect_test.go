@@ -66,7 +66,7 @@ func TestTree_DialectSpans(t *testing.T) {
 
 			tree := Parse([]byte(tt.src))
 			var got []string
-			for _, s := range tree.dialectSpans() {
+			for _, s := range tree.spans {
 				span := []string{tree.nodes[s.id].kind.String()}
 				for row := range 32 {
 					if s.rows&(1<<row) != 0 {
@@ -76,7 +76,7 @@ func TestTree_DialectSpans(t *testing.T) {
 				got = append(got, strings.Join(span, " "))
 			}
 			if !slices.Equal(got, tt.want) {
-				t.Fatalf("dialectSpans of %q = %q, want %q", tt.src, got, tt.want)
+				t.Fatalf("spans of %q = %q, want %q", tt.src, got, tt.want)
 			}
 		})
 	}
@@ -109,7 +109,7 @@ func TestTree_DialectSpans(t *testing.T) {
 				continue
 			}
 			delete(rows, ex.section)
-			if !slices.ContainsFunc(Parse([]byte(ex.markdown)).dialectSpans(), func(s dialectSpan) bool { return s.rows&(1<<row) != 0 }) {
+			if !slices.ContainsFunc(Parse([]byte(ex.markdown)).spans, func(s dialectSpan) bool { return s.rows&(1<<row) != 0 }) {
 				t.Errorf("%s: no span of row %d in %q", ex.section, row, ex.markdown)
 			}
 		}

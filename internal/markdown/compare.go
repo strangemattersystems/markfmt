@@ -218,7 +218,7 @@ type projection struct {
 }
 
 func newProjection(t *Tree) projection {
-	p := projection{t: t, spans: t.dialectSpans()}
+	p := projection{t: t, spans: t.spans}
 	p.dialect, p.walk.t = len(p.spans) > 0, t
 	return p
 }

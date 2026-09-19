@@ -25,6 +25,7 @@ func parse(src []byte, trace func(l line, matched, end int, continuation bool)) 
 	}
 	t := parseBlocks(src, &defs, false, trace)
 	defs.finish()
+	t.spans = t.findDialectSpans()
 	return t
 }
 

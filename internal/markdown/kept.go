@@ -45,7 +45,7 @@ type keptEvent struct {
 
 func keptEvents(tree *Tree) []keptEvent {
 	var events []keptEvent
-	spans := tree.dialectSpans()
+	spans := tree.spans
 	for i, n := range tree.nodes {
 		id := NodeID(i)
 		b := tree.src[n.start:n.end]
